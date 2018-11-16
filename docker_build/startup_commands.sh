@@ -29,9 +29,9 @@ touch $LOGDIR/celery_worker.log
 # Fill-out and copy files for supervisor-managed processes:
 python3 helpers/fill_supervisor_templates.py \
     /etc/supervisor/conf.d \
-    etc/celery_worker.conf \
-    etc/celery_beat.conf \
-    etc/redis.conf
+    supervisor_conf_files/celery_worker.conf \
+    supervisor_conf_files/celery_beat.conf \
+    supervisor_conf_files/redis.conf
 
 # start supervisor:
 supervisord --configuration /etc/supervisor/supervisord.conf
