@@ -1,0 +1,17 @@
+<div class="form-group">
+    <label for="select-{{id}}">{{label}}</label>
+    <select 
+            class="form-control" 
+            id="select-{{id}}" 
+            name="{{name}}" 
+            required 
+            formData 
+            {% if choose_multiple %}
+                multiple
+            {% endif %}
+        >
+        {% for d in choices %}
+          <option value="{{d.value}}">{{d.display}}</option>
+        {% endfor %}
+    </select>
+</div>

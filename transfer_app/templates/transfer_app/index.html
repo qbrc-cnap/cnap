@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+{% load static %}
+<html>
+	<head>
+		<!-- Required meta tags -->
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+        	<title>File Transfer</title>
+		<link href="https://fonts.googleapis.com/css?family=Raleway" rel="stylesheet">
+        	<link rel="stylesheet" href="{%static "transfer_app/css/style.css" %}">
+	</head>
+	<body>
+        <div id="wrapper">
+        <div id="logout-div">
+            <div id="logout-text">
+                Logout
+            </div>
+            <div id="svg-wrapper-logout">
+                <svg width="100%" height="100%" class="octicon octicon-logout" viewBox="0 0 16 16" version="1.1" aria-hidden="true"><path fill-rule="evenodd" d="M11.992 8.994V6.996H7.995v-2h3.997V2.999l3.998 2.998-3.998 2.998zm-1.998 2.998H5.996V2.998L2 1h7.995v2.998h1V1c0-.55-.45-.999-1-.999H.999A1.001 1.001 0 0 0 0 1v11.372c0 .39.22.73.55.91L5.996 16v-3.008h3.998c.55 0 1-.45 1-1V7.995h-1v3.997z" style="fill:#646464;"></path></svg>
+            </div>
+
+        </div>
+        <div id="main-container" class="main-container">
+            <div id="menu">
+                <ul id="menu-list">
+                        <li class="section-chooser" content-target="download">
+                            <div class="svg-wrapper">
+                                <svg width="100%" height="100%" class="octicon octicon-cloud-download" viewBox="0 0 16 16" version="1.1" aria-hidden="true"><path fill-rule="evenodd" d="M9 12h2l-3 3-3-3h2V7h2v5zm3-8c0-.44-.91-3-4.5-3C5.08 1 3 2.92 3 5 1.02 5 0 6.52 0 8c0 1.53 1 3 3 3h3V9.7H3C1.38 9.7 1.3 8.28 1.3 8c0-.17.05-1.7 1.7-1.7h1.3V5c0-1.39 1.56-2.7 3.2-2.7 2.55 0 3.13 1.55 3.2 1.8v1.2H12c.81 0 2.7.22 2.7 2.2 0 2.09-2.25 2.2-2.7 2.2h-2V11h2c2.08 0 4-1.16 4-3.5C16 5.06 14.08 4 12 4z" style="fill:#646464;"/></svg>
+                            </div>
+                        </li>
+                        <li class="section-chooser" content-target="upload">
+                            <div class="svg-wrapper">
+                                <svg width="100%" height="100%" class="octicon octicon-cloud-upload" viewBox="0 0 16 16" version="1.1" aria-hidden="true"><path fill-rule="evenodd" d="M7 9H5l3-3 3 3H9v5H7V9zm5-4c0-.44-.91-3-4.5-3C5.08 2 3 3.92 3 6 1.02 6 0 7.52 0 9c0 1.53 1 3 3 3h3v-1.3H3c-1.62 0-1.7-1.42-1.7-1.7 0-.17.05-1.7 1.7-1.7h1.3V6c0-1.39 1.56-2.7 3.2-2.7 2.55 0 3.13 1.55 3.2 1.8v1.2H12c.81 0 2.7.22 2.7 2.2 0 2.09-2.25 2.2-2.7 2.2h-2V12h2c2.08 0 4-1.16 4-3.5C16 6.06 14.08 5 12 5z" style="fill:#646464;"></path>
+                                </svg>
+                            </div>
+                        </li>
+                        <li class="section-chooser" content-target="history">
+                            <div class="svg-wrapper">
+                            <svg width="100%" height="100%" class="octicon octicon-history" viewBox="0 0 16 16" version="1.1" aria-hidden="true"><path fill-rule="evenodd" d="M8 13H6V6h5v2H8v5zM7 1C4.81 1 2.87 2.02 1.59 3.59L0 2v4h4L2.5 4.5C3.55 3.17 5.17 2.3 7 2.3c3.14 0 5.7 2.56 5.7 5.7s-2.56 5.7-5.7 5.7A5.71 5.71 0 0 1 1.3 8c0-.34.03-.67.09-1H.08C.03 7.33 0 7.66 0 8c0 3.86 3.14 7 7 7s7-3.14 7-7-3.14-7-7-7z" style="fill:#646464;"></path></svg>
+                            </div>
+                        </li>
+                        <li class="section-chooser" content-target="profile">
+                            <div class="svg-wrapper">
+                            <svg width="100%" height="100%" class="octicon octicon-profile" viewBox="0 0 16 16" version="1.1" aria-hidden="true"><path fill-rule="evenodd" d="M12 14.002a.998.998 0 0 1-.998.998H1.001A1 1 0 0 1 0 13.999V13c0-2.633 4-4 4-4s.229-.409 0-1c-.841-.62-.944-1.59-1-4 .173-2.413 1.867-3 3-3s2.827.586 3 3c-.056 2.41-.159 3.38-1 4-.229.59 0 1 0 1s4 1.367 4 4v1.002z" style="fill:#646464;"></path></svg>
+                            </div>
+                        </li>
+                </ul>
+            </div>
+            <div id="content">
+                <div id="splash" class="subcontent active">
+                    <h2>Welcome</h2>
+                    <p>Select from the menu to initiate uploads, downloads, or check your history.</p>
+                </div>
+                <div id="upload" class="subcontent">
+                    <h3>Uploads</h3>
+                    Upload files to our system for analysis by choosing from the storage providers below.
+                    <div class="providers-wrapper">
+                             <img class="provider-btn init-upload-btn" upload-source="{{providers.dropbox}}" src="{% static "transfer_app/img/Dropbox.png" %}">
+                             <img class="provider-btn init-upload-btn" upload-source="{{providers.google_drive}}" src="{% static "transfer_app/img/google-drive-logo-lockup.png" %}">
+                    </div>
+                </div>
+                <div id="download" class="subcontent">
+                    <h3>Downloads</h3>
+                                        
+                    <p><b>1.</b> Select files.</p>
+
+                    <table id="download-table" class="custom-table">
+                        <thead>
+                            <tr>
+                                <th><input class="select-all-checkbox" table-target="download-table" type="checkbox"/></th>
+                                <th>Filename</th>
+                                <th>File size</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        </tbody>
+                    </table>
+                    <p><b>2.</b> Choose a storage service.</p>
+                    <div class="providers-wrapper">
+                        <img class="provider-btn init-download-btn" destination="{{providers.dropbox}}" src="{% static "transfer_app/img/Dropbox.png" %}">
+                        <img class="provider-btn init-download-btn" destination="{{providers.google_drive}}" src="{% static "transfer_app/img/google-drive-logo-lockup.png" %}">
+                    </div>
+                </div>
+                <div id="history" class="subcontent">
+                    <h3>History</h3>
+                    <span id="refresh-history">(refresh)</span>
+                    
+                        <table id="history-table" class="custom-table">
+                            <thead>
+                                <tr>
+                                    <th>Filename</th>
+                                    <th>Details</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            </tbody>
+                        </table>
+                </div>
+                <div id="profile" class="subcontent">
+                    <h3>Profile</h3>
+                    <p><span class="bold">Email:</span> {{request.user.email}}</p>
+                    <p><a href="{% url 'password_change' %}">Change password</a></p>
+                </div>
+                <div id="history-detail-section" class="subcontent">
+                        <table id="history-detail-table" class="custom-table">
+                            <thead>
+                                <tr>
+                                    <th> <span id="back-to-history">&lt; Back</span></th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            </tbody>
+                        </table>
+
+                </div>
+            </div>
+            </div>
+</div>
+            <div id="error-dialog">
+                <p>There was a problem!  Please correct or address the following:</p>
+                <div id="error-dialog-list"></div>
+                <div id="close-error-dialog">
+                    <div>Close</div>
+                </div>
+            </div>
+
+                <script
+			  src="https://code.jquery.com/jquery-3.3.1.min.js"
+			  integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8="
+			  crossorigin="anonymous"></script>
+        <script type="text/javascript" src="https://www.dropbox.com/static/api/2/dropins.js" id="dropboxjs" data-app-key="434yn436p3z4rg0"></script>
+        <script type="text/javascript" src="{% static "transfer_app/js/index.js" %}"></script>
+        <script type="text/javascript" src="https://apis.google.com/js/api.js"></script>
+
+    </body>
+</html>

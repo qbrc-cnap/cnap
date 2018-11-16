@@ -1,0 +1,44 @@
+<h3>
+    {{label}}
+</h3>
+<p>
+    {{description}}
+</p>
+<table id="chooser-table-{{id}}" class="custom-table"
+    {% if choose_multiple %}
+    multiple-select-enabled
+    {% endif %}
+>
+    <thead>
+        <tr>
+            <th>
+                {% if choose_multiple %}
+                <input 
+                    class="select-all-checkbox" 
+                    table-target="chooser-table-{{id}}" 
+                    type="checkbox"/>
+                {% endif %}
+
+            </th>
+            <th>Filename</th>
+            <th>File size</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% raw %}
+        {% for resource in user_resources %}
+        <tr>
+            <td>
+                <input class="download-selector" type="checkbox" target="{{resource.id}}"/>
+            </td>
+            <td>
+                {{resource.name}}
+            </td>
+            <td>
+                {{resource.human_readable_size}}
+            </td>
+        </tr>`
+        {% endfor %}
+        {% endraw %}
+    </tbody>
+</table>

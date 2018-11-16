@@ -1,0 +1,39 @@
+{
+	"input_elements": [
+		{
+			"target": {
+				"target_ids": ["MyTestWorkflow.inputs"],
+				"name": "fastq_files",
+				"handler": "input_mapping.py"
+			},
+			"display_element": {
+				"type": "file_chooser",
+				"filter": ".*_R[1,2]\\.fastq.gz",
+				"label": "Fastq input:",
+				"choose_multiple": true,
+				"description": "Choose your fastq-format files)"
+			}	
+		},
+		{
+			"target": "MyTestWorkflow.genome_choice",
+			"display_element": {
+				"type": "select",
+				"label": "Genome selection",
+				"choices": [
+				 	{
+				 		"display": "Homo sapiens Ensembl GRCh38",
+				 		"value": "grch38"
+				 	},
+				 	{
+				 		"display": "Mus musculus Ensembl GRCm38",
+				 		"value": "grcm38"
+				 	},
+				 	{
+				 		"display": "UCSC hg19",
+				 		"value": "hg19"
+				 	}
+				]
+			}
+		}
+	]
+}

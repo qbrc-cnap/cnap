@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+{% load static %}
+<html>
+	<head>
+		<!-- Required meta tags -->
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+        	<title>File Transfer</title>
+		<link href="https://fonts.googleapis.com/css?family=Raleway" rel="stylesheet">
+                <style>
+                    body{
+                        font-family: 'Raleway', sans-serif;
+                        color:rgb(80,80,80);
+                    }
+                    .msg-box{
+                        padding:.75rem 1.25rem;
+                        border-radius:.25rem;
+                        max-width:500px;
+                        margin-top:50px;
+                        margin-left:auto;
+                        margin-right:auto;
+                    }
+                    .success{
+                        color:#155274;
+                        background-color:#d4edda;
+                        border:1 px solid #c3e6cb;
+                    }
+                    .warning{
+                        color:#856404;
+                        background-color:#fff3cd;
+                        border:1 px solid #ffeeba;
+                    }
+                    .danger{
+                        color:#721c24;
+                        background-color:#f8d7da;
+                        border:1 px solid #f5c6cb;
+                    }
+                </style>
+	</head>
+	<body>
+                {% if problem %}
+                    {% if at_least_one_transfer %}
+                      <div class="msg-box warning">
+                            Only a portion of your downloads have started. 
+                            There were issues with the others, which are listed below:
+                    {% else %}
+                      <div class="msg-box danger">
+                            None of your downloads have started-- the issues are listed below:
+                    {% endif %}
+
+                      <ul>
+                      {% for item in warnings %}
+                        <li>{{item}}</li>
+                      {% endfor %}
+                      </ul>
+                      </div>
+                {% else %}
+                    <div class="msg-box success">
+                      {% if email_enabled %}
+                        Your download has started. You can refresh the history tab to check progress, or wait until you receive an email upon completion.
+                      {% else %}
+                        Your download has started. You can refresh the history tab to check on progress.
+                      {% endif %}
+                      <br/>
+                      <br/>
+                      You may close this window.
+                    </div>
+                {% endif %}
+        </body>
+</html>
