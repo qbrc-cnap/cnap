@@ -94,6 +94,7 @@ def get_urls():
     url_dict['transferred_resources_endpoint'] = reverse('transferred-resource-list')
     url_dict['upload_url'] = reverse('upload-transfer-initiation')
     url_dict['download_url'] = reverse('download-transfer-initiation')
+    url_dict['logout_url'] = reverse('logout')
     return url_dict
 
 
