@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'transfer_app.apps.TransferAppConfig',
     'custom_auth.apps.CustomAuthConfig',
     'analysis.apps.AnalysisConfig',
+    'base.apps.BaseConfig',
 ]
 
 MIDDLEWARE = [
