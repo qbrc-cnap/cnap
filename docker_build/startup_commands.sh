@@ -19,7 +19,7 @@ cp live_tests.template.cfg live_tests.cfg
 cd $APP_ROOT
 
 # create log dir and touch log files:
-export LOGDIR="/var/log/transfer_app"
+export LOGDIR="/var/log/cnap"
 export CELERY=$(which celery)
 mkdir -p $LOGDIR
 touch $LOGDIR/redis.log

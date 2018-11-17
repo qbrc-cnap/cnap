@@ -29,11 +29,10 @@ def post_completion(transfer_coordinator, originator_emails):
         template_dir = os.path.join(settings.MAIN_TEMPLATE_DIR, 'transfer_app') 
 
         email_subject = open(os.path.join( template_dir, 
-            'transfer_complete_subject.txt'
+            'transfer_complete_subject.txt')
         ).read().strip()
 
         # get the templates and fill them out:
-        template_dir = 
         env = Environment(loader=FileSystemLoader(template_dir))
         plaintext_template = env.get_template('transfer_complete_message.txt')
         html_template = env.get_template('transfer_complete_message.html')
