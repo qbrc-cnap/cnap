@@ -14,7 +14,6 @@ django.setup()
 from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
 
-import cnap_v2.utils as utils
 from transfer_app.models import Resource, Transfer, TransferCoordinator
 
 def populate():
