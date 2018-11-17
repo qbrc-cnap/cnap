@@ -29,7 +29,8 @@ import helpers.utils as utils
 from transfer_app.base import GoogleBase, AWSBase
 from transfer_app import tasks as transfer_tasks
 import transfer_app.exceptions as exceptions
-from transfer_app.models import Resource, Transfer, TransferCoordinator
+from base.models import Resource
+from transfer_app.models import Transfer, TransferCoordinator
 
 
 class Downloader(object):

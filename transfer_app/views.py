@@ -21,7 +21,8 @@ from rest_framework.views import exception_handler, APIView
 from django_filters.rest_framework import DjangoFilterBackend
 from django.contrib.auth import get_user_model
 
-from transfer_app.models import Resource, Transfer, TransferCoordinator
+from base.models import Resource
+from transfer_app.models import Transfer, TransferCoordinator
 from transfer_app.serializers import ResourceSerializer, \
      TransferSerializer, \
      TransferCoordinatorSerializer, \

@@ -10,7 +10,9 @@ from django.contrib.sites.models import Site
 
 from transfer_app.base import GoogleBase, AWSBase
 import helpers.utils as utils
-from transfer_app.models import Resource, Transfer, TransferCoordinator
+
+from base.models import Resource
+from transfer_app.models import Transfer, TransferCoordinator
 import transfer_app.serializers as serializers
 import transfer_app.exceptions as exceptions
 from transfer_app.launchers import GoogleLauncher, AWSLauncher

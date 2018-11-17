@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
-from transfer_app.models import Resource, Transfer, TransferCoordinator
+from base.models import Resource
+from transfer_app.models import Transfer, TransferCoordinator
 from django.contrib.auth import get_user_model
 
 class UserSerializer(serializers.ModelSerializer):

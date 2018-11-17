@@ -7,7 +7,7 @@ from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 
 import transfer_app.downloaders as downloaders
-from transfer_app.models import Resource
+from base.models import Resource
 
 
 @login_required

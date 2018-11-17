@@ -10,7 +10,8 @@ from django.urls import reverse
 from django.contrib.auth import get_user_model
 from django.conf import settings
 
-from transfer_app.models import Resource, Transfer, TransferCoordinator
+from base.models import Resource
+from transfer_app.models import Transfer, TransferCoordinator
 
 # a method for creating a reasonable test dataset:
 def create_data(testcase_obj):

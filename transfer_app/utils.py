@@ -8,7 +8,8 @@ from django.conf import settings
 from django.http import Http404
 from django.contrib.sites.models import Site
 
-from transfer_app.models import Resource, Transfer, TransferCoordinator
+from base.models import Resource
+from transfer_app.models import Transfer, TransferCoordinator
 import transfer_app.launchers as _launchers
 
 sys.path.append(os.path.realpath('helpers'))

@@ -9,7 +9,8 @@ from django.urls import reverse
 from django.contrib.auth import get_user_model
 from django.conf import settings
 
-from transfer_app.models import Resource, Transfer, TransferCoordinator
+from base.models import Resource
+from transfer_app.models import Transfer, TransferCoordinator
 import transfer_app.uploaders as uploaders
 import transfer_app.exceptions as exceptions
 
