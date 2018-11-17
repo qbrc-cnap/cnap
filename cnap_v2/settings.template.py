@@ -191,6 +191,14 @@ PY_SUFFIX = '.py'
 additional_sections = [GOOGLE_DRIVE, DROPBOX]
 CONFIG_DIR = os.path.join(BASE_DIR, 'config')
 CONFIG_PARAMS = utils.read_general_config(os.path.join(CONFIG_DIR, 'general.cfg'), additional_sections)
+# the jinja templater makes booleans as True, False, which are interpreted as strings
+# thus, we need to cast them to booleans here.  Can't use bool(...) method since it evaluates
+# non-empty strings to True
+for key, val in CONFIG_PARAMS.items():
+    if val=='True' or val == 'true':
+        CONFIG_PARAMS[key] = True
+    elif val=='False' or val == 'false':
+        CONFIG_PARAMS[key] = False
 
 additional_sections = [GOOGLE_DRIVE, DROPBOX, GOOGLE]
 LIVE_TEST_CONFIG_PARAMS = utils.load_config(os.path.join(CONFIG_DIR, 'live_tests.cfg'), additional_sections)

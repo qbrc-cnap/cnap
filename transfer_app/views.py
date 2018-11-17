@@ -39,6 +39,8 @@ def index(request):
     context = {}
     providers = {'google_drive': settings.GOOGLE_DRIVE, 'dropbox':settings.DROPBOX}
     context['providers'] = providers
+    context['dropbox_enabled'] = settings.CONFIG_PARAMS['dropbox_enabled']
+    context['drive_enabled'] = settings.CONFIG_PARAMS['drive_enabled']
     return render(request, 'transfer_app/index.html', context)
 
 

@@ -56,8 +56,12 @@
                     <h3>Uploads</h3>
                     Upload files to our system for analysis by choosing from the storage providers below.
                     <div class="providers-wrapper">
+                             {% if dropbox_enabled %}
                              <img class="provider-btn init-upload-btn" upload-source="{{providers.dropbox}}" src="{% static "transfer_app/img/Dropbox.png" %}">
+                             {% endif %}
+                             {% if drive_enabled %}
                              <img class="provider-btn init-upload-btn" upload-source="{{providers.google_drive}}" src="{% static "transfer_app/img/google-drive-logo-lockup.png" %}">
+                             {% endif %}
                     </div>
                 </div>
                 <div id="download" class="subcontent">
@@ -77,9 +81,13 @@
                         </tbody>
                     </table>
                     <p><b>2.</b> Choose a storage service.</p>
-                    <div class="providers-wrapper">
-                        <img class="provider-btn init-download-btn" destination="{{providers.dropbox}}" src="{% static "transfer_app/img/Dropbox.png" %}">
-                        <img class="provider-btn init-download-btn" destination="{{providers.google_drive}}" src="{% static "transfer_app/img/google-drive-logo-lockup.png" %}">
+                    <div class="providers-wrapper">                    
+                        {% if dropbox_enabled %}
+                            <img class="provider-btn init-download-btn" destination="{{providers.dropbox}}" src="{% static "transfer_app/img/Dropbox.png" %}">
+                        {% endif %}
+                        {% if drive_enabled %}
+                            <img class="provider-btn init-download-btn" destination="{{providers.google_drive}}" src="{% static "transfer_app/img/google-drive-logo-lockup.png" %}">
+                        {% endif %}
                     </div>
                 </div>
                 <div id="history" class="subcontent">

@@ -47,8 +47,10 @@ def take_inputs():
         dropbox_secret = input('Enter the Dropbox secret: ')
         params['dropbox_client_id'] = dropbox_client_id
         params['dropbox_secret'] = dropbox_secret
+        params['dropbox_enabled'] = True
         print('***Ensure you have registered the callback URL with Dropbox***')
-
+    else:
+        params['dropbox_enabled'] = False
     print('\n\n\n')
     use_drive = input('Are you connecting to Google Drive?: (y/n) ')[0].lower()
     if use_drive == 'y':
@@ -62,7 +64,10 @@ def take_inputs():
         params['drive_client_id'] = drive_client_id
         params['drive_secret'] = drive_secret
         params['drive_api_key'] = drive_api_key
+        params['drive_enabled'] = True
         print('***Ensure you have registered the callback URL with Google Drive***')
+    else:
+        params['drive_enabled'] = False
 
 
     if not use_at_least_one_service:
