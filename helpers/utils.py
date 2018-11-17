@@ -7,27 +7,33 @@ def load_config(config_filepath, config_sections=[]):
     config_sections is a list of names for sections in that file
     if None, then just return the [DEFAULT] section
     '''
+
     config = configparser.ConfigParser()
     config.read(config_filepath)
-    d = {}
+    main_dict = {}
     for key in config[config.default_section]:
-        d[key] =  config[config.default_section][key]
+        main_dict[key] =  config[config.default_section][key]
 
+    d = {}
     for config_section in config_sections:
         if config_section in config:
             d1 = {}
             for key in config[config_section]:
                 d1[key] =  config[config_section][key]
-            if len(set(d1.keys()).intersection(set(d.keys()))) == 0:
+            keys_intersection = set(d1.keys()).intersection(set(d.keys()))
+            if ((len(keys_intersection)==0) 
+                 or 
+                (set(main_dict.keys()) == keys_intersection)):
                 d.update(d1)
             else:
-                raise Exception('Config variable collision.  '
+                raise Exception('Config variable collision with variables %s.  '
                     'Check that the variables defined in section %s '
                     'do not match any in other sections of the %s file'
-                    % (config_section, config_filepath)
+                    % (keys_intersection, config_section, config_filepath)
                 )
         else:
             raise configparser.NoSectionError()
+    main_dict.update(d)
     return d
 
 
