@@ -34,7 +34,7 @@ def load_config(config_filepath, config_sections=[]):
         else:
             raise configparser.NoSectionError()
     main_dict.update(d)
-    return d
+    return main_dict
 
 
 def read_general_config(config_filepath, additional_sections=[]):
