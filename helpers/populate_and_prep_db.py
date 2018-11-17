@@ -14,7 +14,8 @@ django.setup()
 from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
 
-from transfer_app.models import Resource, Transfer, TransferCoordinator
+from base.models import Resource
+from transfer_app.models import Transfer, TransferCoordinator
 
 def populate():
     # read the live test config to create our dummy user and resource for live testing:
