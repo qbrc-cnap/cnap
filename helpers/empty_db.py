@@ -11,6 +11,7 @@ django.setup()
 
 from custom_auth.models import CustomUser
 from transfer_app.models import *
+from base.models import *
 
 for u in CustomUser.objects.all():
   u.delete()
