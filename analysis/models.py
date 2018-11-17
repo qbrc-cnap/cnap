@@ -36,7 +36,7 @@ class Workflow(models.Model):
         unique_together = ('workflow_id', 'version_id')
 
 
-class ResourceManager(models.Manager):
+class XYZResourceManager(models.Manager):
      '''
      This class provides a nice way to filter Resource objects for a particular user
      '''
@@ -44,7 +44,7 @@ class ResourceManager(models.Manager):
          return super(ResourceManager, self).get_queryset().filter(owner=user)
 
 
-class Resource(models.Model):
+class XYZResource(models.Model):
     '''
     This model respresents a general resource/file.  See individual fields for interpretation
     '''
@@ -76,7 +76,7 @@ class Resource(models.Model):
     # be set to inactive.  Can be null, which would allow it to be permanent
     expiration_date = models.DateTimeField(null=True)
 
-    objects = ResourceManager()
+    objects = XYZResourceManager()
     
     def __str__(self):
         return '%s' % self.source
