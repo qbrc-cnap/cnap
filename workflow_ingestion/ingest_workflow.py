@@ -452,5 +452,20 @@ if __name__ == '__main__':
         for fp in filepaths:
             shutil.copy2(fp, destination_dir)
 
+    # link the HTML template into a directory that django can find
+    linksrc = os.path.join(destination_dir, final_html_template_path)
+    linkpath = os.path.join(APP_ROOT_DIR, 'templates', workflow_name, final_html_template_path)
+    os.symlink(linksrc, linkpath)
+
+    # add the workflow to the database 
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'cnap_v2.settings')
+    import django
+    from django.conf import settings
+    django.setup()
+    from analysis.models import Worfklow
+    #TODO: get the ids correct and finish this
+    wf = Workflow(workflow_id=, version_id=, is_default=, is_active=False, workflow_location=destination_dir)
+
+ 
     # cleanup the staging dir:
     shutil.rmtree(staging_dir)

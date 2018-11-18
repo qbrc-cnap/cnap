@@ -1,3 +1,6 @@
+import os
+
+from django.conf import settings
 from django.shortcuts import render
 from django.http import HttpResponseBadRequest
 from django.views import View
@@ -55,8 +58,9 @@ class AnalysisView(View):
         # element.  These are snippets of python code that specify how
         # dynamic, database-driven data is queried for the UI.
         fill_context(request, workflow_obj, context_dict)
-                    
-        return render(request, 'analysis/home.html', context_dict)
+        workflow_dir = workflow_obj.workflow_location
+        template = os.path.join(workflow_dir, settings.HTML_TEMPLATE_NAME)
+        return render(request, template, context_dict)
 
     def post(self, request, *args, **kwargs):
         '''

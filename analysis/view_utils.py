@@ -36,7 +36,7 @@ def fill_context(request, workflow_obj, context_dict):
             if 'handler' in display_element:
                 module_name = display_element['handler'][:-len(settings.PY_SUFFIX)]
                 mod = import_module(module_name)
-                mod.add_to_context(context_dict)
+                mod.add_to_context(request, context_dict)
     else:
         raise Exception('The GUI specification was not found in the correct '
             'location.  Something (or someone) has corrupted the '
