@@ -18,7 +18,7 @@ class Workflow(models.Model):
     version_id = models.PositiveSmallIntegerField()
 
     # this keeps track of the workflow name. 
-    workflow_name = models.CharField()
+    workflow_name = models.CharField(max_length=500)
 
     # this keeps track of whether a workflow is the most recent or the "default"
     is_default = models.BooleanField(default=False)

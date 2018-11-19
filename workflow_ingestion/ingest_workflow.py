@@ -395,7 +395,7 @@ def add_workflow_to_db(workflow_name, destination_dir):
     from django.conf import settings
     django.setup()
 
-    from analysis.models import Worfklow
+    from analysis.models import Workflow
 
     # query for existing workflows with this name:
     existing_wf = Workflow.objects.filter(workflow_name=workflow_name)
@@ -403,8 +403,12 @@ def add_workflow_to_db(workflow_name, destination_dir):
         # no workflows had this name previously.  Need to create a new (unique!)
         # workflow_id.  query for all existing workflows 
         all_workflows = Workflow.objects.all()
-        max_id = max([x.workflow_id for x in wf])
-        workflow_id = max_id + 1
+        
+        if len(all_workflows) == 0:
+            workflow_id = 0
+        else:
+            max_id = max([x.workflow_id for x in all_workflows])
+            workflow_id = max_id + 1
         # since this is the first time we 
         # add this workflow, the default version is zero
         version_id = 0 
@@ -415,12 +419,14 @@ def add_workflow_to_db(workflow_name, destination_dir):
         version_id = max_version_id + 1
 
     # now have a valid workflow and version ID.  Create the object
+    workflow_location = os.path.relpath(destination_dir, APP_ROOT_DIR)
     wf = Workflow(
         workflow_id=workflow_id, 
         version_id=version_id, 
         is_default=False, 
         is_active=False, 
-        workflow_location=destination_dir
+        workflow_name = workflow_name,
+        workflow_location=workflow_location
     )
     wf.save()
 
