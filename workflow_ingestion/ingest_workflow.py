@@ -380,7 +380,76 @@ def check_handlers(staging_dir, config_dict):
         json.dump(workflow_gui_spec, fout)
     return handler_module_list
 
+def add_workflow_to_db(workflow_name, destination_dir):
+    '''
+    Once everything is in the correct location, we need to add the new workflow
+    to the database.  
 
+    Note that by default the workflow is marked inactive so that workflows
+    in development are not immediately "exposed".
+    '''
+
+    # need all this to "talk to" Django's database
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'cnap_v2.settings')
+    import django
+    from django.conf import settings
+    django.setup()
+
+    from analysis.models import Worfklow
+
+    # query for existing workflows with this name:
+    existing_wf = Workflow.objects.filter(workflow_name=workflow_name)
+    if len(existing_wf) == 0:
+        # no workflows had this name previously.  Need to create a new (unique!)
+        # workflow_id.  query for all existing workflows 
+        all_workflows = Workflow.objects.all()
+        max_id = max([x.workflow_id for x in wf])
+        workflow_id = max_id + 1
+        # since this is the first time we 
+        # add this workflow, the default version is zero
+        version_id = 0 
+    else:
+        # get the id for this workflow:
+        workflow_id = existing_wf[0].workflow_id
+        max_version_id = max([x.version_id for x in existing_wf])
+        version_id = max_version_id + 1
+
+    # now have a valid workflow and version ID.  Create the object
+    wf = Workflow(
+        workflow_id=workflow_id, 
+        version_id=version_id, 
+        is_default=False, 
+        is_active=False, 
+        workflow_location=destination_dir
+    )
+    wf.save()
+
+def link_django_template(workflow_libdir_name, workflow_dir, final_html_template_name):
+    '''
+    The templated HTML file is sitting in the destination_dir, but Django cannot find the template
+    unless we locate it in one of the known template directories.  Here we choose the central location
+    which is at 'templates' relative to the root of the django application.  We create a symlink from there
+    back to the actual file located under the workflow library directory.
+
+
+    '''
+    # the abs path to the workflow library dir
+    workflow_libdir = os.path.join(APP_ROOT_DIR, workflow_libdir_name)
+
+    # now we can get the path of the html template relative to that workflow library dir:
+    final_html_template_path = os.path.join(workflow_dir, final_html_template_name)
+    relative_path = os.path.relpath(final_html_template_path, workflow_libdir)
+
+    # the relative path lets us create the proper directory structure for linking
+    linkpath = os.path.join(APP_ROOT_DIR, 'templates', workflow_libdir_name, relative_path)
+
+    # need to make intermediate paths if necessary:
+    linkdir = os.path.dirname(linkpath)
+    if not os.path.isdir(linkdir):
+        os.makedirs(linkdir)
+
+    # finally, link them:
+    os.symlink(final_html_template_path, linkpath)
 
 
 if __name__ == '__main__':
@@ -452,20 +521,11 @@ if __name__ == '__main__':
         for fp in filepaths:
             shutil.copy2(fp, destination_dir)
 
-    # link the HTML template into a directory that django can find
-    linksrc = os.path.join(destination_dir, final_html_template_path)
-    linkpath = os.path.join(APP_ROOT_DIR, 'templates', workflow_name, final_html_template_path)
-    os.symlink(linksrc, linkpath)
-
     # add the workflow to the database 
-    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'cnap_v2.settings')
-    import django
-    from django.conf import settings
-    django.setup()
-    from analysis.models import Worfklow
-    #TODO: get the ids correct and finish this
-    wf = Workflow(workflow_id=, version_id=, is_default=, is_active=False, workflow_location=destination_dir)
+    add_workflow_to_db(workflow_name, destination_dir)
 
+    # link the html template so Django can find it
+    link_django_template(config_dict['workflows_dir'], destination_dir, config_dict['final_html_template_filename'])
  
     # cleanup the staging dir:
     shutil.rmtree(staging_dir)

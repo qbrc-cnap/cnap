@@ -59,7 +59,7 @@ class AnalysisView(View):
         # dynamic, database-driven data is queried for the UI.
         fill_context(request, workflow_obj, context_dict)
         workflow_dir = workflow_obj.workflow_location
-        template = os.path.join(workflow_dir, settings.HTML_TEMPLATE_NAME)
+        template = os.path.join(settings.WORKFLOWS_DIR, workflow_dir, settings.HTML_TEMPLATE_NAME)
         return render(request, template, context_dict)
 
     def post(self, request, *args, **kwargs):

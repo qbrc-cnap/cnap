@@ -17,6 +17,9 @@ class Workflow(models.Model):
     # this keeps track of potential sub-versions of a workflow
     version_id = models.PositiveSmallIntegerField()
 
+    # this keeps track of the workflow name. 
+    workflow_name = models.CharField()
+
     # this keeps track of whether a workflow is the most recent or the "default"
     is_default = models.BooleanField(default=False)
 
