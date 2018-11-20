@@ -31,6 +31,12 @@ APP_ROOT_DIR = os.path.dirname(THIS_DIR)
 # add the app root dir to the syspath
 sys.path.append(APP_ROOT_DIR)
 
+# need all this to "talk to" Django's database
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'cnap_v2.settings')
+import django
+from django.conf import settings
+django.setup()
+
 # Now import a custom config parser:
 from helpers import utils
 
@@ -390,11 +396,6 @@ def add_workflow_to_db(workflow_name, destination_dir):
     in development are not immediately "exposed".
     '''
 
-    # need all this to "talk to" Django's database
-    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'cnap_v2.settings')
-    import django
-    from django.conf import settings
-    django.setup()
 
     from analysis.models import Workflow
 
@@ -456,6 +457,35 @@ def link_django_template(workflow_libdir_name, workflow_dir, final_html_template
 
     # finally, link them:
     os.symlink(final_html_template_path, linkpath)
+
+
+def link_form_javascript(workflow_libdir_name, workflow_dir, javascript_filename):
+    '''
+    The templated HTML file is sitting in the destination_dir, but Django cannot treat it as 
+    a static file unless we locate it in under the STATIC_ROOT dir.
+    We create a symlink from there
+    back to the actual file located under the workflow library directory.
+
+    '''
+    # the abs path to the workflow library dir
+    workflow_libdir = os.path.join(APP_ROOT_DIR, workflow_libdir_name)
+
+    # now we can get the path of the javascript relative to that workflow library dir:
+    javascript_template_path = os.path.join(workflow_dir, javascript_filename)
+    relative_path = os.path.relpath(javascript_template_path, workflow_libdir)
+
+    # the relative path lets us create the proper directory structure for linking
+    from django.conf import settings
+    linkpath = os.path.join(settings.STATIC_ROOT, workflow_libdir_name, relative_path)
+    print('LP: %s' % linkpath)
+
+    # need to make intermediate paths if necessary:
+    linkdir = os.path.dirname(linkpath)
+    if not os.path.isdir(linkdir):
+        os.makedirs(linkdir)
+
+    # finally, link them:
+    os.symlink(javascript_template_path, linkpath)
 
 
 if __name__ == '__main__':
@@ -534,6 +564,8 @@ if __name__ == '__main__':
 
     # link the html template so Django can find it
     link_django_template(config_dict['workflows_dir'], destination_dir, config_dict['final_html_template_filename'])
+    link_form_javascript(config_dict['workflows_dir'], destination_dir, config_dict['final_javascript_filename'])
+
  
     # cleanup the staging dir:
     shutil.rmtree(staging_dir)

@@ -25,7 +25,8 @@ class ResourceDisplay(object):
             i += 1
         return '%.2f %s' % (running_size/threshold, suffix[i-1])
 
-    def __init__(self, name, size):
+    def __init__(self, id, name, size):
+        self.id = id
         self.name = name
         self.size = size
         self.human_readable_size = self.get_human_readable_size(self.size)
@@ -40,5 +41,5 @@ def add_to_context(request, context_dict):
     display_resources = []
     for rr in r:
         if rr.is_active:
-            display_resources.append(ResourceDisplay(rr.name, rr.size))
+            display_resources.append(ResourceDisplay(rr.pk, rr.name, rr.size))
     context_dict['user_resources'] = display_resources

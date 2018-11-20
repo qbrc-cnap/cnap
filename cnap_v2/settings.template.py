@@ -285,6 +285,8 @@ WORKFLOWS_DIR = ingestion_config_dict['workflows_dir']
 # to look for
 USER_GUI_SPEC_NAME = ingestion_config_dict['gui_spec']
 
+# the name of the javascript file that supports the dynamic content of the UI
+FORM_JAVASCRIPT_NAME = ingestion_config_dict['final_javascript_filename']
 ###############################################################################
 ###############################################################################
 

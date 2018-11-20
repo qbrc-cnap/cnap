@@ -60,6 +60,7 @@ class AnalysisView(View):
         fill_context(request, workflow_obj, context_dict)
         workflow_dir = workflow_obj.workflow_location
         template = os.path.join(workflow_dir, settings.HTML_TEMPLATE_NAME)
+        context_dict['form_javascript'] = os.path.join(settings.STATIC_URL, workflow_dir, settings.FORM_JAVASCRIPT_NAME)
         return render(request, template, context_dict)
 
     def post(self, request, *args, **kwargs):
