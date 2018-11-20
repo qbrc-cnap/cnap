@@ -18,28 +18,19 @@ var prepareFormData = function(){
     for(var i=0; i<elements.length; i++){
         var el = $(elements[i]);
         var dataTarget = el.attr("dataTarget");
-        var val = el.val();
-        console.log(val);
-        console.log(name);
-        payload[dataTarget] = val;
+        if (typeof dataTarget !== typeof undefined && dataTarget !== false) {
+            // Element has this attribute
+            var val = el.val();
+            payload[dataTarget] = val;
+        } else{
+            console.log('Does not have dataTarget attr');
+        }
     }
     return payload;
 }
 
 function create_post(payload){
     console.log(payload)
-    $.ajax({
-        url: url,
-        type: method,
-        data: {"data": JSON.stringify(payload)},
-        success: function(response){
-            console.log('Success!');
-        },
-        error: function(xhr, status, err){
-            console.log('Error!');
-        }
-
-    });
 }
 
 $("#submit-form").click(function(e){
