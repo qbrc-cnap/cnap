@@ -1,3 +1,9 @@
 from django.contrib import admin
 
-# Register your models here.
+from .models import Resource
+
+class ResourceAdmin(admin.ModelAdmin):
+    list_display = ('name', 'path', 'source')
+    list_editable = ('name', 'path', 'source')
+
+admin.site.register(Resource, ResourceAdmin)
