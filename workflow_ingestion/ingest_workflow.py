@@ -43,6 +43,7 @@ WDL = 'wdl'
 PYFILE = 'py'
 ZIP = 'zip'
 JSON = 'json'
+JS = 'javascript'
 ACCEPTED_FILE_EXTENSIONS = [WDL, PYFILE, ZIP, JSON]
 
 # Other constants:
@@ -437,7 +438,6 @@ def link_django_template(workflow_libdir_name, workflow_dir, final_html_template
     which is at 'templates' relative to the root of the django application.  We create a symlink from there
     back to the actual file located under the workflow library directory.
 
-
     '''
     # the abs path to the workflow library dir
     workflow_libdir = os.path.join(APP_ROOT_DIR, workflow_libdir_name)
@@ -499,8 +499,10 @@ if __name__ == '__main__':
     # template to check against.
     # This function also updates the workflow GUI file, fillling in all the 
     # optional parameters with defaults
-    final_html_template_path = gui_utils.construct_gui(staging_dir, config_dict)
+    final_html_template_path, final_javascript_path = gui_utils.construct_gui(
+        staging_dir, config_dict)
     file_dict[HTML] = [final_html_template_path] # put in a list for consistency
+    file_dict[JS] = [final_javascript_path]
 
     # Now that the gui spec has been updated to include default params, we need to
     # ensure that the correct python files are there.  This function copies all

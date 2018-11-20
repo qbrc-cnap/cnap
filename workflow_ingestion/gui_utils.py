@@ -8,11 +8,13 @@ THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 
 GUI_SCHEMA_PATH = 'gui_schema.json'
 GUI_ELEMENTS = 'gui_elements'
-MASTER_TEMPLATE = 'master_template'
+MASTER_HTML_TEMPLATE = 'master_html_template'
+MASTER_JS_TEMPLATE = 'master_javascript_template'
 INPUT_ELEMENTS = 'input_elements'
 TARGET = 'target'
 TARGET_IDS = 'target_ids'
 DISPLAY_ELEMENT = 'display_element'
+JS_HANDLER = 'js_handler'
 
 
 class UnknownGuiElementException(Exception):
@@ -222,6 +224,38 @@ def fill_final_template(master_template_path,
         fout.write('{% endblock%}\n')
 
 
+def fill_javascript_template(gui_schema, javascript_template_path,
+    final_javascript_path, 
+    element_type_list):
+    '''
+    `gui_schema` is the schema (a dict) of all the potential UI elements
+    and the params
+    `javascript_template_path` gives the path to the template we have to fill-in
+    `final_javascript_path` gives the path of the file to which we write the completed
+    template
+    `element_type_list` is a list of the "types" of the input elements that are 
+    featured in the UI we are creating.
+    '''
+    js_handlers = []
+    for element_type in set(element_type_list):
+        element_spec = gui_schema[GUI_ELEMENTS][element_type]
+        js_handler = element_spec[JS_HANDLER]
+        if js_handler and os.path.isfile(js_handler):
+            js_handlers.append(open(js_handler).read())
+    
+    # fill-in the overall template:
+    js_template = get_jinja_template(javascript_template_path)
+    context = {'js_handlers': js_handlers}
+    full_js_str = js_template.render(context)
+
+    # write to the final file:
+    with open(final_javascript_path, 'w') as fout:
+        # note that we have to wrap the template with django
+        # tags here, rather than in the original template.  
+        # Otherwise jinja does not recognize the tags and fails.
+        fout.write(full_js_str)
+    
+
 def construct_gui(staging_dir, config_dict):
     '''
     This is the main entrypoint to constructing a HTML GUI
@@ -260,6 +294,11 @@ def construct_gui(staging_dir, config_dict):
     # iterate through the input elements, and add the completed
     # html strings to a list
     form_elements = []
+
+    # this list tracks the different types of input elements
+    # These are the keys in the `gui_elements` object of the GUI
+    # schema (e.g. 'file_chooser', 'text')
+    element_type_list = []
     mapped_input_list = []
     for i, input_element in enumerate(workflow_gui_spec[INPUT_ELEMENTS]):
 
@@ -273,10 +312,11 @@ def construct_gui(staging_dir, config_dict):
             display_element, 
             gui_schema_element_names
         )
+        element_type_list.append(display_element_type)
 
         # Now that we know we are properly mapping to a WDL input and
         # that the UI element is at least known, we need to check that the
-        # required elements were specified.
+        # required parameters for that element were specified.
         check_element_parameters(display_element, 
             gui_schema[GUI_ELEMENTS][display_element_type])
 
@@ -290,6 +330,13 @@ def construct_gui(staging_dir, config_dict):
     with open(workflow_gui_spec_path, 'w') as fout:
         json.dump(workflow_gui_spec, fout)
 
+    # using the list of the element types, collect the necessary javascript
+    javascript_template_path = gui_schema[MASTER_JS_TEMPLATE]
+    final_javascript_path = os.path.join(staging_dir, 
+        config_dict['final_javascript_filename'])
+    fill_javascript_template(gui_schema, javascript_template_path,
+        final_javascript_path, 
+        element_type_list)
 
     # It's possible that some of the WDL inputs are created at runtime and do not 
     # have direct GUI elements that pass data to them.  We simply warn about those.
@@ -300,10 +347,10 @@ def construct_gui(staging_dir, config_dict):
                 'This is not necessarily an error, however.' % s
             )
 
-    master_template_path = gui_schema[MASTER_TEMPLATE]
+    master_template_path = gui_schema[MASTER_HTML_TEMPLATE]
     final_template_path = os.path.join(staging_dir, config_dict['final_html_template_filename'])
     fill_final_template(master_template_path, final_template_path, form_elements)
-    return final_template_path
+    return final_template_path, final_javascript_path
 
 
 

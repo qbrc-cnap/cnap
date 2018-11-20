@@ -1,8 +1,10 @@
 {
-    "master_template": "html_elements/form_template.html",
+    "master_html_template": "html_elements/form_template.html",
+    "master_javascript_template": "js/form_handler.js",
     "gui_elements": {
         "file_chooser": {
             "html_source": "html_elements/file_chooser.html",
+            "js_handler": "js/file_chooser.js",
             "parameters": [
                 {
                     "name": "label",
@@ -41,6 +43,7 @@
         },
         "text": {
             "html_source": "html_elements/text_input.html",
+            "js_handler": null,
             "parameters": [
                 {
                     "name": "label",
@@ -77,6 +80,7 @@
         },
         "select": {
             "html_source": "html_elements/select_input.html",
+            "js_handler": null,
             "parameters": [
                 {
                     "name": "choices",
@@ -105,6 +109,7 @@
         },
         "radio": {
             "html_source": "html_elements/radio_input.html",
+            "js_handler": null,
             "parameters": [
                 {
                     "name": "choices",
@@ -127,6 +132,7 @@
         },
         "checkbox": {
             "html_source": "html_elements/checkbox_input.html",
+            "js_handler": null,
             "parameters": [
                 {
                     "name": "choices",

@@ -1,7 +1,11 @@
 
-        <form>
-			<!-- Form elements are inserted here -->
-			{% for element in form_elements %}
-				{{element}}
-			{% endfor %}
+        <form id="analysis-creation-form">
+		{% raw %}
+		{% csrf_token %}
+		{% endraw %}
+		<!-- Form elements are inserted here -->
+		{% for element in form_elements %}
+			{{element}}
+		{% endfor %}
+		<button id="submit-form" class="btn btn-primary">Next</button>			
         </form>

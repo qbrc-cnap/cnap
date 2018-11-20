@@ -1,12 +1,12 @@
 {% for key, value in options.items %}
 <div class="form-check">
     <input 
-        class="form-check-input" 
+        class="form-check-input"
         type="radio" 
         value="{{key}}" 
         id="{{id}}"
         name="{{name}}"
-        formData
+        dataTarget="{{name}}"
     >
     <label class="form-check-label" for="{{id}}">
         {{value}}
