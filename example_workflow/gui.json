@@ -13,6 +13,14 @@
 				"choose_multiple": true,
 				"description": "Choose files to concatenate"
 			}	
+		},
+		{
+			"target": "DemoWorkflow.outputFilename",
+			"display_element": {
+				"type": "text",
+				"label": "Output filename:",
+				"description": "Name the output file..."
+			}	
 		}
 	]
 }
