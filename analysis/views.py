@@ -12,7 +12,8 @@ from django.urls import reverse
 from .models import Workflow
 from .view_utils import get_workflow, \
     validate_workflow_dir, \
-    fill_context
+    fill_context, \
+    fill_wdl_input
 
 
 def home(request):
@@ -83,6 +84,6 @@ class AnalysisView(View):
         j = json.loads(data)
         for key, vals in j.items():
             print('Key: %s, Vals: %s' % (key, vals))
-
+        fill_wdl_input(request, j)
         return render(request, 'analysis/home.html', {'msg': 'post view'})
 

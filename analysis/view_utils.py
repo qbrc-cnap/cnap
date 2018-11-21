@@ -128,3 +128,87 @@ def validate_workflow_dir(workflow_obj):
         return True
     else:
         return False
+
+
+
+def fill_wdl_input(request, data):
+    '''
+    Fill out the WDL input.  
+
+    `data` is a dictionary of the payload POST'd from the frontend
+    '''
+
+    try:
+        workflow_obj = get_workflow(data['workflow_id'], data['version_id'], request.user.is_staff)
+    except Exception:
+        return HttpResponseBadRequest('Error when querying for workflow.')
+ 
+    workflow_dir = workflow_obj.workflow_location
+    location = os.path.join(settings.BASE_DIR, workflow_dir)
+
+    # for potential imports from this folder, add to the path:
+    sys.path.insert(0, location)
+
+    # load the wdl input into a dict
+    wdl_input_path = os.path.join(location,
+        settings.WDL_INPUTS_TEMPLATE_NAME)
+    wdl_input_json = json.load(open(wdl_input_path))
+    required_inputs = list(wdl_input_json.keys())
+
+    # load the gui spec:
+    gui_spec_path = os.path.join(location,
+        settings.USER_GUI_SPEC_NAME)
+    gui_spec_json = json.load(open(gui_spec_path))
+
+    for element in gui_spec_json['input_elements']:
+        target = element['target']
+        if type(target)==str and target in wdl_input_json:
+            # if the GUI specified a string input, it is supposed to directly
+            # map to a WDL input.  If not, something has been corrupted.
+            try:
+                value = data[target]
+                wdl_input_json[target] = value
+            except KeyError:
+                raise Exception('The key "%s" was not in either the data payload (%s) '
+                    'or the WDL input (%s)' % (target, data, wdl_input_json))
+        elif type(target)==dict:
+            # if the "type" of target is a dict, it needs to have a name attribute that is 
+            # present in the data payload. Otherwise, we cannot know where to map it
+            if target['name'] in data:
+                unmapped_data = data[target['name']]
+
+                # unmapped_data could effectively be anything, so we need to have custom
+                # code which takes that and properly maps it to the WDL inputs
+
+                # Get the handler code:
+                handler_path = os.path.join(workflow_dir, target['handler'])
+                if os.path.isfile(handler_path):
+                    # we have a proper file.  Call that to map our unmapped_data
+                    # to the WDL inputs
+                    module_name = target['handler'][:-len(settings.PY_SUFFIX)]
+                    mod = import_module(module_name)
+                    map_dict = mod.map_inputs(request.user, unmapped_data, target['target_ids'])
+                    for key, val in map_dict.items():
+                        if key in wdl_input_json:
+                            wdl_input_json[key] = val
+                        else:
+                           raise Exception('Problem!  After mapping the front-'
+                                'end to WDL inputs using the map \n%s\n'
+                               'the key "%s" was not one of the WDL inputs' \
+                               % (map_dict, key)
+                           )
+                else:
+                    raise Exception('Could not find handler for mapping at %s' % handler_path)
+            else:
+                raise Exception('If the type of the WDL target is a dictionary, then it MUST '
+                    'specify a "name" attribute.  The value of that attribute must be in the '
+                    'payload sent by the frontend.')
+        else:
+            raise Exception('Unexpected object encountered when trying to map front-end '
+                'to WDL inputs.')
+
+    print(wdl_input_json)
+
+    # remove the workflow dir so it doesn't clutter the python path
+    sys.path.remove(location)
+
