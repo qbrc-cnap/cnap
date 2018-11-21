@@ -1,8 +1,11 @@
 
-        <form id="analysis-creation-form">
+        <form id="analysis-creation-form" action="{{submit_url}}">
 		{% raw %}
 		{% csrf_token %}
 		{% endraw %}
+                <input type="hidden" id="workflow_id" name="workflow_id" value="{{workflow_id}}" dataTarget="workflow_id">
+                <input type="hidden" id="version_id" name="version_id" value="{{version_id}}" dataTarget="version_id">
+
 		<!-- Form elements are inserted here -->
 		{% for element in form_elements %}
 			{{element}}
