@@ -82,7 +82,7 @@ def check_input_mapping(input_element, workflow_input_list):
         for t in all_input_targets:
             if not t in workflow_input_list:
                 raise InvalidGuiMappingException('The target %s is not in the list of '
-                    'required inputs to the WDL.'
+                    'required inputs to the WDL.' % t
                 )
         return all_input_targets
 
