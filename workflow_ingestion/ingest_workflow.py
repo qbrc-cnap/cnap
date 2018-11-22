@@ -359,7 +359,7 @@ def check_handlers(staging_dir):
     search_dirs = [staging_dir, THIS_DIR]
 
     handler_module_list = []
-    for input_element in workflow_gui_spec[INPUT_ELEMENTS]:
+    for input_element in workflow_gui_spec[settings.INPUT_ELEMENTS]:
 
         # if the target was of type dict, it is possible that
         # the developer has specified some custom code that can map
@@ -567,7 +567,7 @@ if __name__ == '__main__':
 
     # link the html template so Django can find it
     link_django_template(WORKFLOWS_DIR, destination_dir, settings.HTML_TEMPLATE_NAME)
-    link_form_javascript(WORKFLOWS_DIR], destination_dir, settings.FORM_JAVASCRIPT_NAME)
+    link_form_javascript(WORKFLOWS_DIR, destination_dir, settings.FORM_JAVASCRIPT_NAME)
  
     # cleanup the staging dir:
     shutil.rmtree(staging_dir)

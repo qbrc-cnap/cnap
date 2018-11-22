@@ -99,11 +99,11 @@ class AnalysisView(View):
         # parse the payload from the POST request and make a dictionary
         data = request.POST.get('data')
         j = json.loads(data)
-            
+
         # add the url params so we know which workflow to use.  Add to the overall
         # dict containing the data
-        data['workflow_id'] = workflow_id
-        data['version_id'] = version_id
+        j['workflow_id'] = workflow_id
+        j['version_id'] = version_id
 
         # Fill out the template for the WDL input
         fill_wdl_input(request, j)

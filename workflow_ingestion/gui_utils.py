@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 
 from jinja2 import Environment, FileSystemLoader
@@ -362,7 +363,7 @@ def construct_gui(staging_dir):
             )
 
     master_template_path = gui_schema[MASTER_HTML_TEMPLATE]
-    final_template_path = os.path.join(staging_dir, HTML_TEMPLATE_NAME)
+    final_template_path = os.path.join(staging_dir, settings.HTML_TEMPLATE_NAME)
     fill_final_template(master_template_path, final_template_path, form_elements)
     return final_template_path, final_javascript_path
 

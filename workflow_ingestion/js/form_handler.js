@@ -30,8 +30,22 @@ var prepareFormData = function(){
 }
 
 function create_post(payload){
-    console.log(payload)
+    var url = $("#analysis-creation-form").attr("action");
+    $.ajax({
+            url: url,
+            type: "post",
+            data: {"data": JSON.stringify(payload)},
+            //data: payload,
+            success: function(response){
+                console.log('Success!');
+            },
+            error: function(xhr, status, err){
+                console.log('Error!');
+            }
+
+    });
 }
+
 
 $("#submit-form").click(function(e){
     e.preventDefault();
