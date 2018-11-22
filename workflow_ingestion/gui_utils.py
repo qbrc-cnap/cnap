@@ -5,16 +5,30 @@ from jinja2 import Environment, FileSystemLoader
 
 # for easy reference, determine the directory we are currently in
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+APP_ROOT_DIR = os.path.dirname(THIS_DIR)
 
+# add the app root dir to the syspath
+sys.path.append(APP_ROOT_DIR)
+
+# need all this to get the django settings
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'cnap_v2.settings')
+import django
+from django.conf import settings
+django.setup()
+
+# Some constants (only referenced here):
 GUI_SCHEMA_PATH = 'gui_schema.json'
 GUI_ELEMENTS = 'gui_elements'
 MASTER_HTML_TEMPLATE = 'master_html_template'
 MASTER_JS_TEMPLATE = 'master_javascript_template'
-INPUT_ELEMENTS = 'input_elements'
-TARGET = 'target'
-TARGET_IDS = 'target_ids'
-DISPLAY_ELEMENT = 'display_element'
 JS_HANDLER = 'js_handler'
+
+# Other constants that are used in various locations
+# have been stored in the settings module
+INPUT_ELEMENTS = settings.INPUT_ELEMENTS
+TARGET = settings.TARGET
+TARGET_IDS = settings.TARGET_IDS
+DISPLAY_ELEMENT = settings.DISPLAY_ELEMENT
 
 
 class UnknownGuiElementException(Exception):
@@ -256,7 +270,7 @@ def fill_javascript_template(gui_schema, javascript_template_path,
         fout.write(full_js_str)
     
 
-def construct_gui(staging_dir, config_dict):
+def construct_gui(staging_dir):
     '''
     This is the main entrypoint to constructing a HTML GUI
     based on the specifications provided in the JSON-format
@@ -279,12 +293,12 @@ def construct_gui(staging_dir, config_dict):
     gui_schema = json.load(open(os.path.join(THIS_DIR, GUI_SCHEMA_PATH)))
 
     # load the GUI spec file into a dict
-    workflow_gui_spec_filename = config_dict['gui_spec']
+    workflow_gui_spec_filename = settings.USER_GUI_SPEC_NAME
     workflow_gui_spec_path = os.path.join(staging_dir, workflow_gui_spec_filename)
     workflow_gui_spec = json.load(open(workflow_gui_spec_path))
 
     # load the input template which gives the required inputs to the workflow
-    workflow_inputs_filename = config_dict['input_template_json']
+    workflow_inputs_filename = settings.WDL_INPUTS_TEMPLATE_NAME
     workflow_inputs_path = os.path.join(staging_dir, workflow_inputs_filename)
     workflow_inputs = json.load(open(workflow_inputs_path))
 
@@ -333,7 +347,7 @@ def construct_gui(staging_dir, config_dict):
     # using the list of the element types, collect the necessary javascript
     javascript_template_path = gui_schema[MASTER_JS_TEMPLATE]
     final_javascript_path = os.path.join(staging_dir, 
-        config_dict['final_javascript_filename'])
+        settings.FORM_JAVASCRIPT_NAME)
     fill_javascript_template(gui_schema, javascript_template_path,
         final_javascript_path, 
         element_type_list)
@@ -348,7 +362,7 @@ def construct_gui(staging_dir, config_dict):
             )
 
     master_template_path = gui_schema[MASTER_HTML_TEMPLATE]
-    final_template_path = os.path.join(staging_dir, config_dict['final_html_template_filename'])
+    final_template_path = os.path.join(staging_dir, HTML_TEMPLATE_NAME)
     fill_final_template(master_template_path, final_template_path, form_elements)
     return final_template_path, final_javascript_path
 

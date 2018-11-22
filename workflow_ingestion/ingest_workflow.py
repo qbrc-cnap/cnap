@@ -54,8 +54,12 @@ ACCEPTED_FILE_EXTENSIONS = [WDL, PYFILE, ZIP, JSON]
 
 # Other constants:
 NEW_WDL_DIR = 'wdl_dir' # a string used for common reference.  Value arbitrary.
-WOMTOOL_JAR = os.path.join(APP_ROOT_DIR, 'etc', 'womtool-36.jar') # Broad WOMTool JAR file
+WOMTOOL_JAR = settings.WOMTOOL_JAR
 HTML = 'html'
+DISPLAY_ELEMENT = settings.DISPLAY_ELEMENT
+WORKFLOWS_DIR = settings.WORKFLOWS_DIR
+HANDLER = settings.HANDLER
+TARGET = settings.TARGET
 ################
 
 
@@ -121,23 +125,23 @@ def get_files(wdl_directory):
     return file_dict
 
 
-def get_gui_spec(wdl_directory, config_dict):
+def get_gui_spec(wdl_directory):
     '''
     Find the proper file which defines the user-interface
     for the new Workflow.
     '''
     matched_files = [x for x in os.listdir(wdl_directory)
-        if x == config_dict['gui_spec']
+        if x == settings.USER_GUI_SPEC_NAME
     ]
     if len(matched_files) == 1:
         return os.path.join(wdl_directory, matched_files[0])
     else:
         raise GuiSpecFileException('There were %d files named %s' % (
-            len(matched_files), config_dict['gui_spec']
+            len(matched_files), settings.USER_GUI_SPEC_NAME
         ))
 
 
-def create_workflow_destination(workflow_name, config_dict):
+def create_workflow_destination(workflow_name):
     '''
     This function creates and returns the path to a "valid" destination dir
     for the newly ingested workflow
@@ -149,7 +153,7 @@ def create_workflow_destination(workflow_name, config_dict):
     # construct path to the analyses dir:
     workflow_dir = os.path.join(
         APP_ROOT_DIR,
-        config_dict['workflows_dir']
+        WORKFLOWS_DIR
     )
 
     # see if a directory for this workflow exists.  If not 
@@ -242,15 +246,15 @@ def create_input_template(file_dict, staging_dir, inputs_template_filename):
     return inputs_template_path
 
 
-def copy_to_staging_directory(config_dict, *files):
+def copy_to_staging_directory(*files):
     '''
     Creates a staging dir and copies files there
-    Takes an arbitrary number of args after the first
+    Takes an arbitrary number of args
     '''
     # construct path to the staging dir:
     staging_dir = os.path.join(
         THIS_DIR,
-        config_dict['staging_dir']
+        settings.STAGING_DIR
     )
 
     # create a datestamp
@@ -322,7 +326,7 @@ def copy_handler_if_necessary(element, staging_dir, search_dir_list):
 
     If there is an error and no modules match, raise an error.
     '''
-    handler_module = element['handler']
+    handler_module = element[HANDLER]
     handler_module_path = locate_handler(handler_module, search_dir_list)
     if handler_module_path: # module was indeed found
 
@@ -337,14 +341,14 @@ def copy_handler_if_necessary(element, staging_dir, search_dir_list):
         )
 
 
-def check_handlers(staging_dir, config_dict):
+def check_handlers(staging_dir):
     '''
     This function ensures that the various "handler" modules are correctly
     copied to the staging directory.  This way, all the code necessary to run 
     a workflow is together.
     '''
     # load the GUI spec file into a dict
-    workflow_gui_spec_filename = config_dict['gui_spec']
+    workflow_gui_spec_filename = settings.USER_GUI_SPEC_NAME
     workflow_gui_spec_path = os.path.join(staging_dir, workflow_gui_spec_filename)
     workflow_gui_spec = json.load(open(workflow_gui_spec_path))
 
@@ -355,32 +359,32 @@ def check_handlers(staging_dir, config_dict):
     search_dirs = [staging_dir, THIS_DIR]
 
     handler_module_list = []
-    for input_element in workflow_gui_spec['input_elements']:
+    for input_element in workflow_gui_spec[INPUT_ELEMENTS]:
 
         # if the target was of type dict, it is possible that
         # the developer has specified some custom code that can map
         # the inputs received by the GUI element to the proper inputs
         # for the workflow.  See if that key exists, and if it does,
         # check for the file
-        if type(input_element['target']) == dict:
-            if 'handler' in input_element['target']:
-                module_name = copy_handler_if_necessary(input_element['target'], 
+        if type(input_element[TARGET]) == dict:
+            if HANDLER in input_element[TARGET]:
+                module_name = copy_handler_if_necessary(input_element[TARGET], 
                     staging_dir, search_dirs)
                 handler_module_list.append(module_name)
 
                 # we also update the dict specifying the GUI.  Since all the files
                 # will be residing in the same directory as the final GUI spec, we only
                 # need the basename
-                input_element['target']['handler'] = module_name
+                input_element[TARGET][HANDLER] = module_name
 
-        display_element = input_element['display_element']
-        if 'handler' in display_element:
+        display_element = input_element[DISPLAY_ELEMENT]
+        if HANDLER in display_element:
             module_name = copy_handler_if_necessary(display_element, 
                 staging_dir, search_dirs)
             handler_module_list.append(module_name)
 
             # again, update the GUI dict for the same reason as above
-            display_element['handler'] = module_name
+            display_element[HANDLER] = module_name
     
     # rewrite the GUI spec since we changed the module names to be relative.
     with open(workflow_gui_spec_path, 'w') as fout:
@@ -495,13 +499,12 @@ if __name__ == '__main__':
 
     # First parse any commandline args and configuration params:
     arg_dict = parse_commandline()
-    config_dict = utils.load_config(CONFIG_FILE)
 
     # Get the files we need to ingest: 
     file_dict = get_files(arg_dict[NEW_WDL_DIR])
 
     # Get the file specifying the GUI
-    gui_spec_path = get_gui_spec(arg_dict[NEW_WDL_DIR], config_dict)
+    gui_spec_path = get_gui_spec(arg_dict[NEW_WDL_DIR])
 
     # We expect that the WDL files are correct and have been tested, as we are
     # not in the business of double-checking and writing additional parsers.
@@ -512,7 +515,7 @@ if __name__ == '__main__':
     file_list = []
     for filepaths in file_dict.values():
         file_list.extend(filepaths)
-    staging_dir = copy_to_staging_directory(config_dict, *file_list, gui_spec_path)
+    staging_dir = copy_to_staging_directory(*file_list, gui_spec_path)
 
     # Now that the files have been copied, we need to update the dict of paths so they 
     # correctly point at the staging directory:
@@ -521,7 +524,7 @@ if __name__ == '__main__':
 
     # Need to create an input template based on the WDL workflow:
     inputs_template_path = create_input_template(file_dict, staging_dir, 
-        config_dict['input_template_json'])
+        settings.WDL_INPUTS_TEMPLATE_NAME)
     file_dict[JSON].append(inputs_template_path)
 
     # At this point, we have a staging directory with all the required files
@@ -530,7 +533,7 @@ if __name__ == '__main__':
     # This function also updates the workflow GUI file, fillling in all the 
     # optional parameters with defaults
     final_html_template_path, final_javascript_path = gui_utils.construct_gui(
-        staging_dir, config_dict)
+        staging_dir)
     file_dict[HTML] = [final_html_template_path] # put in a list for consistency
     file_dict[JS] = [final_javascript_path]
 
@@ -538,7 +541,7 @@ if __name__ == '__main__':
     # ensure that the correct python files are there.  This function copies all
     # the necessary handler python files into the staging dir.  It returns a list
     # of paths to those 
-    handler_name_list = check_handlers(staging_dir, config_dict)
+    handler_name_list = check_handlers(staging_dir)
 
     # above, it was just names of files, not paths.  Create paths, and add them
     # to the dictionary of files that will be copied to the final workflow dir
@@ -551,7 +554,7 @@ if __name__ == '__main__':
     # with a name of <workflow_name>
     wdl_path = file_dict[WDL][0]
     workflow_name = get_workflow_name(file_dict[WDL][0])
-    destination_dir = create_workflow_destination(workflow_name, config_dict)
+    destination_dir = create_workflow_destination(workflow_name)
 
     # copy the files over.  Rather than copying everything, only copy over the
     # accepted file types 
@@ -563,9 +566,8 @@ if __name__ == '__main__':
     add_workflow_to_db(workflow_name, destination_dir)
 
     # link the html template so Django can find it
-    link_django_template(config_dict['workflows_dir'], destination_dir, config_dict['final_html_template_filename'])
-    link_form_javascript(config_dict['workflows_dir'], destination_dir, config_dict['final_javascript_filename'])
-
+    link_django_template(WORKFLOWS_DIR, destination_dir, settings.HTML_TEMPLATE_NAME)
+    link_form_javascript(WORKFLOWS_DIR], destination_dir, settings.FORM_JAVASCRIPT_NAME)
  
     # cleanup the staging dir:
     shutil.rmtree(staging_dir)

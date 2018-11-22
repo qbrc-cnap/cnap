@@ -7,6 +7,16 @@ from django.conf import settings
 
 from .models import Workflow
 
+INPUT_ELEMENTS = settings.INPUT_ELEMENTS
+DISPLAY_ELEMENT = settings.DISPLAY_ELEMENT
+HANDLER = settings.HANDLER
+TARGET = settings.TARGET
+TARGET_IDS = settings.TARGET_IDS
+NAME = settings.NAME
+WORKFLOW_ID = settings.WORKFLOW_ID
+VERSION_ID = settings.VERSION_ID
+
+
 def fill_context(request, workflow_obj, context_dict):
     '''
     This function orchestrates adding content to the context dict
@@ -14,7 +24,8 @@ def fill_context(request, workflow_obj, context_dict):
 
     `workflow_obj` is an instance of a Workflow
     `context_dict` is a dictionary which will be used to fill-in
-    the ui.
+    the ui.  Dictionaries are passed by reference, so the additions
+    to this dict persist to the caller.
     '''
 
     # get the location of the workflow (which is relative to the root of the app)
@@ -27,14 +38,14 @@ def fill_context(request, workflow_obj, context_dict):
     sys.path.insert(0, location)
 
     # Load the GUI spec, which we parse to get the python modules used
-    # to load custom dynamic content
+    # to load custom dynamic content (the `handler` key)
     gui_spec_path = os.path.join(location, settings.USER_GUI_SPEC_NAME)
     if os.path.isfile(gui_spec_path):
         gui_spec = json.load(open(gui_spec_path))
-        for input_element in gui_spec['input_elements']:
-            display_element = input_element['display_element']
-            if 'handler' in display_element:
-                module_name = display_element['handler'][:-len(settings.PY_SUFFIX)]
+        for input_element in gui_spec[INPUT_ELEMENTS]:
+            display_element = input_element[DISPLAY_ELEMENT]
+            if HANDLER in display_element:
+                module_name = display_element[HANDLER][:-len(settings.PY_SUFFIX)]
                 mod = import_module(module_name)
                 mod.add_to_context(request, context_dict)
     else:
@@ -139,7 +150,7 @@ def fill_wdl_input(request, data):
     '''
 
     try:
-        workflow_obj = get_workflow(data['workflow_id'], data['version_id'], request.user.is_staff)
+        workflow_obj = get_workflow(data[WORKFLOW_ID], data[VERSION_ID], request.user.is_staff)
     except Exception:
         return HttpResponseBadRequest('Error when querying for workflow.')
  
@@ -160,8 +171,8 @@ def fill_wdl_input(request, data):
         settings.USER_GUI_SPEC_NAME)
     gui_spec_json = json.load(open(gui_spec_path))
 
-    for element in gui_spec_json['input_elements']:
-        target = element['target']
+    for element in gui_spec_json[INPUT_ELEMENTS]:
+        target = element[TARGET]
         if type(target)==str and target in wdl_input_json:
             # if the GUI specified a string input, it is supposed to directly
             # map to a WDL input.  If not, something has been corrupted.
@@ -174,20 +185,20 @@ def fill_wdl_input(request, data):
         elif type(target)==dict:
             # if the "type" of target is a dict, it needs to have a name attribute that is 
             # present in the data payload. Otherwise, we cannot know where to map it
-            if target['name'] in data:
-                unmapped_data = data[target['name']]
+            if target[NAME] in data:
+                unmapped_data = data[target[NAME]]
 
                 # unmapped_data could effectively be anything, so we need to have custom
                 # code which takes that and properly maps it to the WDL inputs
 
                 # Get the handler code:
-                handler_path = os.path.join(workflow_dir, target['handler'])
+                handler_path = os.path.join(workflow_dir, target[HANDLER])
                 if os.path.isfile(handler_path):
                     # we have a proper file.  Call that to map our unmapped_data
                     # to the WDL inputs
-                    module_name = target['handler'][:-len(settings.PY_SUFFIX)]
+                    module_name = target[HANDLER][:-len(settings.PY_SUFFIX)]
                     mod = import_module(module_name)
-                    map_dict = mod.map_inputs(request.user, unmapped_data, target['target_ids'])
+                    map_dict = mod.map_inputs(request.user, unmapped_data, target[TARGET_IDS])
                     for key, val in map_dict.items():
                         if key in wdl_input_json:
                             wdl_input_json[key] = val

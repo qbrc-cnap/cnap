@@ -257,6 +257,28 @@ EMAIL_ENABLED = {{email_enabled}}
 
 
 
+
+
+###############################################################################
+# Constants from the GUI-schema for easy/consistent reference
+# These match the various keys in the GUI JSON file.  If it changes there
+# it only needs to change in this single location.
+###############################################################################
+
+INPUT_ELEMENTS = 'input_elements'
+DISPLAY_ELEMENT = 'display_element'
+HANDLER = 'handler'
+TARGET = 'target'
+TARGET_IDS = 'target_ids'
+NAME = 'name'
+WORKFLOW_ID = 'workflow_id'
+VERSION_ID = 'version_id'
+###############################################################################
+###############################################################################
+
+
+
+
 ###############################################################################
 # Parameters set during workflow ingestion process
 ###############################################################################
@@ -287,6 +309,22 @@ USER_GUI_SPEC_NAME = ingestion_config_dict['gui_spec']
 
 # the name of the javascript file that supports the dynamic content of the UI
 FORM_JAVASCRIPT_NAME = ingestion_config_dict['final_javascript_filename']
+
+# the name of a directory where we work on files before depositing in a final
+# location
+STAGING_DIR = ingestion_config_dict['staging_dir']
 ###############################################################################
 ###############################################################################
 
+
+
+
+
+###############################################################################
+# JAR files for workflow runner
+###############################################################################
+
+WOMTOOL_JAR = os.path.join(BASE_DIR, 'etc', 'womtool-36.jar') # Broad WOMTool JAR file
+CROMWELL_JAR = os.path.join(BASE_DIR, 'etc', 'cromwell-36.jar') # Broad Cromwell JAR
+###############################################################################
+###############################################################################
