@@ -21,8 +21,8 @@ from django.contrib.sites.models import Site
 from django.contrib.auth import get_user_model
 from rest_framework.exceptions import MethodNotAllowed
 
-import dropbox
-import google.oauth2.credentials
+import dropbox.dropbox as dropbox_module
+import google.oauth2.credentials as google_credentials_module
 from googleapiclient.discovery import build
 
 import helpers.utils as utils
@@ -195,7 +195,7 @@ class DropboxDownloader(Downloader):
                 raise exceptions.ExceptionWithMessage('There was no download_info registered with the session')
 
             # need to check that the user has enough space in their Dropbox account
-            dbx = dropbox.dropbox.Dropbox(access_token)
+            dbx = dropbox_module.Dropbox(access_token)
             space_usage = dbx.users_get_space_usage()
             if space_usage.allocation.is_team():
                 used_in_bytes = space_usage.allocation.get_team().used
@@ -330,7 +330,7 @@ class DriveDownloader(Downloader):
                 raise exceptions.ExceptionWithMessage('There was no download_info registered with the session')
 
             # ensure we have enough space to push the file(s):
-            credentials = google.oauth2.credentials.Credentials(access_token)
+            credentials = google_credentials_module.Credentials(access_token)
             drive_service = build('drive', 'v3', credentials=credentials)
             about = drive_service.about().get(fields='storageQuota').execute()
             try:
@@ -340,8 +340,6 @@ class DriveDownloader(Downloader):
                 # per the docs, if the 'limit' field is not there, there is "unlimited" storage
                 unlimited = True
             used_bytes = int(about['storageQuota']['usage'])
-            print(total_bytes)
-            print(used_bytes)
             if not unlimited:
                 space_remaining_in_bytes = total_bytes - used_bytes
 
