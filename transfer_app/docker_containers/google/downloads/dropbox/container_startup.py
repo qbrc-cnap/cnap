@@ -7,13 +7,11 @@ import subprocess
 import argparse
 import dropbox
 import datetime
-import logging
 from Crypto.Cipher import DES
 import base64
 import requests
-from google.cloud import storage
+from google.cloud import storage, logging
 from apiclient.discovery import build
-
 
 WORKING_DIR = '/workspace'
 DEFAULT_TIMEOUT = 60
@@ -23,19 +21,19 @@ GOOGLE_BUCKET_PREFIX = 'gs://'
 
 def create_logger():
 	"""
-	Creates a logfile
+	Creates a log in Stackdriver
 	"""
-	timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M")
-	logfile = os.path.join(WORKING_DIR, str(timestamp)+".dropbox_transfer.log")
-	print('Create logfile at %s' % logfile)
-	logging.basicConfig(filename=logfile, level=logging.INFO, format="%(asctime)s:%(levelname)s:%(message)s")
-	return logfile
+	instance_name = get_hostname()
+	logname = '%s.log' % instance_name
+	logging_client = logging.Client()
+	logger = logging_client.logger(logname)
+	return logger
 
-def notify_master(params, error=False):
+def notify_master(params, logger, error=False):
 	'''
 	This calls back to the head machine to let it know the work is finished.
 	'''
-	logging.info('Notifying the master that this job has completed')
+	logger.log_text('Notifying the master that this job has completed')
 
 	# the payload dictinary:
 	d = {}
@@ -52,11 +50,11 @@ def notify_master(params, error=False):
 	d['success'] = 0 if error else 1
 	base_url = params['callback_url']
 	response = requests.post(base_url, data=d)
-	logging.info('Status code: %s' % response.status_code)
-	logging.info('Response text: %s' % response.text)
+	logger.log_text('Status code: %s' % response.status_code)
+	logger.log_text('Response text: %s' % response.text)
 
 
-def download_to_disk(params):
+def download_to_disk(params, logger):
 	'''
 	Downloads the file from the bucket to the local disk.
 	'''
@@ -71,10 +69,13 @@ def download_to_disk(params):
 	storage_client = storage.Client()
 	source_bucket = storage_client.get_bucket(bucket_name)
 	source_blob = source_bucket.blob(object_name)
+	logger.log_text('Download file from %s to %s' % (src, local_path))
 	source_blob.download_to_filename(local_path)
+	logger.log_text('Completed download to disk')
 	return local_path
 
-def send_to_dropbox(local_filepath, params):
+
+def send_to_dropbox(local_filepath, params, logger):
 	'''
 	local_filepath is the path on the VM/container of the file that
 	was already downloaded.
@@ -93,51 +94,56 @@ def send_to_dropbox(local_filepath, params):
 		cursor=dropbox.files.UploadSessionCursor(session_start_result.session_id, offset=stream.tell())
 		commit=dropbox.files.CommitInfo(path=path_in_dropbox)
 		while stream.tell() < file_size:
-			logging.info('Sending chunk %s' % i)
+			logger.log_text('Sending chunk %s' % i)
 			try:
 				if (file_size-stream.tell()) <= DEFAULT_CHUNK_SIZE:
-					logging.info('Finishing transfer and committing')
+					logger.log_text('Finishing transfer and committing')
 					client.files_upload_session_finish(stream.read(DEFAULT_CHUNK_SIZE), cursor, commit)
 				else:
-					logging.info('About to send chunk')
-					logging.info('Prior to chunk transfer, cursor=%d, stream=%d' % (cursor.offset, stream.tell()))
+					logger.log_text('About to send chunk')
+					logger.log_text('Prior to chunk transfer, cursor=%d, stream=%d' % (cursor.offset, stream.tell()))
 					client.files_upload_session_append_v2(stream.read(DEFAULT_CHUNK_SIZE), cursor)
 					cursor.offset = stream.tell()
-					logging.info('Done with sending chunk')
+					logger.log_text('Done with sending chunk %s' % i)
 			except dropbox.exceptions.ApiError as ex:
-				logging.error('Raised ApiError!')
+				logger.log_text('ERROR: Raised ApiError!')
 				if ex.error.is_incorrect_offset():
-					logging.error('The error raised was an offset error.  Correcting the cursor and stream offset')
+					logger.log_text('ERROR: The error raised was an offset error.  Correcting the cursor and stream offset')
 					correct_offset = ex.error.get_incorrect_offset().correct_offset
 					cursor.offset = correct_offset
 					stream.seek(correct_offset)
 				else:
-					logging.error('API error was raised, but was not offset error')
+					logger.log_text('ERROR: API error was raised, but was not offset error')
 					raise ex
 			except requests.exceptions.ConnectionError as ex:
-				logging.error('Caught a ConnectionError exception')
+				logger.log_text('ERROR: Caught a ConnectionError exception')
 				# need to rewind the stream
-				logging.info('At this point, cursor=%d, stream=%d' % (cursor.offset, stream.tell()))
+				logger.log_text('At this point, cursor=%d, stream=%d' % (cursor.offset, stream.tell()))
 				cursor_offset = cursor.offset
 				stream.seek(cursor_offset)
-				logging.info('After rewind, cursor=%d, stream=%d' % (cursor.offset, stream.tell()))
-				logging.info('Go try that chunk again')
+				logger.log_text('After rewind, cursor=%d, stream=%d' % (cursor.offset, stream.tell()))
+				logger.log_text('Go try that chunk again')
 			except requests.exceptions.RequestException as ex:
-				logging.error('Caught an exception during chunk transfer')
-				logging.info('Following FAILED chunk transfer, cursor=%d, stream=%d' % (cursor.offset, stream.tell()))
+				logger.log_text('ERROR: Caught an exception during chunk transfer')
+				logger.log_text('ERROR: Following FAILED chunk transfer, cursor=%d, stream=%d' % (cursor.offset, stream.tell()))
 				raise ex
 			i += 1
 	stream.close()
+
+
+def get_hostname():
+	headers = {'Metadata-Flavor':'Google'}
+	response = requests.get(HOSTNAME_REQUEST_URL, headers=headers)
+	content = response.content.decode('utf-8')
+	instance_name = content.split('.')[0]
+	return instance_name
 
 
 def kill_instance(params):
 	'''
 	Removes the virtual machine
 	'''
-	headers = {'Metadata-Flavor':'Google'}
-	response = requests.get(HOSTNAME_REQUEST_URL, headers=headers)
-	content = response.content.decode('utf-8')
-	instance_name = content.split('.')[0]
+	instance_name = get_hostname()
 	compute = build('compute', 'v1')
 	compute.instances().delete(project=params['google_project_id'],
 		zone=params['google_zone'], 
@@ -173,14 +179,13 @@ if __name__ == '__main__':
 	try:
 		params = parse_args()
 		os.mkdir(WORKING_DIR)
-		logfile = create_logger()
-		params['logfile'] = logfile
-		local_filepath = download_to_disk(params)
-		send_to_dropbox(local_filepath, params)
-		notify_master(params)
+		logger = create_logger()
+		local_filepath = download_to_disk(params, logger)
+		send_to_dropbox(local_filepath, params, logger)
+		notify_master(params, logger)
 		kill_instance(params)
 	except Exception as ex:
-		logging.error('Caught some unexpected exception.')
-		logging.error(str(type(ex)))
-		logging.error(ex)
-		notify_master(params, error=True)
+		logger.log_text('ERROR: Caught some unexpected exception.')
+		logger.log_text(str(type(ex)))
+		logger.log_text(ex)
+		notify_master(params, logger, error=True)
