@@ -448,9 +448,10 @@ class GoogleDropboxDownloadTestCase(GoogleEnvironmentDownloadTestCase):
         self.assertEqual(mock_request.session['session_state'], state)
 
 
+    @mock.patch('transfer_app.downloaders.dropbox_module')
     @mock.patch('transfer_app.downloaders.httplib2')
     @mock.patch('transfer_app.downloaders.transfer_tasks')
-    def test_download_finish_auth(self, mock_tasks, mock_httplib):
+    def test_download_finish_auth(self, mock_tasks, mock_httplib, mock_dropbox_mod):
         download_info = [{'resource_pk':1, 'owner':2},{'resource_pk':2, 'owner':2}]
 
         mock_parser = mock.MagicMock()
@@ -458,6 +459,20 @@ class GoogleDropboxDownloadTestCase(GoogleEnvironmentDownloadTestCase):
         mock_parser.request.return_value = (None, content)
         mock_httplib.Http.return_value = mock_parser
 
+        mock_dropbox_obj = mock.MagicMock()
+
+        mock_individual = mock.MagicMock(allocated=1e10)
+        mock_team = mock.MagicMock(allocated=1e10)
+
+        mock_allocation = mock.MagicMock()
+        mock_allocation.is_team.return_value = False
+        mock_allocation.get_individual.return_value = mock_individual
+        mock_allocation.get_team.return_value = mock_team
+        mock_space_usage = mock.MagicMock(allocation=mock_allocation, used=1000)
+        
+        mock_dropbox_obj.users_get_space_usage.return_value = mock_space_usage
+        mock_dropbox_mod.Dropbox.return_value = mock_dropbox_obj
+        
         mock_download = mock.MagicMock()
         mock_tasks.download = mock_download
 
@@ -610,15 +625,28 @@ class GoogleDriveDownloadTestCase(GoogleEnvironmentDownloadTestCase):
         self.assertEqual(mock_request.session['session_state'], state)
 
 
+    @mock.patch('transfer_app.downloaders.build')
+    @mock.patch('transfer_app.downloaders.google_credentials_module')
     @mock.patch('transfer_app.downloaders.httplib2')
     @mock.patch('transfer_app.downloaders.transfer_tasks')
-    def test_download_finish_auth(self, mock_tasks, mock_httplib):
+    def test_download_finish_auth(self, mock_tasks, \
+        mock_httplib, \
+        mock_google_credentials_module, \
+        mock_build):
         download_info = [{'resource_pk':1, 'owner':2},{'resource_pk':2, 'owner':2}]
 
         mock_parser = mock.MagicMock()
         content = b'{"access_token": "foo"}' # a json-format string
         mock_parser.request.return_value = (None, content)
         mock_httplib.Http.return_value = mock_parser
+
+        mock_credentials_obj = mock.MagicMock()
+        mock_google_credentials_module.Credentials.return_value = mock_credentials_obj
+        mock_service = mock.MagicMock()
+        quota_dict = {'limit': 1e10, 'usage': 1000}
+        about_dict = {'storageQuota': quota_dict}
+        mock_service.about.return_value.get.return_value.execute.return_value = about_dict
+        mock_build.return_value = mock_service
 
         mock_download = mock.MagicMock()
         mock_tasks.download = mock_download
@@ -677,9 +705,6 @@ class GoogleDriveDownloadTestCase(GoogleEnvironmentDownloadTestCase):
 
     def test_download_wrong_auth_http_request(self):
         super()._test_download_wrong_auth_http_request()
-
-    def test_dropbox_downloader_on_google_params(self):
-        super()._test_dropbox_downloader_on_google_params()
 
     def test_warn_of_conflict_case1(self):
         super()._test_warn_of_conflict_case1()

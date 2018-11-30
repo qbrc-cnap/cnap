@@ -398,7 +398,7 @@ class DriveDownloader(Downloader):
 
 class EnvironmentSpecificDownloader(object):
 
-    config_key_list = []
+    config_keys = []
     config_file = settings.DOWNLOADER_CONFIG['CONFIG_PATH']
 
     def __init__(self, download_data):
@@ -408,7 +408,7 @@ class EnvironmentSpecificDownloader(object):
 
         # get the config params for the downloader:
         downloader_cfg = self.downloader_cls.get_config(self.config_file)
-        additional_cfg = utils.load_config(self.config_file, self.config_key_list)
+        additional_cfg = utils.load_config(self.config_file, self.config_keys)
         downloader_cfg.update(additional_cfg)
         self.config_params = downloader_cfg
 
@@ -428,6 +428,9 @@ class EnvironmentSpecificDownloader(object):
 
 class GoogleEnvironmentDownloader(EnvironmentSpecificDownloader, GoogleBase):
 
+    config_keys = []
+    config_keys.extend(GoogleBase.config_keys)
+    config_keys.extend(EnvironmentSpecificDownloader.config_keys)
 
     gcloud_cmd_template = '''{gcloud} beta compute --project={google_project_id} instances \
                              create-with-container {instance_name} \
@@ -493,7 +496,6 @@ class GoogleEnvironmentDownloader(EnvironmentSpecificDownloader, GoogleBase):
         return new_transfers, error_messages
 
     def __init__(self, download_data):
-        self.config_key_list.extend(GoogleBase.config_keys)
         super().__init__(download_data)
 
     def _prep_single_download(self, custom_config, index, item):
@@ -550,9 +552,9 @@ class AWSEnvironmentDownloader(EnvironmentSpecificDownloader, AWSBase):
 class GoogleDropboxDownloader(GoogleEnvironmentDownloader):
     downloader_cls = DropboxDownloader
     config_keys = ['dropbox_in_google',]
+    config_keys.extend(GoogleEnvironmentDownloader.config_keys)
 
     def __init__(self, download_data):
-        self.config_key_list.extend(GoogleDropboxDownloader.config_keys)
         super().__init__(download_data)
 
     def config_and_start_downloads(self):
@@ -567,11 +569,12 @@ class GoogleDropboxDownloader(GoogleEnvironmentDownloader):
 
 
 class GoogleDriveDownloader(GoogleEnvironmentDownloader):
+
     downloader_cls = DriveDownloader
     config_keys = ['drive_in_google',]
+    config_keys.extend(GoogleEnvironmentDownloader.config_keys)
 
     def __init__(self, download_data):
-        self.config_key_list.extend(GoogleDriveDownloader.config_keys)
         super().__init__(download_data)
 
     def config_and_start_downloads(self):

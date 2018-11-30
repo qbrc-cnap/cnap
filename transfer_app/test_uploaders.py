@@ -625,7 +625,6 @@ class DriveGoogleUploadInitTestCase(TestCase):
         source = settings.GOOGLE_DRIVE
         uploader_cls = uploaders.get_uploader(source)
         self.assertEqual(uploader_cls, uploaders.GoogleDriveUploader)
-        
         # prep the upload info as is usually performed:
         upload_info = []
         upload_info.append({'file_id': 'abc123', 'name':'f1.txt', 'drive_token': 'fooToken', 'owner':2})
@@ -636,6 +635,7 @@ class DriveGoogleUploadInitTestCase(TestCase):
         # Recall the launcher is the class that actually creates the worker VMs, which
         # we do not want to do as part of the test
         uploader = uploader_cls(upload_info)
+
         m = mock.MagicMock()
         uploader.launcher = m
 

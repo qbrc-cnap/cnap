@@ -245,7 +245,7 @@ class DriveUploader(Uploader):
 
 class EnvironmentSpecificUploader(object):
 
-    config_key_list = []
+    config_keys = []
     config_file = settings.UPLOADER_CONFIG['CONFIG_PATH']
 
     def __init__(self, upload_data):
@@ -255,7 +255,7 @@ class EnvironmentSpecificUploader(object):
 
         # get the config params for the uploader:
         uploader_cfg = self.uploader_cls.get_config(self.config_file)
-        additional_cfg = utils.load_config(self.config_file, self.config_key_list)
+        additional_cfg = utils.load_config(self.config_file, self.config_keys)
         uploader_cfg.update(additional_cfg)
         self.config_params = uploader_cfg
 
@@ -269,6 +269,10 @@ class EnvironmentSpecificUploader(object):
 
 
 class GoogleEnvironmentUploader(EnvironmentSpecificUploader, GoogleBase):
+
+    config_keys = []
+    config_keys.extend(GoogleBase.config_keys)
+    config_keys.extend(EnvironmentSpecificUploader.config_keys)
 
     gcloud_cmd_template = '''{gcloud} beta compute --project={google_project_id} instances \
                              create-with-container {instance_name} \
@@ -346,7 +350,6 @@ class GoogleEnvironmentUploader(EnvironmentSpecificUploader, GoogleBase):
         return new_transfers, error_messages
 
     def __init__(self, upload_data):
-        self.config_key_list.extend(GoogleBase.config_keys)
         super().__init__(upload_data)
 
     def _prep_single_upload(self, custom_config, index, item):
@@ -397,11 +400,12 @@ class GoogleEnvironmentUploader(EnvironmentSpecificUploader, GoogleBase):
         return cmd
 
 class GoogleDropboxUploader(GoogleEnvironmentUploader):
+
     uploader_cls = DropboxUploader
     config_keys = ['dropbox_in_google',]
+    config_keys.extend(GoogleEnvironmentUploader.config_keys)
 
     def __init__(self, upload_data):
-        self.config_key_list.extend(GoogleDropboxUploader.config_keys)
         super().__init__(upload_data)
 
     def config_and_start_uploads(self):
@@ -416,11 +420,12 @@ class GoogleDropboxUploader(GoogleEnvironmentUploader):
  
 
 class GoogleDriveUploader(GoogleEnvironmentUploader):
+
     uploader_cls = DriveUploader
     config_keys = ['drive_in_google',]
+    config_keys.extend(GoogleEnvironmentUploader.config_keys)
 
     def __init__(self, upload_data):
-        self.config_key_list.extend(GoogleDriveUploader.config_keys)
         super().__init__(upload_data)
 
     def config_and_start_uploads(self):
