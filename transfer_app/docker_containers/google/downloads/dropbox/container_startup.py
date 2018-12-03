@@ -10,14 +10,32 @@ import datetime
 from Crypto.Cipher import DES
 import base64
 import requests
-from google.cloud import storage, logging
+from google.cloud import logging
 from apiclient.discovery import build
 
-WORKING_DIR = '/workspace'
+WORKING_DIR = '/gcs_mount'
 DEFAULT_TIMEOUT = 60
-DEFAULT_CHUNK_SIZE = 100*1024*1024 # dropbox says <150MB per chunk
+DEFAULT_CHUNK_SIZE = 150*1024*1024 # dropbox says <150MB per chunk
 HOSTNAME_REQUEST_URL = 'http://metadata/computeMetadata/v1/instance/hostname'
 GOOGLE_BUCKET_PREFIX = 'gs://'
+
+
+def fuse_mount(bucketname, logger):
+	'''
+	Mounts the bucket to WORKING_DIR
+	'''
+	cmd = 'gcsfuse %s %s' % (bucketname, MOUNT_DIR)
+	logger.log_text('Mount bucket with: %s' % cmd) 
+	p = sp.Popen(cmd, shell=True, stdout=sp.PIPE, stderr=sp.STDOUT)
+	stdout, stderr = p.communicate()
+	if p.returncode != 0:
+		logger.log_text('There was a problem with running the following: %s' % cmd)
+		logger.log_text('stdout: %s' % stdout)
+		logger.log_text('stderr: %s' % stderr)
+		sys.exit(1)
+	else:
+		logger.log_text('Successfully mounted bucket.')
+
 
 def create_logger():
 	"""
@@ -28,6 +46,7 @@ def create_logger():
 	logging_client = logging.Client()
 	logger = logging_client.logger(logname)
 	return logger
+
 
 def notify_master(params, logger, error=False):
 	'''
@@ -52,27 +71,6 @@ def notify_master(params, logger, error=False):
 	response = requests.post(base_url, data=d)
 	logger.log_text('Status code: %s' % response.status_code)
 	logger.log_text('Response text: %s' % response.text)
-
-
-def download_to_disk(params, logger):
-	'''
-	Downloads the file from the bucket to the local disk.
-	'''
-	src = params['resource_path']
-	src_without_prefix = src[len(GOOGLE_BUCKET_PREFIX):] # remove the prefix
-	contents = src_without_prefix.split('/')
-	bucket_name = contents[0]
-	object_name = '/'.join(contents[1:])
-	basename = os.path.basename(object_name)
-	local_path = os.path.join(WORKING_DIR, basename)
-
-	storage_client = storage.Client()
-	source_bucket = storage_client.get_bucket(bucket_name)
-	source_blob = source_bucket.blob(object_name)
-	logger.log_text('Download file from %s to %s' % (src, local_path))
-	source_blob.download_to_filename(local_path)
-	logger.log_text('Completed download to disk')
-	return local_path
 
 
 def send_to_dropbox(local_filepath, params, logger):
@@ -180,7 +178,11 @@ if __name__ == '__main__':
 		params = parse_args()
 		os.mkdir(WORKING_DIR)
 		logger = create_logger()
-		local_filepath = download_to_disk(params, logger)
+		split_resource_path_no_prefix = params['resource_path'][len(GOOGLE_BUCKET_PREFIX):].split('/')
+		bucketname = split_resource_path_no_prefix[0]
+		object_name = '/'.join(split_resource_path_no_prefix[1:])
+		fuse_mount(bucketname, logger)
+		local_filepath = os.path.join(WORKING_DIR, object_name)
 		send_to_dropbox(local_filepath, params, logger)
 		notify_master(params, logger)
 		kill_instance(params)

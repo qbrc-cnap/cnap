@@ -436,6 +436,7 @@ class GoogleEnvironmentDownloader(EnvironmentSpecificDownloader, GoogleBase):
                              create-with-container {instance_name} \
                              --zone={google_zone} \
                              --scopes={scopes} \
+                             --container-privileged \
                              --machine-type={machine_type} \
                              --boot-disk-size={disk_size_gb}GB \
                              --metadata=google-logging-enabled=true \
