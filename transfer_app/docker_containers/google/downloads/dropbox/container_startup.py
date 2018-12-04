@@ -3,7 +3,7 @@
 import os
 import sys
 import io
-import subprocess
+import subprocess as sp
 import argparse
 import dropbox
 import datetime
@@ -13,7 +13,7 @@ import requests
 from google.cloud import logging
 from apiclient.discovery import build
 
-WORKING_DIR = '/gcs_mount'
+MOUNT_DIR = '/gcs_mount'
 DEFAULT_TIMEOUT = 60
 DEFAULT_CHUNK_SIZE = 150*1024*1024 # dropbox says <150MB per chunk
 HOSTNAME_REQUEST_URL = 'http://metadata/computeMetadata/v1/instance/hostname'
@@ -22,7 +22,7 @@ GOOGLE_BUCKET_PREFIX = 'gs://'
 
 def fuse_mount(bucketname, logger):
 	'''
-	Mounts the bucket to WORKING_DIR
+	Mounts the bucket to MOUNT_DIR
 	'''
 	cmd = 'gcsfuse %s %s' % (bucketname, MOUNT_DIR)
 	logger.log_text('Mount bucket with: %s' % cmd) 
@@ -35,6 +35,23 @@ def fuse_mount(bucketname, logger):
 		sys.exit(1)
 	else:
 		logger.log_text('Successfully mounted bucket.')
+
+
+def unmount_fuse(logger):
+	'''
+	UNmounts the bucket mounted at MOUNT_DIR
+	'''
+	cmd = 'fusermount -u %s ' % MOUNT_DIR
+	logger.log_text('UNmount bucket with: %s' % cmd) 
+	p = sp.Popen(cmd, shell=True, stdout=sp.PIPE, stderr=sp.STDOUT)
+	stdout, stderr = p.communicate()
+	if p.returncode != 0:
+		logger.log_text('There was a problem with running the following: %s' % cmd)
+		logger.log_text('stdout: %s' % stdout)
+		logger.log_text('stderr: %s' % stderr)
+		sys.exit(1)
+	else:
+		logger.log_text('Successfully unmounted the temporary bucket.')
 
 
 def create_logger():
@@ -173,19 +190,115 @@ def parse_args():
 	return params
 
 
+def create_tmp_bucketstore(params, logger):
+	'''
+	We will eventually be using GCSFuse to mount the bucket containing the file
+	Unfortunately, GCSFuse requires storage equivalent to the total bucket size.
+	If you are transferring a single file from a bucket that consumes a lot of storage, this
+	is wasteful.  Instead, here we create a temp bucket where we copy the file.  Then we mount
+	THAT bucket, keeping the hard disk footprint small.  The transfer between buckets is fast/free
+	'''
+
+	# create the storage driver:
+	logger.log_text('Create API client to copy to temp bucket')
+	storage_client = build('storage', 'v1')
+
+	# create a tmp bucket:
+	hostname = get_hostname()
+	tmp_bucket_name = '%s-tmp-for-gcsfuse' % hostname
+	logger.log_text('Will create a temporary bucket at %s' % tmp_bucket_name)
+
+	# parse the location of the object we are copying:
+	split_resource_path_no_prefix = params['resource_path'][len(GOOGLE_BUCKET_PREFIX):].split('/')
+	original_bucketname = split_resource_path_no_prefix[0]
+	object_name = '/'.join(split_resource_path_no_prefix[1:])
+
+	# try to create the tmp bucket:
+	try:
+		logger.log_text('About to create bucket...')
+		request_body = {}
+		request_body['name']=tmp_bucket_name
+		storage_client.buckets().insert(
+			project=params['google_project_id'], 
+			body=request_body
+			).execute()
+		logger.log_text('Creating bucket succeeded!')
+	except Exception as ex:
+		raise Exception('Could not create bucket.  Error was ' % ex)
+
+	# copy the file over using the rewrite method.  The basic copy had issues with timeout on large copy
+	logger.log_text('Going to start the copy/rewrite...')
+	try:
+		i = 0
+		done = False
+		token = None # for chunked requests, we send a token on subsequent requests
+		while not done:
+			logger.log_text('Transfer chunk %d' % i)
+			response = storage_client.objects().rewrite(sourceBucket=original_bucketname, \
+				sourceObject=object_name, \
+				destinationBucket=tmp_bucket_name, \
+				destinationObject=object_name, rewriteToken=token, body={}).execute()
+			done = response['done']
+			if not done:
+				total_bytes_copied = int(response['totalBytesRewritten']) # a string
+				total_size = int(response['objectSize'])
+				fraction = total_bytes_copied/total_size
+				logger.log_text('Progress: %.2f%% complete' % (100*fraction))
+				token = response['rewriteToken']
+				i += 1
+
+		logger.log_text('Copy completed.')
+		return tmp_bucket_name, object_name
+	except Exception as ex:
+		raise Exception('Issue when copying to tmp bucket.')
+
+
+def cleanup_tmp(tmp_bucketname, logger):
+	'''
+	Cleans up the temporary bucket we created
+	'''
+	logger.log_text('Create API client to perform deletion of temp bucket')
+	storage_client = build('storage', 'v1')
+	# try to create the tmp bucket:
+	try:
+		logger.log_text('About to delete bucket...')
+		storage_client.buckets().delete(bucket=tmp_bucketname).execute()
+		logger.log_text('Temporary bucket deletion succeeded!')
+	except Exception as ex:
+		raise Exception('Could not delete bucket.  Error was ' % ex)
+
+
 if __name__ == '__main__':
 	try:
+
+		# get the arguments passed to this script
 		params = parse_args()
-		os.mkdir(WORKING_DIR)
+
+		# the directory where the bucket will be mounted to:
+		os.mkdir(MOUNT_DIR)
+
+		# create the logger so we can see what goes wrong...
 		logger = create_logger()
-		split_resource_path_no_prefix = params['resource_path'][len(GOOGLE_BUCKET_PREFIX):].split('/')
-		bucketname = split_resource_path_no_prefix[0]
-		object_name = '/'.join(split_resource_path_no_prefix[1:])
-		fuse_mount(bucketname, logger)
-		local_filepath = os.path.join(WORKING_DIR, object_name)
+
+		# to avoid mounting huge buckets, simply create a temp bucket and copy
+		# the file there.  
+		tmp_bucketname, object_name = create_tmp_bucketstore(params, logger)
+
+		# now mount that temporary bucket
+		fuse_mount(tmp_bucketname, logger)
+
+		# get the location of the mounted file and send it off.
+		local_filepath = os.path.join(MOUNT_DIR, object_name)
 		send_to_dropbox(local_filepath, params, logger)
+
+		# unmount the bucket and cleanup:
+		unmount_fuse(logger)
+		cleanup_tmp(tmp_bucketname, logger)
+
+		# send notifications and kill this VM:
 		notify_master(params, logger)
 		kill_instance(params)
+
 	except Exception as ex:
 		logger.log_text('ERROR: Caught some unexpected exception.')
 		logger.log_text(str(type(ex)))
