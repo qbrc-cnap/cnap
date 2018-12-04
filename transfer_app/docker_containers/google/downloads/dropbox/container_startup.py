@@ -18,6 +18,7 @@ DEFAULT_TIMEOUT = 60
 DEFAULT_CHUNK_SIZE = 150*1024*1024 # dropbox says <150MB per chunk
 HOSTNAME_REQUEST_URL = 'http://metadata/computeMetadata/v1/instance/hostname'
 GOOGLE_BUCKET_PREFIX = 'gs://'
+MAX_CONSECUTIVE_ERRORS = 5
 
 
 def fuse_mount(bucketname, logger):
@@ -228,17 +229,19 @@ def create_tmp_bucketstore(params, logger):
 
 	# copy the file over using the rewrite method.  The basic copy had issues with timeout on large copy
 	logger.log_text('Going to start the copy/rewrite...')
-	try:
-		i = 0
-		done = False
-		token = None # for chunked requests, we send a token on subsequent requests
-		while not done:
-			logger.log_text('Transfer chunk %d' % i)
+	consecutive_errors = 0
+	i = 0
+	done = False
+	token = None # for chunked requests, we send a token on subsequent requests
+	while not done:
+		logger.log_text('Bucket-to-bucket transfer chunk %d' % i)
+		try:
 			response = storage_client.objects().rewrite(sourceBucket=original_bucketname, \
 				sourceObject=object_name, \
 				destinationBucket=tmp_bucket_name, \
 				destinationObject=object_name, rewriteToken=token, body={}).execute()
 			done = response['done']
+			consecutive_errors = 0
 			if not done:
 				total_bytes_copied = int(response['totalBytesRewritten']) # a string
 				total_size = int(response['objectSize'])
@@ -246,11 +249,16 @@ def create_tmp_bucketstore(params, logger):
 				logger.log_text('Progress: %.2f%% complete' % (100*fraction))
 				token = response['rewriteToken']
 				i += 1
+		except Exception as ex:
+			logger.log_text('Issue when copying to tmp bucket')
+			logger.log_text(type(ex))
+			logger.log_text(ex)
+			consecutive_errors +=1
+			if consecutive_errors >= MAX_CONSECUTIVE_ERRORS:
+				raise Exception('Exceeded the maximum number of allowable consecutive failures.')
 
 		logger.log_text('Copy completed.')
 		return tmp_bucket_name, object_name
-	except Exception as ex:
-		raise Exception('Issue when copying to tmp bucket.')
 
 
 def cleanup_tmp(tmp_bucketname, logger):
