@@ -517,8 +517,23 @@ class GoogleEnvironmentDownloader(EnvironmentSpecificDownloader, GoogleBase):
             index
         )
 
-        # approx size in Gb so we can size the VM appropriately
-        size_in_gb = item['size_in_bytes']/1e9
+        # when we start the VM, we use GCSfuse to mount the bucket.  
+        # This requires space sufficient to mount the ENTIRE contents of the bucket
+        # Alternative mechanisms were considered (e.g. copying the file to a new, temp bucket)
+        # but that effort is only worth it if a very large file is co-locatded with
+        # other large files (e.g. 1000's of Gb).  Typically, the shorter VM uptime
+        # is worth it.  Also avoids potential errors in the bucket-to-bucket copy
+        # and any associated costs with that.
+        gs_prefix = settings.CONFIG_PARAMS['google_storage_gs_prefix']
+        bucketname = item['path'][len(gs_prefix):].split('/')[0]
+
+        # query the bucket for the full size:
+        total_bucket_contents_in_bytes = 0
+        storage_client = build('storage', 'v1') 
+        response = storage_client.objects().list(bucket=bucketname).execute()
+        for x in response['items']:
+            total_bucket_contents_in_bytes += int(x['size'])
+        size_in_gb = total_bucket_contents_in_bytes/(1024**3)
         target_disk_size = int(disk_size_factor*size_in_gb)
         if target_disk_size < min_disk_size:
             target_disk_size = min_disk_size
