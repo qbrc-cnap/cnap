@@ -297,12 +297,10 @@ if __name__ == '__main__':
 		# create the logger so we can see what goes wrong...
 		logger = create_logger()
 
-		# to avoid mounting huge buckets, simply create a temp bucket and copy
-		# the file there.  
-		tmp_bucketname, object_name = create_tmp_bucketstore(params, logger)
+		bucketname, object_name = create_tmp_bucketstore(params, logger)
 
-		# now mount that temporary bucket
-		fuse_mount(tmp_bucketname, logger)
+		# now mount that bucket
+		fuse_mount(bucketname, logger)
 
 		# get the location of the mounted file and send it off.
 		local_filepath = os.path.join(MOUNT_DIR, object_name)
