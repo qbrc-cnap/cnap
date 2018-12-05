@@ -191,100 +191,6 @@ def parse_args():
 	return params
 
 
-def create_tmp_bucketstore(params, logger):
-	'''
-	We will eventually be using GCSFuse to mount the bucket containing the file
-	Unfortunately, GCSFuse requires storage equivalent to the total bucket size.
-	If you are transferring a single file from a bucket that consumes a lot of storage, this
-	is wasteful.  Instead, here we create a temp bucket where we copy the file.  Then we mount
-	THAT bucket, keeping the hard disk footprint small.  The transfer between buckets is fast/free
-	'''
-
-	# create the storage driver:
-	logger.log_text('Create API client to copy to temp bucket')
-	storage_client = build('storage', 'v1')
-
-	# create a tmp bucket:
-	hostname = get_hostname()
-	tmp_bucket_name = '%s-tmp-for-gcsfuse' % hostname
-	logger.log_text('Will create a temporary bucket at %s' % tmp_bucket_name)
-
-	# parse the location of the object we are copying:
-	split_resource_path_no_prefix = params['resource_path'][len(GOOGLE_BUCKET_PREFIX):].split('/')
-	original_bucketname = split_resource_path_no_prefix[0]
-	object_name = '/'.join(split_resource_path_no_prefix[1:])
-
-	# try to create the tmp bucket:
-	try:
-		logger.log_text('About to create bucket...')
-		request_body = {}
-		request_body['name']=tmp_bucket_name
-		storage_client.buckets().insert(
-			project=params['google_project_id'], 
-			body=request_body
-			).execute()
-		logger.log_text('Creating bucket succeeded!')
-	except Exception as ex:
-		raise Exception('Could not create bucket.  Error was ' % ex)
-
-	# copy the file over using the rewrite method.  The basic copy had issues with timeout on large copy
-	logger.log_text('Going to start the copy/rewrite...')
-	consecutive_errors = 0
-	i = 0
-	done = False
-	token = None # for chunked requests, we send a token on subsequent requests
-	while not done:
-		logger.log_text('Bucket-to-bucket transfer chunk %d' % i)
-		try:
-			logger.log_text('Send request...')
-			response = storage_client.objects().rewrite(sourceBucket=original_bucketname, \
-				sourceObject=object_name, \
-				destinationBucket=tmp_bucket_name, \
-				destinationObject=object_name, rewriteToken=token, body={}).execute()
-			logger.log_text('Response: %s' % response)
-			done = response['done']
-			consecutive_errors = 0
-			if not done:
-				total_bytes_copied = int(response['totalBytesRewritten']) # a string
-				total_size = int(response['objectSize'])
-				fraction = total_bytes_copied/total_size
-				logger.log_text('Progress: %.2f%% complete' % (100*fraction))
-				token = response['rewriteToken']
-				i += 1
-		except Exception as ex:
-			done = False
-			logger.log_text('Issue when copying to tmp bucket')
-			logger.log_text(type(ex))
-			logger.log_text(ex)
-			consecutive_errors +=1
-			logger.log_text('Consecutive errors: %d' % consecutive_errors)
-			if consecutive_errors >= MAX_CONSECUTIVE_ERRORS:
-				raise Exception('Exceeded the maximum number of allowable consecutive failures.')
-
-	logger.log_text('Copy completed.')
-	return tmp_bucket_name, object_name
-
-
-def cleanup_tmp(tmp_bucketname, objectname, logger):
-	'''
-	Cleans up the temporary file/bucket we created
-	'''
-	logger.log_text('Create API client to perform deletion of temp bucket')
-	storage_client = build('storage', 'v1')
-	# try to create the tmp bucket:
-	try:
-		logger.log_text('About to delete object...')
-		storage_client.objects().delete(bucket=tmp_bucketname, object=objectname).execute()
-		logger.log_text('Object deletion succeeded!')
-
-		logger.log_text('About to delete bucket...')
-		storage_client.buckets().delete(bucket=tmp_bucketname).execute()
-		logger.log_text('Temporary bucket deletion succeeded!')
-	except Exception as ex:
-		logger.log_text('Exception raised during object/bucket deletion: %s' % ex)
-		raise ex
-
-
 if __name__ == '__main__':
 	try:
 
@@ -297,7 +203,9 @@ if __name__ == '__main__':
 		# create the logger so we can see what goes wrong...
 		logger = create_logger()
 
-		bucketname, object_name = create_tmp_bucketstore(params, logger)
+		split_resource_path_no_prefix = params['resource_path'][len(GOOGLE_BUCKET_PREFIX):].split('/')
+		bucketname = split_resource_path_no_prefix[0]
+		object_name = '/'.join(split_resource_path_no_prefix[1:])
 
 		# now mount that bucket
 		fuse_mount(bucketname, logger)
@@ -308,7 +216,6 @@ if __name__ == '__main__':
 
 		# unmount the bucket and cleanup:
 		unmount_fuse(logger)
-		cleanup_tmp(tmp_bucketname, object_name, logger)
 
 		# send notifications and kill this VM:
 		notify_master(params, logger)
