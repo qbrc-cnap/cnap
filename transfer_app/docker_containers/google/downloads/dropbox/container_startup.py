@@ -236,6 +236,7 @@ def create_tmp_bucketstore(params, logger):
 	while not done:
 		logger.log_text('Bucket-to-bucket transfer chunk %d' % i)
 		try:
+			logger.log_text('Send request')
 			response = storage_client.objects().rewrite(sourceBucket=original_bucketname, \
 				sourceObject=object_name, \
 				destinationBucket=tmp_bucket_name, \
@@ -254,11 +255,11 @@ def create_tmp_bucketstore(params, logger):
 			logger.log_text(type(ex))
 			logger.log_text(ex)
 			consecutive_errors +=1
+			logger.log_text('Consecutive errors: %d' % consecutive_error)
 			if consecutive_errors >= MAX_CONSECUTIVE_ERRORS:
 				raise Exception('Exceeded the maximum number of allowable consecutive failures.')
-
-		logger.log_text('Copy completed.')
-		return tmp_bucket_name, object_name
+	logger.log_text('Copy completed.')
+	return tmp_bucket_name, object_name
 
 
 def cleanup_tmp(tmp_bucketname, logger):
