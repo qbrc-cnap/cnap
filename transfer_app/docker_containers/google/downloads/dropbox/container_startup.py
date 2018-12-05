@@ -236,10 +236,12 @@ def create_tmp_bucketstore(params, logger):
 	while not done:
 		logger.log_text('Bucket-to-bucket transfer chunk %d' % i)
 		try:
+			logger.log_text('Send request...')
 			response = storage_client.objects().rewrite(sourceBucket=original_bucketname, \
 				sourceObject=object_name, \
 				destinationBucket=tmp_bucket_name, \
 				destinationObject=object_name, rewriteToken=token, body={}).execute()
+			logger.log_text('Response: %s' % response)
 			done = response['done']
 			consecutive_errors = 0
 			if not done:
@@ -250,30 +252,37 @@ def create_tmp_bucketstore(params, logger):
 				token = response['rewriteToken']
 				i += 1
 		except Exception as ex:
+			done = False
 			logger.log_text('Issue when copying to tmp bucket')
 			logger.log_text(type(ex))
 			logger.log_text(ex)
 			consecutive_errors +=1
+			logger.log_text('Consecutive errors: %d' % consecutive_errors)
 			if consecutive_errors >= MAX_CONSECUTIVE_ERRORS:
 				raise Exception('Exceeded the maximum number of allowable consecutive failures.')
 
-		logger.log_text('Copy completed.')
-		return tmp_bucket_name, object_name
+	logger.log_text('Copy completed.')
+	return tmp_bucket_name, object_name
 
 
-def cleanup_tmp(tmp_bucketname, logger):
+def cleanup_tmp(tmp_bucketname, objectname, logger):
 	'''
-	Cleans up the temporary bucket we created
+	Cleans up the temporary file/bucket we created
 	'''
 	logger.log_text('Create API client to perform deletion of temp bucket')
 	storage_client = build('storage', 'v1')
 	# try to create the tmp bucket:
 	try:
+		logger.log_text('About to delete object...')
+		storage_client.objects().delete(bucket=tmp_bucketname, object=objectname).execute()
+		logger.log_text('Object deletion succeeded!')
+
 		logger.log_text('About to delete bucket...')
 		storage_client.buckets().delete(bucket=tmp_bucketname).execute()
 		logger.log_text('Temporary bucket deletion succeeded!')
 	except Exception as ex:
-		raise Exception('Could not delete bucket.  Error was ' % ex)
+		logger.log_text('Exception raised during object/bucket deletion: %s' % ex)
+		raise ex
 
 
 if __name__ == '__main__':
@@ -301,7 +310,7 @@ if __name__ == '__main__':
 
 		# unmount the bucket and cleanup:
 		unmount_fuse(logger)
-		cleanup_tmp(tmp_bucketname, logger)
+		cleanup_tmp(tmp_bucketname, object_name, logger)
 
 		# send notifications and kill this VM:
 		notify_master(params, logger)
