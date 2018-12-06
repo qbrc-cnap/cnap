@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+{% block content %}
+
+        <form id="analysis-creation-form" action="">
+		
+		{% csrf_token %}
+		
+                <input type="hidden" id="workflow_id" name="workflow_id" value="" dataTarget="workflow_id">
+                <input type="hidden" id="version_id" name="version_id" value="" dataTarget="version_id">
+
+		<!-- Form elements are inserted here -->
+		
+			<h3>
+    Input files:
+</h3>
+<p>
+    Choose files to concatenate
+</p>
+<table id="chooser-table-0" class="custom-table"
+    
+    multiple-select-enabled
+    
+    dataTarget="input_files"
+>
+    <thead>
+        <tr>
+            <th>
+                
+                <input 
+                    class="select-all-checkbox" 
+                    table-target="chooser-table-0" 
+                    type="checkbox"/>
+                
+
+            </th>
+            <th>Filename</th>
+            <th>File size</th>
+        </tr>
+    </thead>
+    <tbody>
+        
+        {% for resource in user_resources %}
+        <tr>
+            <td>
+                <input class="download-selector" type="checkbox" target="{{resource.id}}"/>
+            </td>
+            <td>
+                {{resource.name}}
+            </td>
+            <td>
+                {{resource.human_readable_size}}
+            </td>
+        </tr>`
+        {% endfor %}
+        
+    </tbody>
+</table>
+		
+			<div class="form-group">
+    <label for="1">Output filename:</label>
+    <input type="text" 
+        class="form-control" 
+        name="TestWorkflow.outputFilename" 
+        id="1"  
+        placeholder=""
+        maxlength="" 
+        minlength="" 
+        required 
+        dataTarget="TestWorkflow.outputFilename"
+    >
+</div>
+		
+		<button id="submit-form" class="btn btn-primary">Next</button>			
+        </form>{% endblock%}
+

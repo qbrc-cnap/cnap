@@ -1,0 +1,5 @@
+{
+  "TestWorkflow.outputFilename": "String",
+  "TestWorkflow.inputs": "Array[File]"
+}
+
