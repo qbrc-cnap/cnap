@@ -4,6 +4,7 @@ import json
 from importlib import import_module
 
 from django.conf import settings
+from django.http import HttpResponseBadRequest
 
 from .models import Workflow
 
@@ -56,8 +57,6 @@ def fill_context(request, workflow_obj, context_dict):
 
     # remove the workflow dir so it doesn't clutter the python path
     sys.path.remove(location)
-
-
 
 
 def get_workflow(workflow_id, version_id=None, admin_request=False):
@@ -148,12 +147,7 @@ def fill_wdl_input(request, data):
 
     `data` is a dictionary of the payload POST'd from the frontend
     '''
-
-    try:
-        workflow_obj = get_workflow(data[WORKFLOW_ID], data[VERSION_ID], request.user.is_staff)
-    except Exception:
-        return HttpResponseBadRequest('Error when querying for workflow.')
- 
+    workflow_obj = get_workflow(data[WORKFLOW_ID], data[VERSION_ID], request.user.is_staff)
     workflow_dir = workflow_obj.workflow_location
     location = os.path.join(settings.BASE_DIR, workflow_dir)
 
@@ -166,20 +160,27 @@ def fill_wdl_input(request, data):
     wdl_input_json = json.load(open(wdl_input_path))
     required_inputs = list(wdl_input_json.keys())
 
-    # load the gui spec:
+    # load the gui spec and create a dictionary:
     gui_spec_path = os.path.join(location,
         settings.USER_GUI_SPEC_NAME)
     gui_spec_json = json.load(open(gui_spec_path))
 
+    # for tracking which inputs were found.  We can then see that all the required
+    # inputs were indeed specified
+    found_inputs = [] 
+
+    # iterate through the input elements that were specified for the GUI
     for element in gui_spec_json[INPUT_ELEMENTS]:
         target = element[TARGET]
         if type(target)==str and target in wdl_input_json:
             # if the GUI specified a string input, it is supposed to directly
             # map to a WDL input.  If not, something has been corrupted.
             try:
-                value = data[target]
-                wdl_input_json[target] = value
+                value = data[target] # get the value of the input from the frontend
+                wdl_input_json[target] = value # set the value in the dict of WDL inputs
+                found_inputs.append(target)
             except KeyError:
+                # if either of those key lookups failed, this exception will be raised
                 raise Exception('The key "%s" was not in either the data payload (%s) '
                     'or the WDL input (%s)' % (target, data, wdl_input_json))
         elif type(target)==dict:
@@ -188,8 +189,11 @@ def fill_wdl_input(request, data):
             if target[NAME] in data:
                 unmapped_data = data[target[NAME]]
 
-                # unmapped_data could effectively be anything, so we need to have custom
-                # code which takes that and properly maps it to the WDL inputs
+                # unmapped_data could effectively be anything.  Its format
+                # is dictated by some javascript code.  For example, a file chooser
+                # could send data to the backend in a variety of formats, and that format
+                # is determined solely by the author of the workflow.  We need to have custom
+                # code which takes that payload and properly maps it to the WDL inputs
 
                 # Get the handler code:
                 handler_path = os.path.join(workflow_dir, target[HANDLER])
@@ -202,6 +206,7 @@ def fill_wdl_input(request, data):
                     for key, val in map_dict.items():
                         if key in wdl_input_json:
                             wdl_input_json[key] = val
+                            found_inputs.append(key)
                         else:
                            raise Exception('Problem!  After mapping the front-'
                                 'end to WDL inputs using the map \n%s\n'
@@ -218,7 +223,13 @@ def fill_wdl_input(request, data):
             raise Exception('Unexpected object encountered when trying to map front-end '
                 'to WDL inputs.')
 
-    print(wdl_input_json)
+    if len(set(required_inputs).difference(set(found_inputs))) > 0:
+        raise Exception('The set of required inputs was %s, and the set of found '
+            'inputs was %s' % (required_inputs, found_inputs)
+        )
+    else:
+        print(wdl_input_json)
+        #TODO: submit?
 
     # remove the workflow dir so it doesn't clutter the python path
     sys.path.remove(location)

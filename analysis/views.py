@@ -106,7 +106,11 @@ class AnalysisView(View):
         j['version_id'] = version_id
 
         # Fill out the template for the WDL input
-        fill_wdl_input(request, j)
+        try:
+            fill_wdl_input(request, j)
+        except Exception as ex:
+            return HttpResponseBadRequest('Error when instantiating workflow.')
+
 
         return render(request, 'analysis/home.html', {'msg': 'post view'})
 
