@@ -6,36 +6,75 @@ import argparse
 import time
 import random
 import datetime
-import logging
 from Crypto.Cipher import DES
 import base64
 import requests
-from google.cloud import storage
+import subprocess as sp
+import googleapiclient
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 import google.oauth2.credentials
+from google.cloud import logging
 
-WORKING_DIR = '/workspace'
+
+MOUNT_DIR = '/gcs_mount'
 HOSTNAME_REQUEST_URL = 'http://metadata/computeMetadata/v1/instance/hostname'
 GOOGLE_BUCKET_PREFIX = 'gs://'
 MAX_FAILS = 10
 BACKOFF_CONST = 1e-4 # for exponential backoff.  See function
 
+
+
+def fuse_mount(bucketname, logger):
+	'''
+	Mounts the bucket to MOUNT_DIR
+	'''
+	cmd = 'gcsfuse %s %s' % (bucketname, MOUNT_DIR)
+	logger.log_text('Mount bucket with: %s' % cmd) 
+	p = sp.Popen(cmd, shell=True, stdout=sp.PIPE, stderr=sp.STDOUT)
+	stdout, stderr = p.communicate()
+	if p.returncode != 0:
+		logger.log_text('There was a problem with running the following: %s' % cmd)
+		logger.log_text('stdout: %s' % stdout)
+		logger.log_text('stderr: %s' % stderr)
+		sys.exit(1)
+	else:
+		logger.log_text('Successfully mounted bucket.')
+
+
+def unmount_fuse(logger):
+	'''
+	UNmounts the bucket mounted at MOUNT_DIR
+	'''
+	cmd = 'fusermount -u %s ' % MOUNT_DIR
+	logger.log_text('UNmount bucket with: %s' % cmd) 
+	p = sp.Popen(cmd, shell=True, stdout=sp.PIPE, stderr=sp.STDOUT)
+	stdout, stderr = p.communicate()
+	if p.returncode != 0:
+		logger.log_text('There was a problem with running the following: %s' % cmd)
+		logger.log_text('stdout: %s' % stdout)
+		logger.log_text('stderr: %s' % stderr)
+		sys.exit(1)
+	else:
+		logger.log_text('Successfully unmounted the temporary bucket.')
+
+
 def create_logger():
 	"""
-	Creates a logfile
+	Creates a log in Stackdriver
 	"""
-	timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M")
-	logfile = os.path.join(WORKING_DIR, str(timestamp)+".drive_transfer.log")
-	print('Create logfile at %s' % logfile)
-	logging.basicConfig(filename=logfile, level=logging.INFO, format="%(asctime)s:%(levelname)s:%(message)s")
-	return logfile
+	instance_name = get_hostname()
+	logname = '%s.log' % instance_name
+	logging_client = logging.Client()
+	logger = logging_client.logger(logname)
+	return logger
 
-def notify_master(params, error=False):
+
+def notify_master(params, logger, error=False):
 	'''
 	This calls back to the head machine to let it know the work is finished.
 	'''
-	logging.info('Notifying the master that this job has completed')
+	logger.log_text('Notifying the master that this job has completed')
 
 	# the payload dictinary:
 	d = {}
@@ -52,27 +91,17 @@ def notify_master(params, error=False):
 	d['success'] = 0 if error else 1
 	base_url = params['callback_url']
 	response = requests.post(base_url, data=d)
-	logging.info('Status code: %s' % response.status_code)
-	logging.info('Response text: %s' % response.text)
+	logger.log_text('Status code: %s' % response.status_code)
+	logger.log_text('Response text: %s' % response.text)
 
 
-def download_to_disk(params):
-	'''
-	Downloads the file from the bucket to the local disk.
-	'''
-	src = params['resource_path']
-	src_without_prefix = src[len(GOOGLE_BUCKET_PREFIX):] # remove the prefix
-	contents = src_without_prefix.split('/')
-	bucket_name = contents[0]
-	object_name = '/'.join(contents[1:])
-	basename = os.path.basename(object_name)
-	local_path = os.path.join(WORKING_DIR, basename)
-
-	storage_client = storage.Client()
-	source_bucket = storage_client.get_bucket(bucket_name)
-	source_blob = source_bucket.blob(object_name)
-	source_blob.download_to_filename(local_path)
-	return local_path
+def get_hostname():
+	headers = {'Metadata-Flavor':'Google'}
+	response = requests.get(HOSTNAME_REQUEST_URL, headers=headers)
+	content = response.content.decode('utf-8')
+	instance_name = content.split('.')[0]
+	return instance_name
+	
 
 def make_request(drive_service, name, upload):
 	'''
@@ -85,63 +114,77 @@ def make_request(drive_service, name, upload):
 	)
 
 
-def backoff(fail_num):
+def backoff(fail_num, logger):
+	logger.log_text('Fail number %d' % fail_num)
 	if fail_num == 0:
 		t = BACKOFF_CONST*random.random()
 	else:
 		f = 2**fail_num
 		t = BACKOFF_CONST*random.randint(1,f)
+	logger.log_text('Sleep for %d' % t)
 	time.sleep(t)
+	logger.log_text('Done sleeping.  Try request again.')
 	return
 
 
-def send_to_drive(local_filepath, params):
+def send_to_drive(local_filepath, params, logger):
 	'''
 	local_filepath is the path on the VM/container of the file that
 	was already downloaded.
 	'''
 	access_token = params['access_token']
 	credentials = google.oauth2.credentials.Credentials(access_token)
+	logger.log_text('About to build Google Drive service')
 	drive_service = build('drive', 'v3', credentials=credentials)
+	logger.log_text('Drive service built.  Instantiate upload.')
 	upload = MediaFileUpload(local_filepath, resumable=True)
+	logger.log_text('Make initial request to upload %s to Drive' % local_filepath)
+
 	request = make_request(drive_service, 
 		os.path.basename(local_filepath), 
 		upload
 	)
 	response = None
-	fails = 0
+	consecutive_fails = 0
+	chunk_number = 0
 	while response is None:
 		try:
+			logger.log_text('Prior to sending chunk %d to Drive' % chunk_number)
 			status, response = request.next_chunk()
-		except apiclient.errors.HttpError as e:
+			logger.log_text('Completed sending chunk %d to Drive' % chunk_number)
+			consecutive_fails = 0 # reset the fail counter since a chunk successfully transferred
+			chunk_number += 1
+		except googleapiclient.errors.HttpError as e:
+			logger.log_text('Caught an API exception!')
 			if e.resp.status in [404]:
 				# Start the upload all over again.
+				logger.log_text('The response was a 404.  Restart everything.')
 				request = make_request(drive_service, 
 					os.path.basename(local_filepath), 
 					upload 
 				)
 			elif e.resp.status in [500, 502, 503, 504]:
 				# Call next_chunk() again, but use an exponential backoff for repeated errors.
-				backoff(fails)
-				if fails > MAX_FAILS:
+				logger.log_text('The response was 5xx.  Try a backoff to see if the problem resolves.')
+				backoff(consecutive_fails, logger)
+				if consecutive_fails > MAX_FAILS:
+					logger.log_text('Too many consecutive failures happened.  Bailing.')
 					raise Exception('Too many failures')
 				else:
-					fails += 1
+					consecutive_fails += 1
 			else:
 				# Do not retry. Raise exception
+				logger.log_text('The error status was not 404 or 5xx.  Bailing since this was an unexpected exception.')
 				raise e
 		if status:
-			logging.info('Uploaded %d%%.' % int(status.progress() * 100))
+			logger.log_text('Uploaded %d%%.' % int(status.progress() * 100))
 
 
 def kill_instance(params):
 	'''
 	Removes the virtual machine
 	'''
-	headers = {'Metadata-Flavor':'Google'}
-	response = requests.get(HOSTNAME_REQUEST_URL, headers=headers)
-	content = response.content.decode('utf-8')
-	instance_name = content.split('.')[0]
+	instance_name = get_hostname()
 	compute = build('compute', 'v1')
 	compute.instances().delete(project=params['google_project_id'],
 		zone=params['google_zone'], 
@@ -174,15 +217,33 @@ def parse_args():
 if __name__ == '__main__':
 	try:
 		params = parse_args()
-		os.mkdir(WORKING_DIR)
-		logfile = create_logger()
-		params['logfile'] = logfile
-		local_filepath = download_to_disk(params)
-		send_to_drive(local_filepath, params)
-		notify_master(params)
+
+		# create the location where we mount the bucket:
+		os.mkdir(MOUNT_DIR)
+
+		# instantiate the stackdriver logger:
+		logger = create_logger()
+
+		split_resource_path_no_prefix = params['resource_path'][len(GOOGLE_BUCKET_PREFIX):].split('/')
+		bucketname = split_resource_path_no_prefix[0]
+		object_name = '/'.join(split_resource_path_no_prefix[1:])
+
+		# now mount that bucket
+		fuse_mount(bucketname, logger)
+
+		# get the location of the mounted file and send it off.
+		local_filepath = os.path.join(MOUNT_DIR, object_name)
+		send_to_drive(local_filepath, params, logger)
+
+		# unmount the bucket and cleanup:
+		unmount_fuse(logger)
+
+		# notify head node and kill the instance
+		notify_master(params, logger)
 		kill_instance(params)
+
 	except Exception as ex:
-		logging.error('Caught some unexpected exception.')
-		logging.error(str(type(ex)))
-		logging.error(ex)
-		notify_master(params, error=True)
+		logger.log_text('ERROR: Caught some unexpected exception.')
+		logger.log_text(str(type(ex)))
+		logger.log_text(ex)
+		notify_master(params, logger, error=True)
