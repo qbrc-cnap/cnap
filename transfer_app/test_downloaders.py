@@ -270,7 +270,8 @@ class GoogleEnvironmentDownloadTestCase(TestCase):
 
     #@mock.patch('transfer_app.downloaders.os')
     @mock.patch.dict('transfer_app.downloaders.os.environ', {'GCLOUD': '/mock/bin/gcloud'})
-    def _test_dropbox_downloader_on_google_params(self):
+    @mock.patch('transfer_app.downloaders.build')
+    def _test_dropbox_downloader_on_google_params(self, mock_build):
         '''
         This test takes a properly formatted request and checks that the database objects have been properly
         created.  
@@ -289,7 +290,7 @@ class GoogleEnvironmentDownloadTestCase(TestCase):
                 'destination':self.destination,
                 'access_token': 'abc123'
              } for x in resource_pks]
-        
+
         # instantiate the class, but mock out the launcher.
         # Recall the launcher is the class that actually creates the worker VMs, which
         # we do not want to do as part of the test
