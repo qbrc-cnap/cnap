@@ -8,6 +8,7 @@ RUN apt-get update \
     python3-pip \
     python3-cffi \
     python3-cryptography \
+    default-jre \
     wget \
     supervisor \
     nano \
