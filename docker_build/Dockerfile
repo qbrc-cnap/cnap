@@ -8,12 +8,15 @@ RUN apt-get update \
     python3-pip \
     python3-cffi \
     python3-cryptography \
+    libcairo2-dev \
+    libgirepository1.0-dev \
     default-jre \
     wget \
     supervisor \
     nano \
     git \
-    curl
+    curl \
+    pkg-config
 
 # Get gcloud manually, since we use gcloud beta commands:
 RUN curl -sSL https://sdk.cloud.google.com > /tmp/gcl \
