@@ -149,15 +149,13 @@ def check_element_parameters(display_element, element_schema):
 
 def get_jinja_template(template_path):
 
-    # load the environment/template for the jinja template engine:
-    print(template_path)
- 
+    # load the environment/template for the jinja template engine: 
     template_dir = os.path.realpath(
         os.path.abspath(
             os.path.dirname(template_path)
         )
     )
-    print(template_dir)
+
     env = Environment(loader=FileSystemLoader(template_dir))
     return env.get_template(
         os.path.basename(template_path)
@@ -278,13 +276,6 @@ def construct_gui(staging_dir):
     file (at workflow_gui_spec_filepath).
 
     staging_dir is the path to a directory containing all the relevant files
-
-    workflow_gui_spec_filename is the NAME of the file (in staging_dir) that dictates
-    how the GUI is formed.
-
-    workflow_inputs_template is the NAME of the file (in staging_dir) that was created
-    by the WOMtool, and gives the required inputs to the workflow.  We use that for a 
-    rough-check.
 
     Comments below (and in functions) explain the various steps
     in the ingestion process

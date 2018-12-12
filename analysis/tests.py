@@ -1,12 +1,34 @@
 import os
+import sys
 import shutil
+from importlib import invalidate_caches
+
 
 from django.test import TestCase
+import unittest.mock as mock
+
+from django.contrib.auth import get_user_model
 
 from analysis.models import Workflow
+from base.models import Resource
 
 THIS_DIR = os.path.realpath(os.path.abspath(os.path.dirname(__file__)))
 TEST_UTILS_DIR = os.path.join(THIS_DIR, 'test_utils')
+
+from .view_utils import get_workflow, \
+    validate_workflow_dir, \
+    fill_context, \
+    fill_wdl_input, \
+    WORKFLOW_ID, \
+    VERSION_ID, \
+    MissingGuiSpecException, \
+    WdlCountException, \
+    MissingHtmlTemplateException, \
+    NonexistentWorkflowException, \
+    InactiveWorkflowException, \
+    MissingDataException, \
+    InputMappingException
+
 
 class ViewUtilsTest(TestCase):
     '''
@@ -17,6 +39,23 @@ class ViewUtilsTest(TestCase):
     '''
 
     def setUp(self):
+
+        self.admin_user = get_user_model().objects.create_user(email='admin@admin.com', password='abcd123!', is_staff=True)
+        self.regular_user = get_user_model().objects.create_user(email='reguser@gmail.com', password='abcd123!')
+
+        # create a couple of resources owned by the regular user:
+        self.r1 = Resource.objects.create(
+            source='google_storage',
+            path='gs://a/b/reg_owned1.txt',
+            size=2e9,
+            owner=self.regular_user,
+        )
+        self.r2 = Resource.objects.create(
+            source='google_storage',
+            path='gs://a/b/reg_owned2.txt',
+            size=2.1e9,
+            owner=self.regular_user,
+        )
 
         # create a valid workflow
         w1_dir = os.path.join(TEST_UTILS_DIR, 'valid_workflow')
@@ -51,17 +90,6 @@ class ViewUtilsTest(TestCase):
             workflow_location=w3_dir
         )
 
-        # create a workflow where the dir is missing the WDL input template
-        w4_dir = os.path.join(TEST_UTILS_DIR, 'invalid_workflow3')
-        w4 = Workflow.objects.create(
-            workflow_id = 4,
-            version_id = 1,
-            workflow_name = 'invalidWorkflow3',
-            is_default=True,
-            is_active=True,
-            workflow_location=w4_dir
-        )
-
         # create a workflow where the dir is missing the WDL file
         w5_dir = os.path.join(TEST_UTILS_DIR, 'invalid_workflow4')
         w5 = Workflow.objects.create(
@@ -85,30 +113,6 @@ class ViewUtilsTest(TestCase):
         )
 
         # create a workflow where the gui specifies a handler module
-        # that lacks the proper method
-        w7_dir = os.path.join(TEST_UTILS_DIR, 'invalid_workflow6')
-        w7 = Workflow.objects.create(
-            workflow_id = 7,
-            version_id = 1,
-            workflow_name = 'invalidWorkflow6',
-            is_default=True,
-            is_active=True,
-            workflow_location=w7_dir
-        )
-
-        # create a workflow where the gui specifies a handler module
-        # that has the correct method name but wrong signature
-        w9_dir = os.path.join(TEST_UTILS_DIR, 'invalid_workflow7')
-        w9 = Workflow.objects.create(
-            workflow_id = 9,
-            version_id = 1,
-            workflow_name = 'invalidWorkflow7',
-            is_default=True,
-            is_active=True,
-            workflow_location=w9_dir
-        )
-
-        # create a workflow where the gui specifies a handler module
         # that technically works, but does NOT return the correct 
         # dictionary, and thus there are EXTRA parameters that the WDL
         # input does NOT require
@@ -120,6 +124,18 @@ class ViewUtilsTest(TestCase):
             is_default=True,
             is_active=True,
             workflow_location=w10_dir
+        )
+
+        # create a workflow where the inpput mapping function generates
+        # some exception
+        w14_dir = os.path.join(TEST_UTILS_DIR, 'invalid_workflow10')
+        w14 = Workflow.objects.create(
+            workflow_id = 14,
+            version_id = 1,
+            workflow_name = 'invalidWorkflow',
+            is_default=True,
+            is_active=True,
+            workflow_location=w14_dir
         )
 
         # create a workflow where the gui specifies a handler module
@@ -142,21 +158,63 @@ class ViewUtilsTest(TestCase):
             workflow_id = 8,
             version_id = 1,
             workflow_name = 'inactiveWorkflow',
-            is_default=False,
+            is_default=True,
             is_active=False,
             workflow_location=w8_dir
         )
 
+        # The next two workflows are two different versions of valid workflows
+        # however, neither of them have had their 'is_default' field set to True.
+        w12 = Workflow.objects.create(
+            workflow_id = 12,
+            version_id = 1,
+            workflow_name = 'validWorkflow',
+            is_default=False,
+            is_active=True,
+            workflow_location=w1_dir
+        )
 
+        w13 = Workflow.objects.create(
+            workflow_id = 12,
+            version_id = 2,
+            workflow_name = 'validWorkflow',
+            is_default=False,
+            is_active=True,
+            workflow_location=w1_dir
+        )
 
+    def tearDown(self):
+        pass
 
-
-    def test_missing_gui_spec_raises_exception(self):
-        '''
-        Test that a missing GUI spec json file in the workflow dir raises an
-        exception
-        '''
         
+    def test_fill_wdl_template_case7(self):
+        '''
+        The gui spec was more complex than a string, so it is a dict.
+        Here, the handler code will return a dictionary which is supposed
+        to directly map to the WDL inputs.  Here we test that an exception
+        is raised if one of those inputs is NOT in fact a WDL input
+
+        Note that this is not an error that would be difficult to pickup
+        with the tests in the workflow ingestion module.  Here, we do make
+        the call to the actual 'handler' method, but it is a 'mock' in the sense
+        that it adds an additional garbage parameter.
+        '''
+        mock_request = mock.MagicMock(user=self.regular_user)
+
+        # create a correct dict and assert that's ok:
+        r1_pk = self.r1.pk
+        r2_pk = self.r2.pk
+        payload = {}
+        payload[WORKFLOW_ID] = 10
+        payload[VERSION_ID] = 1
+        payload['input_files'] = [r1_pk, r2_pk]
+        payload['TestWorkflow.outputFilename'] = 'output.txt'
+        expected_dict = {}
+        expected_dict['TestWorkflow.outputFilename'] = 'output.txt'
+        expected_dict['TestWorkflow.inputs'] = [self.r1.path, self.r2.path]
+        with self.assertRaises(InputMappingException):
+            fill_wdl_input(mock_request, payload)
+
 
     def test_gui_element_handler_module_missing_proper_method_raises_ex(self):
         '''
@@ -167,130 +225,165 @@ class ViewUtilsTest(TestCase):
         The existence of this method should also be checked in the ingestion 
         of the workflow, so this is a double-check
         '''
-        pass
+        workflow_obj = Workflow.objects.get(workflow_id=2, version_id=1)
+        with self.assertRaises(MissingGuiSpecException):
+            validate_workflow_dir(workflow_obj)
 
     def test_nonexistent_workflow_id_raises_exception(self):
         '''
         If a non-existent workflow id is sent to the `get_workflow` method
         it raises an exception
         '''
-        pass
+        all_workflows = Workflow.objects.all()
+        max_id  = max([x.workflow_id for x in all_workflows])
+        bad_id = max_id + 1
+        with self.assertRaises(NonexistentWorkflowException):
+            get_workflow(bad_id)
 
-    def test_multiple_workflows_with_same_id_raises_exception(self):
+
+    def test_no_default_workflow_raises_exception(self):
         '''
-        Ensure that we cannot have multiple workflows with the same ID
+        If we query a workflow id (which is valid), but there are no workflows with their
+        is_default field set, raise exception
         '''
-        pass
+        with self.assertRaises(NonexistentWorkflowException):
+            get_workflow(13)
     
+
     def test_inactive_workflow_request_from_regular_user_raises_exception(self):
         '''
         If the workflow is valid, but inactive, we do not let a 'regular' user
         instantiate a workflow.  
         '''
-        pass
+        with self.assertRaises(InactiveWorkflowException):
+            get_workflow(8, admin_request=False)
 
     def test_inactive_workflow_request_from_admin_user_succeeds(self):
         '''
         If the workflow is valid, but inactive, we let an admin user
         instantiate a workflow. 
         '''
-        pass
+        workflow = get_workflow(8, admin_request=True)
+        self.assertTrue(workflow.workflow_id==8)
+
 
     def test_corrupted_workflow_raises_exception_case1(self):
         '''
         Here, we test that an exception is raised if the GUI spec file
         (the one describing the UI for this workflow) is missing
         '''
-        pass
+        workflow_obj = Workflow.objects.get(workflow_id=2, version_id=1)
+        with self.assertRaises(MissingGuiSpecException):
+            validate_workflow_dir(workflow_obj)
 
     def test_corrupted_workflow_raises_exception_case2(self):
         '''
         Here, we test that an exception is raised if the WDL input
         file is missing
         '''
-        pass
+        workflow_obj = Workflow.objects.get(workflow_id=5, version_id=1)
+        with self.assertRaises(WdlCountException):
+            validate_workflow_dir(workflow_obj)
 
     def test_corrupted_workflow_raises_exception_case3(self):
         '''
         Here, we test that an exception is raised if the HTML
         template is missing
         '''
-        pass
+        workflow_obj = Workflow.objects.get(workflow_id=3, version_id=1)
+        with self.assertRaises(MissingHtmlTemplateException):
+            validate_workflow_dir(workflow_obj)
 
     def test_corrupted_workflow_raises_exception_case4(self):
         '''
         Here, we test that an exception is raised if there are zero
         WDL files
         '''
-        pass
+        workflow_obj = Workflow.objects.get(workflow_id=5, version_id=1)
+        with self.assertRaises(WdlCountException):
+            validate_workflow_dir(workflow_obj)
 
     def test_corrupted_workflow_raises_exception_case5(self):
         '''
         Here, we test that an exception is raised if there are >1
         WDL files
         '''
-        pass
+        workflow_obj = Workflow.objects.get(workflow_id=6, version_id=1)
+        with self.assertRaises(WdlCountException):
+            validate_workflow_dir(workflow_obj)
+
+    def test_valid_case_works(self):
+        '''
+        Here, the data sent from the front-end is OK. 
+        '''
+        mock_request = mock.MagicMock(user=self.regular_user)
+
+        r1_pk = self.r1.pk
+        r2_pk = self.r2.pk
+        payload = {}
+        payload[WORKFLOW_ID] = 1
+        payload[VERSION_ID] = 1
+        payload['input_files'] = [r1_pk, r2_pk]
+        payload['TestWorkflow.outputFilename'] = 'output.txt'
+        expected_dict = {}
+        expected_dict['TestWorkflow.outputFilename'] = 'output.txt'
+        expected_dict['TestWorkflow.inputs'] = [self.r1.path, self.r2.path]
+        returned_dict = fill_wdl_input(mock_request, payload)
+        self.assertEqual(returned_dict, expected_dict)
+
 
     def test_fill_wdl_template_case1(self):
         '''
         Here, the data sent from the front-end does NOT contain a required
         input.  Should raise an exception
         '''
-        pass
+        mock_request = mock.MagicMock(user=self.regular_user)
+
+        # first send a bad payload-- it's blank except for the
+        # the workflow id/version id
+        payload = {}
+        payload[WORKFLOW_ID] = 1
+        payload[VERSION_ID] = 1
+        with self.assertRaises(MissingDataException):
+            fill_wdl_input(mock_request, payload)
+
+        # now try a payload where the primary keys are good, but missing the string param:
+        r1_pk = self.r1.pk
+        r2_pk = self.r2.pk
+        payload = {}
+        payload[WORKFLOW_ID] = 1
+        payload[VERSION_ID] = 1
+        payload['input_files'] = [r1_pk, r2_pk]
+        with self.assertRaises(MissingDataException):
+            fill_wdl_input(mock_request, payload)
 
     def test_fill_wdl_template_case2(self):
         '''
         Here, the data sent from the front-end does is not necessary as an
-        input to the WDL input.  Should raise an exception
+        input to the WDL input.  Should just ignore it.  Receiving extra ddata
+        from the front end is distinct from any custom mapping code that ends up
+        providing an incorrect data object to the WDL input
         '''
-        pass
+        mock_request = mock.MagicMock(user=self.regular_user)
 
-    def test_fill_wdl_template_case3(self):
-        '''
-        The gui spec was more complex than a string, so it is a dict.
-        The dict needs to have a `name` attribute so we know which WDL
-        input to map it to.  Here, we test that an exception is raised
-        if the GUI spec does NOT have a name attribute
-        '''
-        pass
+        # create a correct dict and assert that's ok:
+        r1_pk = self.r1.pk
+        r2_pk = self.r2.pk
+        payload = {}
+        payload[WORKFLOW_ID] = 1
+        payload[VERSION_ID] = 1
+        payload['input_files'] = [r1_pk, r2_pk]
+        payload['TestWorkflow.outputFilename'] = 'output.txt'
+        expected_dict = {}
+        expected_dict['TestWorkflow.outputFilename'] = 'output.txt'
+        expected_dict['TestWorkflow.inputs'] = [self.r1.path, self.r2.path]
+        returned_dict = fill_wdl_input(mock_request, payload)
+        self.assertEqual(returned_dict, expected_dict)
 
-    def test_fill_wdl_template_case4(self):
-        '''
-        The gui spec was more complex than a string, so it is a dict.
-        The dict needs to have a `name` attribute so we know which WDL
-        input to map it to.  Here, we test that an exception is raised
-        if the front-end did not send data for this input
-        '''
-        pass
-
-    def test_fill_wdl_template_case5(self):
-        '''
-        The gui spec was more complex than a string, so it is a dict.
-        The GUI spec needs to define a "handler" which is some python
-        code that maps the front-end payload to the format necessary
-        for the WDL input.  Here we test that we raise an exception
-        if the code for the handler is missing
-        '''
-        pass
-
-    def test_fill_wdl_template_case6(self):
-        '''
-        The gui spec was more complex than a string, so it is a dict.
-        The GUI spec needs to define a "handler" which is some python
-        code that maps the front-end payload to the format necessary
-        for the WDL input.  Here we test that we raise an exception
-        if the code for the handler has a syntax error (import fails)     
-        '''
-        pass
-
-    def test_fill_wdl_template_case7(self):
-        '''
-        The gui spec was more complex than a string, so it is a dict.
-        Here, the handler code will return a dictionary which is supposed
-        to directly map to the WDL inputs.  Here we test that an exception
-        is raised if one of those inputs is NOT in fact a WDL input
-        '''
-        pass
+        # now add some garbage and try again.
+        payload['garbage_key'] = 'foo'
+        returned_dict = fill_wdl_input(mock_request, payload)
+        self.assertEqual(returned_dict, expected_dict)
 
     def test_fill_wdl_template_case8(self):
         '''
@@ -300,7 +393,21 @@ class ViewUtilsTest(TestCase):
         is raised if the handler fails while parsing/manipulating that
         payload from the front-end (the handler is syntactically valid, however)
         '''
-        pass
+        mock_request = mock.MagicMock(user=self.regular_user)
+
+        # create a correct dict and assert that's ok:
+        r1_pk = self.r1.pk
+        r2_pk = self.r2.pk
+        payload = {}
+        payload[WORKFLOW_ID] = 14
+        payload[VERSION_ID] = 1
+        payload['input_files'] = [r1_pk, r2_pk]
+        payload['TestWorkflow.outputFilename'] = 'output.txt'
+        expected_dict = {}
+        expected_dict['TestWorkflow.outputFilename'] = 'output.txt'
+        expected_dict['TestWorkflow.inputs'] = [self.r1.path, self.r2.path]
+        with self.assertRaises(Exception):
+            fill_wdl_input(mock_request, payload)
 
     def test_fill_wdl_template_case9(self):
         '''
@@ -309,30 +416,24 @@ class ViewUtilsTest(TestCase):
         to directly map to the WDL inputs.  Here we test that an exception
         is raised if the set of required keys for the WDL input is not
         completely satisfied.
-        This can be due to either an incomplete payload from the frontend,
-        or the GUI spec does not correctly specify the proper mapping 
-        '''
-        pass
 
-    def test_fill_wdl_template_case10(self):
+        Note that this is not necessarily due to either an incomplete payload from the frontend,
+        or the GUI spec not correctly specify the proper mapping.  Rather, it reflects potential
+        errors during runtime that result in the handler code not returning the dictionary
+        it expects. 
         '''
-        The gui spec was more complex than a string, so it is a dict.
-        The GUI spec needs to define a "handler" which is some python
-        code that maps the front-end payload to the format necessary
-        for the WDL input.  Here we test that we raise an exception
-        if the handler module does not have a function with the 
-        correct name (import succeeds, but runtime call fails 
-        with method not found)     
-        '''
-        pass
+        mock_request = mock.MagicMock(user=self.regular_user)
 
-    def test_fill_wdl_template_case11(self):
-        '''
-        The gui spec was more complex than a string, so it is a dict.
-        The GUI spec needs to define a "handler" which is some python
-        code that maps the front-end payload to the format necessary
-        for the WDL input.  Here we test that we raise an exception
-        if the code for the handler has the wrong function signature syntax error
-        (import succeeds, but call fails)
-        '''
-        pass
+        # create a correct dict and assert that's ok:
+        r1_pk = self.r1.pk
+        r2_pk = self.r2.pk
+        payload = {}
+        payload[WORKFLOW_ID] = 11
+        payload[VERSION_ID] = 1
+        payload['input_files'] = [r1_pk, r2_pk]
+        payload['TestWorkflow.outputFilename'] = 'output.txt'
+        expected_dict = {}
+        expected_dict['TestWorkflow.outputFilename'] = 'output.txt'
+        expected_dict['TestWorkflow.inputs'] = [self.r1.path, self.r2.path]
+        with self.assertRaises(InputMappingException):
+            fill_wdl_input(mock_request, payload)

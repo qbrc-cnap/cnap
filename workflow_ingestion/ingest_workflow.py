@@ -20,6 +20,8 @@ import re
 import json
 import sys
 import subprocess as sp
+from importlib import import_module
+from inspect import signature
 
 import gui_utils
 
@@ -74,6 +76,19 @@ class GuiSpecFileException(Exception):
     '''
     We expect only one file that specifies the GUI
     If the number of matching files is != 1, then raise this
+    '''
+    pass
+
+class MissingHandlerException(Exception):
+    '''
+    This is raised if we cannot locate a handler or find a default
+    '''
+    pass
+
+class HandlerConfigException(Exception):
+    '''
+    This is raised if the handler module does not contain
+    the proper function 
     '''
     pass
 
@@ -306,7 +321,6 @@ def locate_handler(module_name, search_dir_list):
 
     Returns None is not found.
     '''
-    print('search for %s in %s' % (module_name, search_dir_list ))
     potential_file_locations = [os.path.join(x,module_name) for x 
         in search_dir_list]
     for f in potential_file_locations:
@@ -336,10 +350,35 @@ def copy_handler_if_necessary(element, staging_dir, search_dir_list):
             shutil.copy2(handler_module_path, staging_dir)
         return os.path.basename(handler_module_path)
     else:
-        raise Exception('Could not locate the handler code specified'
+        raise MissingHandlerException('Could not locate the handler code specified'
             ' for the input element: %s' % json.dumps(element)
         )
 
+
+def inspect_handler_module(module_path, fn_name, arg_num):
+    '''
+    This function checks that a handler module is syntatically
+    correct AND has the proper method.
+    '''
+     # need to check that the handler contains the proper entry function
+    # and has correct syntax:
+    module_path_relative_to_base = os.path.relpath(
+        module_path, 
+        start=settings.BASE_DIR
+    )
+    module_dot_path = module_path_relative_to_base.replace('/', '.')
+    mod = import_module(module_dot_path)
+    if not hasattr(mod, fn_name):
+        raise HandlerConfigException('The module at %s needs '
+            'contain a function named "%s".' % (module_path, fn_name))
+    else:
+        # has the correct method.  Check the number of arguments as a rough
+        # check
+        sig = signature(getattr(mod, fn_name))
+        if len(sig.parameters) != arg_num:
+            raise HandlerConfigException('The function %s (in file %s) '
+                ' should take %d arguments.' % (fn_name, module_path, arg_num)
+            )
 
 def check_handlers(staging_dir):
     '''
@@ -370,6 +409,12 @@ def check_handlers(staging_dir):
             if HANDLER in input_element[TARGET]:
                 module_name = copy_handler_if_necessary(input_element[TARGET], 
                     staging_dir, search_dirs)
+                
+                # need to check that the handler contains the proper entry function
+                # and has correct syntax:
+                module_path = os.path.join(staging_dir, module_name)
+                inspect_handler_module(module_path, 'map_inputs')
+
                 handler_module_list.append(module_name)
 
                 # we also update the dict specifying the GUI.  Since all the files
@@ -381,6 +426,12 @@ def check_handlers(staging_dir):
         if HANDLER in display_element:
             module_name = copy_handler_if_necessary(display_element, 
                 staging_dir, search_dirs)
+
+            # need to check that the handler contains the proper entry function
+            # and has correct syntax:
+            module_path = os.path.join(staging_dir, module_name)
+            inspect_handler_module(module_path, 'add_to_context')    
+            
             handler_module_list.append(module_name)
 
             # again, update the GUI dict for the same reason as above

@@ -107,7 +107,7 @@ class AnalysisView(View):
 
         # Fill out the template for the WDL input
         try:
-            fill_wdl_input(request, j)
+            wdl_input_dict = fill_wdl_input(request, j)
         except Exception as ex:
             return HttpResponseBadRequest('Error when instantiating workflow.')
 
