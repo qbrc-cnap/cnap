@@ -254,9 +254,12 @@ def fill_javascript_template(gui_schema, javascript_template_path,
     for element_type in set(element_type_list):
         element_spec = gui_schema[GUI_ELEMENTS][element_type]
         js_handler = element_spec[JS_HANDLER]
-        if js_handler and os.path.isfile(js_handler):
-            js_handlers.append(open(js_handler).read())
-    
+        if js_handler:
+            js_handler = os.path.join(THIS_DIR, js_handler)
+            if os.path.isfile(js_handler):
+                js_handlers.append(open(js_handler).read())
+            else:
+                raise Exception('Problem! Could not locate the javascript handler at %s' % js_handler)
     # fill-in the overall template:
     js_template = get_jinja_template(javascript_template_path)
     context = {'js_handlers': js_handlers}
