@@ -32,7 +32,7 @@ class Workflow(models.Model):
     # this keeps track of the location of the folder holding the 
     # WDL and associated files.  Allows us to locate the proper WDL
     # when an analysis is requested.
-    workflow_location = models.FilePathField()
+    workflow_location = models.CharField(max_length=2000)
 
     class Meta:
         # ensure the the combination of a workflow and a version is unique

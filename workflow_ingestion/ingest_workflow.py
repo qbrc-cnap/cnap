@@ -103,6 +103,7 @@ def parse_commandline():
     parser.add_argument(
         '-d',
         '--dir',
+        required=True,
         dest=NEW_WDL_DIR,
         help='Path to a directory containing CWL '
              'files, GUI specs, and other files to be incorporated.'
@@ -176,7 +177,7 @@ def create_workflow_destination(workflow_name):
     # we are supposed to create a directory here.
     workflow_dir = os.path.join(workflow_dir, workflow_name)
     try:
-        os.mkdir(workflow_dir)
+        os.makedirs(workflow_dir)
     except FileExistsError as ex:
         if ex.errno != 17:
             print('Unexpected exception when '
@@ -366,7 +367,7 @@ def inspect_handler_module(module_path, fn_name, arg_num):
         module_path, 
         start=settings.BASE_DIR
     )
-    module_dot_path = module_path_relative_to_base.replace('/', '.')
+    module_dot_path = module_path_relative_to_base.replace('/', '.')[:-(len(PYFILE) + 1)]
     mod = import_module(module_dot_path)
     if not hasattr(mod, fn_name):
         raise HandlerConfigException('The module at %s needs '
@@ -413,7 +414,7 @@ def check_handlers(staging_dir):
                 # need to check that the handler contains the proper entry function
                 # and has correct syntax:
                 module_path = os.path.join(staging_dir, module_name)
-                inspect_handler_module(module_path, 'map_inputs')
+                inspect_handler_module(module_path, 'map_inputs', 3)
 
                 handler_module_list.append(module_name)
 
@@ -430,7 +431,7 @@ def check_handlers(staging_dir):
             # need to check that the handler contains the proper entry function
             # and has correct syntax:
             module_path = os.path.join(staging_dir, module_name)
-            inspect_handler_module(module_path, 'add_to_context')    
+            inspect_handler_module(module_path, 'add_to_context', 2)    
             
             handler_module_list.append(module_name)
 
@@ -532,7 +533,6 @@ def link_form_javascript(workflow_libdir_name, workflow_dir, javascript_filename
     # the relative path lets us create the proper directory structure for linking
     from django.conf import settings
     linkpath = os.path.join(settings.STATIC_ROOT, workflow_libdir_name, relative_path)
-    print('LP: %s' % linkpath)
 
     # need to make intermediate paths if necessary:
     linkdir = os.path.dirname(linkpath)
@@ -547,6 +547,10 @@ if __name__ == '__main__':
     '''
     This script is always called from the commandline
     '''
+
+    if os.getcwd() != APP_ROOT_DIR:
+        print('Please execute this script from %s.  Exiting.' % APP_ROOT_DIR)
+        sys.exit(1)
 
     # First parse any commandline args and configuration params:
     arg_dict = parse_commandline()

@@ -152,10 +152,11 @@ def get_jinja_template(template_path):
     # load the environment/template for the jinja template engine: 
     template_dir = os.path.realpath(
         os.path.abspath(
-            os.path.dirname(template_path)
+            os.path.dirname(
+                os.path.join(THIS_DIR, template_path)
+            )
         )
     )
-
     env = Environment(loader=FileSystemLoader(template_dir))
     return env.get_template(
         os.path.basename(template_path)

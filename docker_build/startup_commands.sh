@@ -25,13 +25,15 @@ mkdir -p $LOGDIR
 touch $LOGDIR/redis.log
 touch $LOGDIR/celery_beat.log
 touch $LOGDIR/celery_worker.log
+touch $LOGDIR/gunicorn.log
 
 # Fill-out and copy files for supervisor-managed processes:
 python3 helpers/fill_supervisor_templates.py \
     /etc/supervisor/conf.d \
     supervisor_conf_files/celery_worker.conf \
     supervisor_conf_files/celery_beat.conf \
-    supervisor_conf_files/redis.conf
+    supervisor_conf_files/redis.conf \
+    supervisor_conf_files/gunicorn.conf
 
 # start supervisor:
 supervisord --configuration /etc/supervisor/supervisord.conf
