@@ -1,23 +1,7 @@
 from rest_framework import serializers
 
-from base.models import Resource
+from base.serializers import ResourceSerializer
 from transfer_app.models import Transfer, TransferCoordinator
-
-class ResourceSerializer(serializers.ModelSerializer):
-
-    class Meta:
-        model = Resource
-        fields = ('id', \
-                  'source', \
-                  'path', \
-                  'name', \
-                  'size', \
-                  'owner', \
-                  'is_active', \
-                  'date_added', \
-                  'expiration_date' \
-        )
-
 
 class TransferSerializer(serializers.ModelSerializer):
     class Meta:

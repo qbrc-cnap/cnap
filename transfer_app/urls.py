@@ -17,11 +17,6 @@ urlpatterns = [
     # The API root gives a browsable view of the endpoints
     re_path(r'^api/$', views.api_root),
 
-    # endpoints related to querying Resources:
-    re_path(r'^resources/$', views.ResourceList.as_view(), name='resource-list'),
-    re_path(r'^resources/(?P<pk>[0-9]+)/$', views.ResourceDetail.as_view(), name='resource-detail'),
-    re_path(r'^resources/user/(?P<user_pk>[0-9]+)/$', views.UserResourceList.as_view(), name='user-resource-list'),
-
     # endpoints related to querying Transfers:
     re_path(r'^transfers/$', views.TransferList.as_view(), name='transfer-list'),
     re_path(r'^transfers/upload/init/$', views.InitUpload.as_view(), name='upload-transfer-initiation'),
