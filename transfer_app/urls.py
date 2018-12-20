@@ -12,29 +12,24 @@ info they provide back
 '''
 urlpatterns = [
 
-    re_path(r'^$', views.index),
-
-    # The API root gives a browsable view of the endpoints
-    re_path(r'^api/$', views.api_root),
-
     # endpoints related to querying Transfers:
-    re_path(r'^transfers/$', views.TransferList.as_view(), name='transfer-list'),
-    re_path(r'^transfers/upload/init/$', views.InitUpload.as_view(), name='upload-transfer-initiation'),
-    re_path(r'^transfers/download/init/$', views.InitDownload.as_view(), name='download-transfer-initiation'),
-    re_path(r'^transfers/(?P<pk>[0-9]+)/$', views.TransferDetail.as_view(), name='transfer-detail'),
-    re_path(r'^transfers/user/(?P<user_pk>[0-9]+)/$', views.UserTransferList.as_view(), name='user-transfer-list'),
+    re_path(r'^$', views.TransferList.as_view(), name='transfer-list'),
+    re_path(r'^upload/init/$', views.InitUpload.as_view(), name='upload-transfer-initiation'),
+    re_path(r'^download/init/$', views.InitDownload.as_view(), name='download-transfer-initiation'),
+    re_path(r'^(?P<pk>[0-9]+)/$', views.TransferDetail.as_view(), name='transfer-detail'),
+    re_path(r'^user/(?P<user_pk>[0-9]+)/$', views.UserTransferList.as_view(), name='user-transfer-list'),
     re_path(r'^transferred-resources/$', views.TransferredResourceList.as_view(), name='transferred-resource-list'),
 
     # endpoints related to querying TransferCoordinators, so we can group the Transfer instances
-    re_path(r'^transfers/batch/$', views.BatchList.as_view(), name='batch-list'),
-    re_path(r'^transfers/batch/(?P<pk>[0-9]+)/$', views.BatchDetail.as_view(), name='batch-detail'),
-    re_path(r'^transfers/batch/user/(?P<user_pk>[0-9]+)/$', views.UserBatchList.as_view(), name='user-batch-list'),
+    re_path(r'^batch/$', views.BatchList.as_view(), name='batch-list'),
+    re_path(r'^batch/(?P<pk>[0-9]+)/$', views.BatchDetail.as_view(), name='batch-detail'),
+    re_path(r'^batch/user/(?P<user_pk>[0-9]+)/$', views.UserBatchList.as_view(), name='user-batch-list'),
 ]
 urlpatterns = format_suffix_patterns(urlpatterns)
 
 urlpatterns.extend([
     # endpoints for communicating from worker machines:
-    re_path(r'^transfers/complete/$', views.TransferComplete.as_view(), name='transfer-complete'),
+    re_path(r'^complete/$', views.TransferComplete.as_view(), name='transfer-complete'),
 
     # endpoints for callbacks:
     re_path(r'^dropbox/callback/$', DropboxDownloader.finish_authentication_and_start_download, name='dropbox_token_callback'),

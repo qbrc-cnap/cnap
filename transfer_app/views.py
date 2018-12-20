@@ -8,11 +8,8 @@ from django.contrib.sites.models import Site
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import Http404
 from django.conf import settings
-from django.shortcuts import render
-from django.contrib.auth.decorators import login_required
 
 from rest_framework import generics, permissions, renderers, status
-from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework.reverse import reverse
 from rest_framework.exceptions import ParseError
@@ -21,7 +18,6 @@ from rest_framework.views import exception_handler, APIView
 from django_filters.rest_framework import DjangoFilterBackend
 from django.contrib.auth import get_user_model
 
-from base.models import Resource
 from transfer_app.models import Transfer, TransferCoordinator
 from transfer_app.serializers import TransferSerializer, \
      TransferCoordinatorSerializer, \
@@ -32,25 +28,6 @@ import base.exceptions as exceptions
 import transfer_app.tasks as transfer_tasks
 import transfer_app.uploaders as _uploaders
 import transfer_app.downloaders as _downloaders
-
-@login_required
-def index(request):
-    context = {}
-    providers = {'google_drive': settings.GOOGLE_DRIVE, 'dropbox':settings.DROPBOX}
-    context['providers'] = providers
-    context['dropbox_enabled'] = settings.CONFIG_PARAMS['dropbox_enabled']
-    context['drive_enabled'] = settings.CONFIG_PARAMS['drive_enabled']
-    return render(request, 'transfer_app/index.html', context)
-
-
-@api_view(['GET'])
-def api_root(request, format=None):
-    return Response({
-        'users': reverse('user-list', request=request, format=format),
-        'resources': reverse('resource-list', request=request, format=format),
-        'transfers': reverse('transfer-list', request=request, format=format)
-    })
-
 
 class TransferList(generics.ListAPIView):
     '''
