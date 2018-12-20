@@ -16,7 +16,7 @@ from django.conf import settings
 from base.models import Resource
 from transfer_app.models import Transfer, TransferCoordinator
 import transfer_app.downloaders as downloaders
-import transfer_app.exceptions as exceptions
+import base.exceptions as exceptions
 
 '''
 Tests for download transfer (Resources already exist in this case)

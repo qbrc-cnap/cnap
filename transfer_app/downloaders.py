@@ -28,7 +28,7 @@ from googleapiclient.discovery import build
 import helpers.utils as utils
 from transfer_app.base import GoogleBase, AWSBase
 from transfer_app import tasks as transfer_tasks
-import transfer_app.exceptions as exceptions
+import base.exceptions as exceptions
 from base.models import Resource
 from transfer_app.models import Transfer, TransferCoordinator
 

@@ -12,7 +12,7 @@ from django.conf import settings
 from base.models import Resource
 from transfer_app.models import Transfer, TransferCoordinator
 import transfer_app.uploaders as uploaders
-import transfer_app.exceptions as exceptions
+import base.exceptions as exceptions
 
 
 class GeneralUploadInitTestCase(TestCase):

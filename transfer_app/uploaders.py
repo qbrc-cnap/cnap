@@ -14,7 +14,7 @@ import helpers.utils as utils
 from base.models import Resource
 from transfer_app.models import Transfer, TransferCoordinator
 import transfer_app.serializers as serializers
-import transfer_app.exceptions as exceptions
+import base.exceptions as exceptions
 from transfer_app.launchers import GoogleLauncher, AWSLauncher
 
 class Uploader(object):

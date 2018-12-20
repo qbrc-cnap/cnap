@@ -3,6 +3,8 @@ from Crypto.Cipher import DES
 import base64
 
 from django.test import TestCase
+import unittest.mock as mock
+
 from rest_framework.test import APIClient
 from rest_framework import status
 
@@ -654,11 +656,14 @@ class CompletionMarkingTestCase(TestCase):
         tc = TransferCoordinator.objects.get(pk=1)
         self.assertEqual(tc.completed, False)
 
-    def test_full_completion_signal(self):
+    @mock.patch('transfer_app.views.utils')
+    def test_full_completion_signal(self, mock_utils):
         '''
         This tests where both of two workers have completed.  ALL 
         have completed, so the TransferCoordinator becomes complete
         '''
+        mock_utils.post_completion = mock.MagicMock()
+
         # query the database and get the TransferCoordinator and its Transfer instances:
         tc = TransferCoordinator.objects.get(pk=1)
         transfers = Transfer.objects.filter(coordinator = tc)
@@ -687,8 +692,7 @@ class CompletionMarkingTestCase(TestCase):
         response2 = client.post(url, d2, format='json')
         self.assertEqual(response2.status_code, 200)
 
-        # query database to see that the Transfer was marked complete, but the
-        # coordinator is still incomplete
+        # query database to see that the Transfer was marked complete
         t1 = Transfer.objects.get(pk=1)
         self.assertTrue(t1.completed)
         t2 = Transfer.objects.get(pk=2)
