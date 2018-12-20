@@ -26,7 +26,6 @@ from transfer_app.models import Transfer, TransferCoordinator
 from transfer_app.serializers import ResourceSerializer, \
      TransferSerializer, \
      TransferCoordinatorSerializer, \
-     UserSerializer, \
      TransferredResourceSerializer
 
 import transfer_app.utils as utils
@@ -52,33 +51,6 @@ def api_root(request, format=None):
         'resources': reverse('resource-list', request=request, format=format),
         'transfers': reverse('transfer-list', request=request, format=format)
     })
-
-
-class UserList(generics.ListCreateAPIView):
-    '''
-    This allows:
-        GET: listing of all Users
-        POST: create new User
-
-    This view is limited to users with elevated/admin privileges
-    '''
-    queryset = get_user_model().objects.all()
-    serializer_class = UserSerializer
-    permission_classes = (permissions.IsAdminUser,)
-
-
-class UserDetail(generics.RetrieveUpdateDestroyAPIView):
-    '''
-    This allows:
-        GET: details of specific User
-        PUT: edit details of the User
-        DELETE: remove User
-
-    This view is limited to users with elevated/admin privileges
-    '''
-    queryset = get_user_model().objects.all()
-    serializer_class = UserSerializer
-    permission_classes = (permissions.IsAdminUser,)
     
 
 class ResourceList(generics.ListCreateAPIView):

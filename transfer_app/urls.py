@@ -16,10 +16,6 @@ urlpatterns = [
 
     # The API root gives a browsable view of the endpoints
     re_path(r'^api/$', views.api_root),
-   
-    # endpoints related to querying User info:
-    re_path(r'^users/$', views.UserList.as_view(), name='user-list'),
-    re_path(r'^users/(?P<pk>[0-9]+)/$', views.UserDetail.as_view(), name='user-detail'),
 
     # endpoints related to querying Resources:
     re_path(r'^resources/$', views.ResourceList.as_view(), name='resource-list'),
