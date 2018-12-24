@@ -8,16 +8,42 @@ from django.views import View
 from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
 from django.urls import reverse
+from django.http import Http404
+from django.contrib.auth import get_user_model
+from django.core.exceptions import ObjectDoesNotExist
+
+
+from rest_framework import generics, permissions, status
+from django_filters.rest_framework import DjangoFilterBackend
 
 from .models import Workflow
+from .serializers import WorkflowSerializer
 from .view_utils import get_workflow, \
     validate_workflow_dir, \
     fill_context, \
     fill_wdl_input
 
 
-def home(request):
-    return render(request, 'analysis/home.html', {'msg': 'hello'})
+class WorkflowList(generics.ListAPIView):
+    '''
+    This lists the available Workflow instances avaiable to be run by a particular user
+    '''
+    serializer_class = WorkflowSerializer
+    permission_classes = (permissions.IsAuthenticated,)
+    filter_backends = (DjangoFilterBackend,)
+    filter_fields = ('is_active', 'is_default')
+
+    def get_queryset(self):
+        '''
+        Defines how a basic list of Workflow objects behaves.  Might later add
+        the concept of individuals/institutions so that different institution + user 
+        combinations will get only analyses that are valid for them
+        '''
+        try:
+            user = self.request.user
+            return Workflow.objects.filter(is_active=True)
+        except ObjectDoesNotExist as ex:
+            raise Http404
 
 
 class AnalysisView(View):

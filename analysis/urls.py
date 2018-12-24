@@ -3,7 +3,7 @@ from django.urls import path, re_path
 from . import views
 
 urlpatterns = [
-    re_path('^$', views.home, name='home'),
+    re_path(r'^$', views.WorkflowList.as_view(), name='analysis-list'),
 
     # if no particular version of a workflow is requested, use the default
     path('<int:workflow_id>/', 
