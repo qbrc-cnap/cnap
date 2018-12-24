@@ -46,6 +46,19 @@ $.ajax({
     }
 });
 
+// get available analyses/workflows:
+$.ajax({
+    url:"{{workflow_endpoint}}?is_active=true",
+    type:"GET",
+    headers:{"X-CSRFToken": csrfToken},
+    success:function(response){
+        console.log('response: ' + response); 
+    },
+    error:function(){
+        console.log('error!');
+    }
+});
+
 function parseDateString(s){
     // string is formatted like:
     //  YYYY-MM-DDTHH:MM:SS.XXXXXXZ
