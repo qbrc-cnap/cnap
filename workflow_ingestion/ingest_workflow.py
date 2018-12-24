@@ -311,6 +311,52 @@ def get_workflow_name(wdl_path):
     if m:
         return m.group(1)
 
+def get_workflow_title_and_description(wdl_path):
+    '''
+    We use regex to parse out the human-readable title and description of the workflow, which will be saved
+    in the database and used for display purposes
+
+    Regex closely follows the WDL spec, but some edge-cases could fail if users
+    decide to name their workflows with ridiculous names or use 
+    bizarre whitespace chars that don't work with python's regex: "\s" (don't do that!)
+
+    If no `meta` section, return the workflow name and an empty description
+    If there is a meta section but either of the keys are missing, return
+    suitable defaults (workflow name and empty string for title and description, respectively)
+    '''
+
+    # we are looking in the meta section, so grab that
+    meta_pattern = r'meta\s+\{.*?\}'
+    f = open(wdl_path).read()
+    m=re.search(meta_pattern, f, flags=re.DOTALL)
+    if m:
+        print('META section FOUND')
+        meta_section_text = m.group(0)
+
+        # find 'workflow_title' if it exists
+        title_regex = 'workflow_title\s*=\s*([a-zA-Z][a-zA-Z0-9_]+)'
+        m1 = re.search(title_regex, meta_section_text)
+        if m1:
+            print('found title')
+            title = m1.group(1)
+            print('title was %s' % title)
+        else:
+            title = get_workflow_name(wdl_path)
+
+        # find 'workflow_description if it exists
+        description_regex = 'workflow_description\s*=\s*(.*)'
+        m2 = re.search(description_regex, meta_section_text)
+        if m2:
+            print('found desc')
+            description = m2.group(1)
+        else:
+            description = ''
+    else: # no meta section:
+        title = get_workflow_name(wdl_path)
+        description = ''
+
+    return title, description
+
 
 def locate_handler(module_name, search_dir_list):
     '''
@@ -476,6 +522,15 @@ def add_workflow_to_db(workflow_name, destination_dir):
         max_version_id = max([x.version_id for x in existing_wf])
         version_id = max_version_id + 1
 
+    # get the WDL file:
+    wildcard_path = os.path.join(destination_dir, '*' + WDL)
+    matches = glob.glob(wildcard_path)
+    if len(matches) > 0:
+        wdl_path = matches[0]
+        workflow_title, workflow_description = get_workflow_title_and_description(wdl_path)
+    else:
+        raise Exception('Zero WDL files found.  This should not happen.')
+
     # now have a valid workflow and version ID.  Create the object
     workflow_location = os.path.relpath(destination_dir, APP_ROOT_DIR)
     wf = Workflow(
@@ -484,7 +539,9 @@ def add_workflow_to_db(workflow_name, destination_dir):
         is_default=False, 
         is_active=False, 
         workflow_name = workflow_name,
-        workflow_location=workflow_location
+        workflow_location=workflow_location,
+        workflow_title = workflow_title, 
+        workflow_description = workflow_description
     )
     wf.save()
 
@@ -608,7 +665,7 @@ if __name__ == '__main__':
     # <stamp> is a string used to identify unique subversions of the workflow
     # with a name of <workflow_name>
     wdl_path = file_dict[WDL][0]
-    workflow_name = get_workflow_name(file_dict[WDL][0])
+    workflow_name = get_workflow_name(wdl_path)
     destination_dir = create_workflow_destination(workflow_name)
 
     # copy the files over.  Rather than copying everything, only copy over the
@@ -617,7 +674,7 @@ if __name__ == '__main__':
         for fp in filepaths:
             shutil.copy2(fp, destination_dir)
 
-    # add the workflow to the database 
+    # add the workflow to the database
     add_workflow_to_db(workflow_name, destination_dir)
 
     # link the html template so Django can find it
