@@ -330,16 +330,13 @@ def get_workflow_title_and_description(wdl_path):
     f = open(wdl_path).read()
     m=re.search(meta_pattern, f, flags=re.DOTALL)
     if m:
-        print('META section FOUND')
         meta_section_text = m.group(0)
 
         # find 'workflow_title' if it exists
         title_regex = 'workflow_title\s*=\s*([a-zA-Z][a-zA-Z0-9_]+)'
         m1 = re.search(title_regex, meta_section_text)
         if m1:
-            print('found title')
             title = m1.group(1)
-            print('title was %s' % title)
         else:
             title = get_workflow_name(wdl_path)
 
@@ -347,7 +344,6 @@ def get_workflow_title_and_description(wdl_path):
         description_regex = 'workflow_description\s*=\s*(.*)'
         m2 = re.search(description_regex, meta_section_text)
         if m2:
-            print('found desc')
             description = m2.group(1)
         else:
             description = ''
