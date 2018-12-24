@@ -9,6 +9,8 @@ class WorkflowSerializer(serializers.ModelSerializer):
         fields = ('workflow_id', \
                   'version_id', \
                   'workflow_name', \
+                  'workflow_title', \
+                  'workflow_description', \
                   'is_default', \
                   'is_active' \
         )

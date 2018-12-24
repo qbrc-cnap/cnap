@@ -34,6 +34,16 @@ class Workflow(models.Model):
     # when an analysis is requested.
     workflow_location = models.CharField(max_length=2000)
 
+    # a human-readable name for the 'title' of a workflow/analysis
+    # Used for display-- users will see a list of these describing the 
+    # workflows they can run.  Can be added to the WDL file in a meta section
+    # under the keyword `workflow_title`
+    workflow_title = models.CharField(max_length=200, default='Workflow')
+
+    # a description of the workflow to help users.  Not too long (See max length)
+    # Can be added to WDL under meta section with key `workflow_description`
+    workflow_description = models.CharField(max_length=1000, default='')
+
     class Meta:
         # ensure the the combination of a workflow and a version is unique
         unique_together = ('workflow_id', 'version_id')
