@@ -52,7 +52,21 @@ $.ajax({
     type:"GET",
     headers:{"X-CSRFToken": csrfToken},
     success:function(response){
-        console.log('response: ' + response); 
+        var analysisTable = $("#analysis-table tbody");
+        var markup = "";
+        for(var i=0; i<response.length; i++){
+            var item = response[i];
+            var title = item['workflow_title'];
+            var workflow_id = item['workflow_id'];
+            var version_id = item['version_id'];
+            var description = item['workflow_description'];
+            markup += `<tr>
+                      <td><a href="{{workflow_endpoint}}${workflow_id}/${version_id}/">${title}</a></td>
+                      <td>${description}</td>
+                    </tr>`;
+        }
+        analysisTable.append(markup); 
+
     },
     error:function(){
         console.log('error!');
