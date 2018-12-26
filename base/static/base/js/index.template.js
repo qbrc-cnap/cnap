@@ -61,7 +61,7 @@ $.ajax({
             var version_id = item['version_id'];
             var description = item['workflow_description'];
             markup += `<tr>
-                      <td><a href="{{workflow_endpoint}}${workflow_id}/${version_id}/">${title}</a></td>
+                      <td><a target="_blank" class="analysisLink" href="{{workflow_endpoint}}${workflow_id}/${version_id}/">${title} <i style="font-size:16px" class="fa">&#xf08e;</i></a></td>
                       <td>${description}</td>
                     </tr>`;
         }
