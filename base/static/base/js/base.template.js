@@ -49,6 +49,11 @@
         }
     });
 
+
+$("#svg-wrapper-logout").click(function(){
+    window.location.href="https://"+ window.location.hostname + (window.location.port ? ':' + window.location.port: '')+ "{{logout_url}}"
+});
+
 $(".select-all-checkbox").click(function(){
     var targetedTable = $(this).attr("table-target");
     var inputs = $("#" + targetedTable).find("input");

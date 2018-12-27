@@ -59,10 +59,10 @@ $.ajax({
             var title = item['workflow_title'];
             var workflow_id = item['workflow_id'];
             var version_id = item['version_id'];
-            var description = item['workflow_description'];
+            var short_description = item['workflow_short_description'];
             markup += `<tr>
                       <td><a target="_blank" class="analysisLink" href="{{workflow_endpoint}}${workflow_id}/${version_id}/">${title} <i style="font-size:16px" class="fa">&#xf08e;</i></a></td>
-                      <td>${description}</td>
+                      <td>${short_description}</td>
                     </tr>`;
         }
         analysisTable.append(markup); 
@@ -465,8 +465,3 @@ $(".init-upload-btn").click(function(){
 });
 
 //End code related to javascript for uploads
-
-
-$("#svg-wrapper-logout").click(function(){
-    window.location.href="https://"+ window.location.hostname + (window.location.port ? ':' + window.location.port: '')+ "{{logout_url}}"
-});
