@@ -52,6 +52,7 @@ PYFILE = 'py'
 ZIP = 'zip'
 JSON = 'json'
 JS = 'javascript'
+CSS = 'css'
 ACCEPTED_FILE_EXTENSIONS = [WDL, PYFILE, ZIP, JSON]
 
 # Other constants:
@@ -595,6 +596,33 @@ def link_form_javascript(workflow_libdir_name, workflow_dir, javascript_filename
     # finally, link them:
     os.symlink(javascript_template_path, linkpath)
 
+def link_form_css(workflow_libdir_name, workflow_dir, css_filename):
+    '''
+    The CSS file is sitting in the destination_dir, but Django cannot treat it as 
+    a static file unless we locate it in under the STATIC_ROOT dir.
+    We create a symlink from there
+    back to the actual file located under the workflow library directory.
+
+    '''
+    # the abs path to the workflow library dir
+    workflow_libdir = os.path.join(APP_ROOT_DIR, workflow_libdir_name)
+
+    # now we can get the path of the CSS relative to that workflow library dir:
+    css_path = os.path.join(workflow_dir, css_filename)
+    relative_path = os.path.relpath(css_path, workflow_libdir)
+
+    # the relative path lets us create the proper directory structure for linking
+    from django.conf import settings
+    linkpath = os.path.join(settings.STATIC_ROOT, workflow_libdir_name, relative_path)
+
+    # need to make intermediate paths if necessary:
+    linkdir = os.path.dirname(linkpath)
+    if not os.path.isdir(linkdir):
+        os.makedirs(linkdir)
+
+    # finally, link them:
+    os.symlink(css_path, linkpath)
+
 
 if __name__ == '__main__':
     '''
@@ -640,10 +668,11 @@ if __name__ == '__main__':
     # template to check against.
     # This function also updates the workflow GUI file, fillling in all the 
     # optional parameters with defaults
-    final_html_template_path, final_javascript_path = gui_utils.construct_gui(
+    final_html_template_path, final_javascript_path, final_css_path = gui_utils.construct_gui(
         staging_dir)
     file_dict[HTML] = [final_html_template_path] # put in a list for consistency
     file_dict[JS] = [final_javascript_path]
+    file_dict[CSS] = [final_css_path]
 
     # Now that the gui spec has been updated to include default params, we need to
     # ensure that the correct python files are there.  This function copies all
@@ -676,6 +705,7 @@ if __name__ == '__main__':
     # link the html template so Django can find it
     link_django_template(WORKFLOWS_DIR, destination_dir, settings.HTML_TEMPLATE_NAME)
     link_form_javascript(WORKFLOWS_DIR, destination_dir, settings.FORM_JAVASCRIPT_NAME)
- 
+    link_form_css(WORKFLOWS_DIR, destination_dir, settings.FORM_CSS_NAME)
+
     # cleanup the staging dir:
     shutil.rmtree(staging_dir)

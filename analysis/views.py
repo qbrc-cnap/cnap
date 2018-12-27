@@ -106,6 +106,12 @@ class AnalysisView(View):
         context_dict['form_javascript'] = os.path.join(settings.STATIC_URL, 
             workflow_dir, 
             settings.FORM_JAVASCRIPT_NAME)
+
+        # Need to link the css for the page
+        context_dict['form_css'] = os.path.join(settings.STATIC_URL, 
+            workflow_dir, 
+            settings.FORM_CSS_NAME)
+
         # the url so the POST goes to the correct URL
         context_dict['submit_url'] = reverse('workflow_version_view', 
             kwargs={'workflow_id': workflow_id, 'version_id': version_id}
@@ -134,6 +140,7 @@ class AnalysisView(View):
         # Fill out the template for the WDL input
         try:
             wdl_input_dict = fill_wdl_input(request, j)
+            print(wdl_input_dict)
         except Exception as ex:
             return HttpResponseBadRequest('Error when instantiating workflow.')
 

@@ -1,6 +1,7 @@
 {
     "master_html_template": "html_elements/form_template.html",
     "master_javascript_template": "js/form_handler.js",
+    "master_css_template": "css/analysis_form.css",
     "gui_elements": {
         "file_chooser": {
             "html_source": "html_elements/file_chooser.html",

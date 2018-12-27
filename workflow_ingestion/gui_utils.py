@@ -22,6 +22,7 @@ GUI_SCHEMA_PATH = 'gui_schema.json'
 GUI_ELEMENTS = 'gui_elements'
 MASTER_HTML_TEMPLATE = 'master_html_template'
 MASTER_JS_TEMPLATE = 'master_javascript_template'
+MASTER_CSS_TEMPLATE = 'master_css_template'
 JS_HANDLER = 'js_handler'
 
 # Other constants that are used in various locations
@@ -232,10 +233,22 @@ def fill_final_template(master_template_path,
         # note that we have to wrap the template with django
         # tags here, rather than in the original template.  
         # Otherwise jinja does not recognize the tags and fails.
-        fout.write("{% extends 'base.html' %}\n")
-        fout.write('{% block content %}\n')
+        #fout.write("{% extends 'base.html' %}\n")
+        #fout.write('{% block content %}\n')
         fout.write(ui)
-        fout.write('{% endblock%}\n')
+        #fout.write('{% endblock%}\n')
+
+
+def fill_css_template(css_template_path, final_css_path):
+    '''
+    Fills in any customized CSS, adding it to the master CSS and writing to the final path
+    '''
+    #TODO implement custom CSS
+    with open(final_css_path, 'w') as fout:
+        css_template = get_jinja_template(css_template_path)
+        context = {}
+        css_str = css_template.render(context)
+        fout.write(css_str)
 
 
 def fill_javascript_template(gui_schema, javascript_template_path,
@@ -348,6 +361,11 @@ def construct_gui(staging_dir):
         final_javascript_path, 
         element_type_list)
 
+    # collect the CSS for the form:
+    css_template_path = gui_schema[MASTER_CSS_TEMPLATE]
+    final_css_path = os.path.join(staging_dir, settings.FORM_CSS_NAME)
+    fill_css_template(css_template_path, final_css_path)
+
     # It's possible that some of the WDL inputs are created at runtime and do not 
     # have direct GUI elements that pass data to them.  We simply warn about those.
     set_diff = set(workflow_inputs.keys()).difference(set(mapped_input_list)) 
@@ -360,7 +378,7 @@ def construct_gui(staging_dir):
     master_template_path = gui_schema[MASTER_HTML_TEMPLATE]
     final_template_path = os.path.join(staging_dir, settings.HTML_TEMPLATE_NAME)
     fill_final_template(master_template_path, final_template_path, form_elements)
-    return final_template_path, final_javascript_path
+    return final_template_path, final_javascript_path, final_css_path
 
 
 

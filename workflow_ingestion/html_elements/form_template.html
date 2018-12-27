@@ -1,4 +1,18 @@
+{% raw %}
+{% extends 'base.html' %}
+{% endraw %}
 
+{% raw %}
+{% block page_specific_css %}
+    <link rel="stylesheet" href="{{form_css}}"></script>
+{% endblock %}
+{% endraw %}
+
+{% raw %}
+{% block content%}
+{% endraw %}
+
+<div class="analysis-form">
         <form id="analysis-creation-form" action={% raw %}"{{submit_url}}" {% endraw %}>
 		{% raw %}
 		{% csrf_token %}
@@ -10,3 +24,13 @@
 		{% endfor %}
 		<button id="submit-form" class="btn btn-primary">Next</button>			
         </form>
+</div>
+{% raw %}
+{% endblock %}
+{% endraw %}
+
+{% raw %}
+{% block page_specific_js %}
+    <script type="text/javascript" src="{{form_javascript}}"></script>
+{% endblock %}
+{% endraw %}
