@@ -383,21 +383,6 @@ $(".section-chooser").click(function(){
     $(element).toggle();
 })
 
-$(".select-all-checkbox").click(function(){
-    var targetedTable = $(this).attr("table-target");
-    var inputs = $("#" + targetedTable).find("input");
-
-    if ($(this).prop("checked") == true){
-        $(inputs).each(function(number, el){
-            $(el).prop("checked", true);
-        });
-    }else{
-        $(inputs).each(function(number, el){
-            $(el).prop("checked", false);
-        });                }
-
-});
-
 $("#refresh-history").click(function(){
     get_history();
 });

@@ -48,3 +48,18 @@
             }
         }
     });
+
+$(".select-all-checkbox").click(function(){
+    var targetedTable = $(this).attr("table-target");
+    var inputs = $("#" + targetedTable).find("input");
+
+    if ($(this).prop("checked") == true){
+        $(inputs).each(function(number, el){
+            $(el).prop("checked", true);
+        });
+    }else{
+        $(inputs).each(function(number, el){
+            $(el).prop("checked", false);
+        });                }
+
+});
