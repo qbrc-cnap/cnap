@@ -334,25 +334,34 @@ def get_workflow_title_and_description(wdl_path):
         meta_section_text = m.group(0)
 
         # find 'workflow_title' if it exists
-        title_regex = 'workflow_title\s*=\s*([a-zA-Z][a-zA-Z0-9_]+)'
+        title_regex = 'workflow_title\s*:\s*"(.*)"'
         m1 = re.search(title_regex, meta_section_text)
         if m1:
             title = m1.group(1)
         else:
             title = get_workflow_name(wdl_path)
 
-        # find 'workflow_description if it exists
-        description_regex = 'workflow_description\s*=\s*(.*)'
+        # find 'workflow_short_description' if it exists
+        description_regex = 'workflow_short_description\s*:\s*"(.*)"'
         m2 = re.search(description_regex, meta_section_text)
         if m2:
-            description = m2.group(1)
+            short_description = m2.group(1)
         else:
-            description = ''
+            short_description = ''
+
+        # find 'workflow_long_description' if it exists
+        description_regex = 'workflow_long_description\s*:\s*"(.*)"'
+        m3 = re.search(description_regex, meta_section_text)
+        if m3:
+            long_description = m3.group(1)
+        else:
+            long_description = ''
     else: # no meta section:
         title = get_workflow_name(wdl_path)
-        description = ''
+        short_description = ''
+        long_description = ''
 
-    return title, description
+    return title, short_description, long_description
 
 
 def locate_handler(module_name, search_dir_list):
@@ -524,7 +533,7 @@ def add_workflow_to_db(workflow_name, destination_dir):
     matches = glob.glob(wildcard_path)
     if len(matches) > 0:
         wdl_path = matches[0]
-        workflow_title, workflow_description = get_workflow_title_and_description(wdl_path)
+        workflow_title, workflow_short_description, workflow_long_description = get_workflow_title_and_description(wdl_path)
     else:
         raise Exception('Zero WDL files found.  This should not happen.')
 
@@ -538,7 +547,8 @@ def add_workflow_to_db(workflow_name, destination_dir):
         workflow_name = workflow_name,
         workflow_location=workflow_location,
         workflow_title = workflow_title, 
-        workflow_description = workflow_description
+        workflow_short_description = workflow_short_description,
+        workflow_long_description = workflow_long_description
     )
     wf.save()
 

@@ -40,9 +40,13 @@ class Workflow(models.Model):
     # under the keyword `workflow_title`
     workflow_title = models.CharField(max_length=200, default='Workflow')
 
-    # a description of the workflow to help users.  Not too long (See max length)
-    # Can be added to WDL under meta section with key `workflow_description`
-    workflow_description = models.CharField(max_length=1000, default='')
+    # a SHORT description of the workflow to help users.  Not too long (See max length)
+    # Can be added to WDL under meta section with key `workflow_short_description`
+    workflow_short_description = models.CharField(max_length=400, default='', blank=True)
+
+    # a longer description of the workflow to help users.  Not too long (See max length)
+    # Can be added to WDL under meta section with key `workflow_long_description`
+    workflow_long_description = models.CharField(max_length=2000, default='', blank=True)
 
     class Meta:
         # ensure the the combination of a workflow and a version is unique

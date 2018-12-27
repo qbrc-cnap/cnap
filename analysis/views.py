@@ -101,6 +101,10 @@ class AnalysisView(View):
         # dynamic, database-driven data is queried for the UI.
         fill_context(request, workflow_obj, context_dict)
 
+        # add the workflow title and description to the context
+        context_dict['workflow_title'] = workflow_obj.workflow_title
+        context_dict['workflow_long_description'] = workflow_obj.workflow_long_description
+
         # add some additional elements to the form:
         # Need to link the javascript for the page
         context_dict['form_javascript'] = os.path.join(settings.STATIC_URL, 

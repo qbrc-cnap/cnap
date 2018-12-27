@@ -10,7 +10,8 @@ class WorkflowSerializer(serializers.ModelSerializer):
                   'version_id', \
                   'workflow_name', \
                   'workflow_title', \
-                  'workflow_description', \
+                  'workflow_short_description', \
+                  'workflow_long_description', \
                   'is_default', \
                   'is_active' \
         )
