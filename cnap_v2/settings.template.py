@@ -310,6 +310,9 @@ USER_GUI_SPEC_NAME = ingestion_config_dict['gui_spec']
 # the name of the javascript file that supports the dynamic content of the UI
 FORM_JAVASCRIPT_NAME = ingestion_config_dict['final_javascript_filename']
 
+# the name of the css file that supports dynamic styling of the UI for workflows
+FORM_CSS_NAME = ingestion_config_dict['final_css_filename']
+
 # the name of a directory where we work on files before depositing in a final
 # location
 STAGING_DIR = ingestion_config_dict['staging_dir']
