@@ -136,7 +136,7 @@ def get_files(wdl_directory):
             'files in the %s directory' % wdl_directory)
     else:
         # need a single file named MAIN_WDL
-        main_matches = [x for x in file_dict[WDL] if x == MAIN_WDL]
+        main_matches = [x for x in file_dict[WDL] if os.path.basename(x) == MAIN_WDL]
         if len(main_matches) != 1:
             raise WdlImportException('There needs to be exactly one WDL file '
                 'named %s for us to identify which is the main WDL file.' % MAIN_WDL

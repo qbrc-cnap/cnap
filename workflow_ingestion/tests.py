@@ -10,13 +10,23 @@ TEST_UTILS_DIR = os.path.join(THIS_DIR, 'test_utils')
 
 from ingest_workflow import locate_handler, copy_handler_if_necessary, \
     inspect_handler_module, get_files, \
-    MissingHandlerException, HandlerConfigException
+    MissingHandlerException, HandlerConfigException, WdlImportException, \
+    WDL, PYFILE, ZIP, JSON
 
 from gui_utils import check_input_mapping, fill_html_template, \
     check_known_input_element, TARGET, TARGET_IDS, DISPLAY_ELEMENT, GUI_ELEMENTS, \
     InvalidGuiMappingException, \
     ConfigurationException, UnknownGuiElementException
 
+
+def mock_listdir(d):
+    return ['main.wdl', 'sub.wdl', 'bar.py', 'gui.json']
+
+def mock_abspath(d):
+    return d
+
+def mock_realpath(d):
+    return d
 
 class TestWorkflowIngestion(TestCase):
     '''
@@ -27,13 +37,22 @@ class TestWorkflowIngestion(TestCase):
     @mock.patch('ingest_workflow.os')
     def test_missing_main_wdl_file_raises_ex(self, mock_os):
         mock_os.listdir.return_value = ['foo.wdl', 'bar.py', 'gui.json']
-        get_files('/www/mydir')
+        with self.assertRaises(WdlImportException):
+           get_files('/www/mydir')
 
-    def test_multiple_wdl_file_raises_ex(self):
-        pass
 
+    @mock.patch('ingest_workflow.os.listdir', new=mock_listdir)
+    @mock.patch('ingest_workflow.os.path.abspath', new=mock_abspath)
+    @mock.patch('ingest_workflow.os.path.realpath', new=mock_realpath)
     def test_multiple_wdl_file_correctly_configured_returns_expected(self):
-        pass
+        file_dict = get_files('/www/mydir')
+        expected_dict = {
+            PYFILE: ['/www/mydir/bar.py'],
+            ZIP: [],
+            JSON: ['/www/mydir/gui.json'],
+            WDL: ['/www/mydir/main.wdl', '/www/mydir/sub.wdl'],
+        }
+        self.assertEqual(file_dict, expected_dict)
 
     def test_missing_handler_module_returns_none(self):
         '''
