@@ -56,6 +56,7 @@ CSS = 'css'
 ACCEPTED_FILE_EXTENSIONS = [WDL, PYFILE, ZIP, JSON]
 
 # Other constants:
+MAIN_WDL = 'main.wdl'
 NEW_WDL_DIR = 'wdl_dir' # a string used for common reference.  Value arbitrary.
 WOMTOOL_JAR = settings.WOMTOOL_JAR
 HTML = 'html'
@@ -129,10 +130,17 @@ def get_files(wdl_directory):
         else:
             file_dict[ext] = []
 
-    # expect only a single WDL file:
-    if len(file_dict[WDL]) != 1:
-        raise WdlImportException('There needs to be a single WDL '
-            'file in the %s directory' % wdl_directory)
+    # expect at least a single WDL file:
+    if len(file_dict[WDL]) < 1:
+        raise WdlImportException('There needs to be one or more WDL '
+            'files in the %s directory' % wdl_directory)
+    else:
+        # need a single file named MAIN_WDL
+        main_matches = [x for x in file_dict[WDL] if x == MAIN_WDL]
+        if len(main_matches) != 1:
+            raise WdlImportException('There needs to be exactly one WDL file '
+                'named %s for us to identify which is the main WDL file.' % MAIN_WDL
+            )
 
     # expect zero or one zip files.
     if len(file_dict[ZIP]) > 1:
@@ -239,7 +247,7 @@ def create_input_template(file_dict, staging_dir, inputs_template_filename):
     This function calls out to the WOMtool which creates the input template
     required to run the WDL
     '''
-    main_wdl_file = file_dict[WDL][0]
+    main_wdl_file = [x for x in file_dict[WDL] if x == MAIN_WDL][0]
     try:
         zip_file = file_dict[ZIP][0]
         unzip_cmd = 'unzip %s -d %s' % (
