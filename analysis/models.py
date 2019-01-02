@@ -1,5 +1,8 @@
 from django.db import models
 from django.contrib.auth import get_user_model
+import uuid
+
+from base.models import Organization
 
 
 class Workflow(models.Model):
@@ -51,3 +54,46 @@ class Workflow(models.Model):
     class Meta:
         # ensure the the combination of a workflow and a version is unique
         unique_together = ('workflow_id', 'version_id')
+
+
+class AnalysisProject(models.Model):
+    '''
+    This class captures information that is contained via the combination of a Workflow
+    and an actor who instantiates the Workflow instance.  This ties a Workflow to a particular
+    user.
+    '''
+    # field for tracking (perhaps with an external LIMS)
+    tracking_id = models.CharField(max_length=200, blank=True, default='')
+
+    # field for url referencing.  Serves the same purpose as primary key, but 
+    # when users hit the URL for their analysis, we prefer it not be a simple integer
+    analysis_uuid = models.UUIDField(unique=True, default = uuid.uuid4)
+
+    # an analysis needs a location where the files are stored.
+    analysis_bucketname = models.CharField(max_length=63, blank=False)
+
+    # foreign key to the Workflow
+    workflow = models.ForeignKey('Workflow', on_delete=models.CASCADE)
+
+    # foreign key to the owner/user
+    owner = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
+
+    # boolean for whether the analysis has been started/run
+    started = models.BooleanField(default=False)
+
+    # boolean for whether complete
+    completed = models.BooleanField(default=False)
+
+    # fields to track status
+    start_time = models.DateTimeField(blank=True, null=True)
+    finish_time = models.DateTimeField(blank=True, null=True)
+    success = models.BooleanField(default=True)
+    error = models.BooleanField(default=False)
+
+
+class OrganizationWorkflow(models.Model):
+    '''
+    This model joins an Organization to the list of available Workflows
+    '''
+    organization = models.ForeignKey(Organization)
+    workflow = models.ForeignKey(Workflow)

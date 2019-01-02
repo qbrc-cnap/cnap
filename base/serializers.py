@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from base.models import Resource
+from base.models import Resource, Organization
 
 class ResourceSerializer(serializers.ModelSerializer):
 
@@ -16,3 +16,8 @@ class ResourceSerializer(serializers.ModelSerializer):
                   'date_added', \
                   'expiration_date' \
         )
+
+class OrganizationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Organization
+        fields = '__all__'

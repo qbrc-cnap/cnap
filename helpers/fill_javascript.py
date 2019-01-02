@@ -95,7 +95,7 @@ def get_urls():
     url_dict['upload_url'] = reverse('upload-transfer-initiation')
     url_dict['download_url'] = reverse('download-transfer-initiation')
     url_dict['logout_url'] = reverse('logout')
-    url_dict['workflow_endpoint'] = reverse('analysis-list')
+    url_dict['workflow_endpoint'] = reverse('analysis-project-list')
     return url_dict
 
 

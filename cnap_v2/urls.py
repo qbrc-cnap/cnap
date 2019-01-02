@@ -8,7 +8,8 @@ from . import views as base_views
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('users/', include('custom_auth.user_urls')),
-    path('resources/', include('base.urls')),
+    path('resources/', include('base.resource_urls')),
+    path('organizations/', include('base.organization_urls')),
     path('auth/', include('custom_auth.urls')),
     path('analysis/', include('analysis.urls')),
     re_path(r'^api/$', base_views.api_root),

@@ -49,3 +49,11 @@ class Resource(models.Model):
 
     def get_owner(self):
         return self.owner
+
+
+class Organization(models.Model):
+    '''
+    This model allows us to selectively expose analyses to different groups of individuals
+    Thus, access to different analyses can be controlled from an organization standpoint.
+    '''
+    org_name = models.CharField(max_length=200, default='DEFAULT', blank=True)

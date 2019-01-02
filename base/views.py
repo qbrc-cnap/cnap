@@ -6,8 +6,26 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ObjectDoesNotExist
 
 import base.utils as utils
-from base.models import Resource
-from base.serializers import ResourceSerializer
+from base.models import Resource, Organization
+from base.serializers import ResourceSerializer, OrganizationSerializer
+
+
+class OrganizationList(generics.ListCreateAPIView):
+    '''
+    This lists or creates the Organizations 
+    '''
+    serializer_class = OrganizationSerializer
+    permission_classes = (permissions.IsAdminUser,)
+
+
+class OrganizationDetail(generics.RetrieveUpdateDestroyAPIView):
+    '''
+    This is for details, updates, or deletion of a particular instance 
+    of an Organization
+    '''
+    serializer_class = OrganizationSerializer
+    permission_classes = (permissions.IsAdminUser,)
+
 
 class ResourceList(generics.ListCreateAPIView):
     '''

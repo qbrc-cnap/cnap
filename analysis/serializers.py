@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from analysis.models import Workflow
+from analysis.models import Workflow, AnalysisProject, OrganizationWorkflow
 
 class WorkflowSerializer(serializers.ModelSerializer):
 
@@ -15,3 +15,15 @@ class WorkflowSerializer(serializers.ModelSerializer):
                   'is_default', \
                   'is_active' \
         )
+
+
+class AnalysisProjectSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AnalysisProject
+        fields = '__all__'
+
+
+class OrganizationWorkflowSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OrganizationWorkflow
+        fields = '__all__'

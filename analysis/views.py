@@ -16,37 +16,105 @@ from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import generics, permissions, status
 from django_filters.rest_framework import DjangoFilterBackend
 
-from .models import Workflow
-from .serializers import WorkflowSerializer
-from .view_utils import get_workflow, \
+from .models import Workflow, AnalysisProject, OrganizationWorkflow
+from .serializers import WorkflowSerializer, \
+    AnalysisProjectSerializer, \
+    OrganizationWorkflowSerializer
+from .view_utils import query_workflow, \
     validate_workflow_dir, \
     fill_context, \
-    fill_wdl_input
+    start_job_on_gcp
+
+
+class AnalysisQueryException(Exception):
+    pass
+
+
+class OrganizationWorkflowList(generics.ListCreateAPIView):
+    serializer_class = OrganizationWorkflowSerializer
+    permission_classes = (permissions.IsAdminUser,)
+
+
+class OrganizationWorkflowDetail(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = OrganizationWorkflowSerializer
+    permission_classes = (permissions.IsAdminUser,)
 
 
 class WorkflowList(generics.ListAPIView):
     '''
-    This lists the available Workflow instances avaiable to be run by a particular user
+    This lists the available Workflow instances avaiable.  Only available to admins
     '''
     serializer_class = WorkflowSerializer
-    permission_classes = (permissions.IsAuthenticated,)
+    permission_classes = (permissions.IsAdminUser,)
     filter_backends = (DjangoFilterBackend,)
     filter_fields = ('is_active', 'is_default')
 
     def get_queryset(self):
-        '''
-        Defines how a basic list of Workflow objects behaves.  Might later add
-        the concept of individuals/institutions so that different institution + user 
-        combinations will get only analyses that are valid for them
-        '''
+        return Workflow.objects.all()
+
+
+class WorkflowDetail(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = WorkflowSerializer
+    permission_classes = (permissions.IsAdminUser,)
+    filter_backends = (DjangoFilterBackend,)
+    filter_fields = ('is_active', 'is_default')
+
+
+class AnalysisProjectList(generics.ListCreateAPIView):
+    '''
+    This lists or creates instances of AnalysisProjects
+    '''
+    serializer_class = AnalysisProjectSerializer
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get_queryset(self):
+        user = self.request.user
+
+        # if admin, return all projects.  Otherwise only
+        # return those owned by the user
+        if user.is_staff:
+            return AnalysisProject.objects.all()
+        else:
+            return AnalysisProject.objects.filter(owner=user)
+
+
+class AnalysisProjectDetail(generics.RetrieveUpdateDestroyAPIView):
+    '''
+    This gives access to individual AnalysisProject instances
+    '''
+    def get_queryset(self):
+        user = self.request.user
+        uuid = self.kwargs['analysis_uuid']
+
         try:
-            user = self.request.user
-            return Workflow.objects.filter(is_active=True)
+            project = AnalysisProject.objects.get(analysis_uuid=uuid)
+            
+            # check owner just to be sure:
+            if project.owner != user:
+                # don't acknowledge that an instance has actually been found
+                # if a non-owner stumbles upon the correct UUID
+                raise Http404
+
+            # now have the proper AnalysisProject instance for this user:
+            return project
+
         except ObjectDoesNotExist as ex:
             raise Http404
 
 
 class AnalysisView(View):
+
+    '''
+    This class specifies the view for a Workflow.  
+
+    Depending on which URL is requested, this view can do a couple of things:
+    - if a UUID is given in the URL params, then we are working with an AnalysisProject
+    instance and thus, a user is attempting to run a Workflow.
+
+    - if the URL is instead given by one or two integers (and requested by an admin), then
+    we are simply using the URL to examine the Workflow in question.  This way admins can make
+    alterations to Workflows and see the same thing the end-user sees.
+    '''
 
     # enforces that this view is protected by login:
     @method_decorator(login_required)
@@ -57,16 +125,65 @@ class AnalysisView(View):
     def get_url_params(kwargs):
         '''
         The kwargs dict carries the URL parameters.
-        We expect at least a `workflow_id`.  An optional
-        `version_id` can also be provided.  If not, it is set to None
+        Depending on the parameters supplied to the view, we
+        can do various things.  
+
+        If a UUID is given, then a particular AnalysisProject
+        is being executed.  If an admin simply wants to view
+        the interface, then they may request using the `workflow_id`
+        with an optional `version_id`.
+        
+        If any parameters are missing, they are set to None as flags
         '''
-        workflow_id = kwargs['workflow_id']
+        try:
+            analysis_uuid = kwargs['analysis_uuid']
+        except KeyError:
+            analysis_uuid = None
+
+        try:
+            workflow_id = kwargs['workflow_id']
+        except KeyError:
+            workflow_id = None
+
         try:
             version_id = kwargs['version_id']
         except KeyError:
             version_id = None
-        return (workflow_id, version_id)
 
+        return (analysis_uuid, workflow_id, version_id)
+
+    @staticmethod
+    def get_workflow(kwargs, staff_request = False):
+        '''
+        This method handles the logic of returning a Workflow instance
+        based on which parameters were given in the URL.
+
+        Returns a tuple-
+        - the first item of the tuple is a Workflow instance
+        - the second item of the tuple is either a UUID or None.  It is None
+        if a direct request for the workflow was issued by an admin. This helps
+        determine if the request is a "mock" or "test" of the Workflow
+        '''
+        # Get the workflow and possibly version id from the request params:
+        analysis_uuid, workflow_id, version_id = AnalysisView.get_url_params(kwargs)
+        
+        if analysis_uuid:
+            # get the workflow object based on the UUID:
+            analysis_project = AnalysisProject.objects.get(analysis_uuid=analysis_uuid)
+            return (analysis_project.workflow, analysis_uuid)
+        else:
+
+            if staff_request:
+                # get the workflow object based on the workflow ID/version
+                try:
+                    return (query_workflow(workflow_id, version_id, True), None)
+                except Exception:
+                    raise AnalysisQueryException('Error when querying for workflow.')
+            else:
+                raise AnalysisQueryException('Error when querying for workflow.'
+                    ' Non-admins may not request a workflow directly.  An analysis'
+                    ' project must be created first.'
+                )
 
     def get(self, request, *args, **kwargs):
         '''
@@ -77,14 +194,11 @@ class AnalysisView(View):
         look at the workflow details to determine if any such details are needed.
         '''
 
-        # Get the workflow and possibly version id from the request params:
-        workflow_id, version_id = AnalysisView.get_url_params(kwargs)
-        
-        # get the workflow object based on the workflow ID/version
         try:
-            workflow_obj = get_workflow(workflow_id, version_id, request.user.is_staff)
-        except Exception:
-            return HttpResponseBadRequest('Error when querying for workflow.')
+            workflow_obj, analysis_uuid = AnalysisView.get_workflow(kwargs, request.user.is_staff)
+        except AnalysisQueryException as ex:
+            message = str(ex)
+            return HttpResponseBadRequest(message)
 
         # if we are here, we have a workflow object from the database.
         # We can use that to find the appropriate workflow directory where
@@ -117,10 +231,19 @@ class AnalysisView(View):
             settings.FORM_CSS_NAME)
 
         # the url so the POST goes to the correct URL
-        context_dict['submit_url'] = reverse('workflow_version_view', 
-            kwargs={'workflow_id': workflow_id, 'version_id': version_id}
-        )
-
+        if analysis_uuid:
+            context_dict['submit_url'] = reverse('analysis-project-execute', 
+                kwargs={
+                    'analysis_uuid': analysis_uuid
+                }
+            )
+        else:
+            context_dict['submit_url'] = reverse('workflow_version_view', 
+                kwargs={
+                    'workflow_id': workflow_obj.workflow_id, 
+                    'version_id': workflow_obj.version_id
+                }
+            )
         return render(request, template, context_dict)
 
 
@@ -129,22 +252,20 @@ class AnalysisView(View):
         With a POST request, the form is being submitted.  We parse the contents
         of that request, prepare a pending analysis, and prepare a summary.
         '''
-        # Get the workflow and possibly version id from the request params:
-        workflow_id, version_id = AnalysisView.get_url_params(kwargs)
+
+        try:
+            workflow_obj, analysis_uuid = AnalysisView.get_workflow(kwargs, request.user.is_staff)
+        except AnalysisQueryException as ex:
+            message = str(ex)
+            return HttpResponseBadRequest(message)
 
         # parse the payload from the POST request and make a dictionary
         data = request.POST.get('data')
         j = json.loads(data)
+        j['analysis_uuid'] = analysis_uuid
 
-        # add the url params so we know which workflow to use.  Add to the overall
-        # dict containing the data
-        j['workflow_id'] = workflow_id
-        j['version_id'] = version_id
-
-        # Fill out the template for the WDL input
         try:
-            wdl_input_dict = fill_wdl_input(request, j)
-            print(wdl_input_dict)
+            start_job_on_gcp(request, j, workflow_obj)
         except Exception as ex:
             return HttpResponseBadRequest('Error when instantiating workflow.')
 
