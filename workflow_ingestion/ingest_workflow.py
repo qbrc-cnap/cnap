@@ -56,7 +56,7 @@ CSS = 'css'
 ACCEPTED_FILE_EXTENSIONS = [WDL, PYFILE, ZIP, JSON]
 
 # Other constants:
-MAIN_WDL = 'main.wdl'
+MAIN_WDL = settings.MAIN_WDL
 NEW_WDL_DIR = 'wdl_dir' # a string used for common reference.  Value arbitrary.
 WOMTOOL_JAR = settings.WOMTOOL_JAR
 HTML = 'html'

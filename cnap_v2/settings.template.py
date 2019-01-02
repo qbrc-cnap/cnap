@@ -316,6 +316,9 @@ FORM_CSS_NAME = ingestion_config_dict['final_css_filename']
 # the name of a directory where we work on files before depositing in a final
 # location
 STAGING_DIR = ingestion_config_dict['staging_dir']
+
+# the name of the main WDL file:
+MAIN_WDL = ingestion_config_dict['main_wdl']
 ###############################################################################
 ###############################################################################
 
@@ -329,5 +332,18 @@ STAGING_DIR = ingestion_config_dict['staging_dir']
 
 WOMTOOL_JAR = os.path.join(BASE_DIR, 'etc', 'womtool-36.jar') # Broad WOMTool JAR file
 CROMWELL_JAR = os.path.join(BASE_DIR, 'etc', 'cromwell-36.jar') # Broad Cromwell JAR
+###############################################################################
+###############################################################################
+
+
+
+
+###############################################################################
+# Parameters for job submission
+###############################################################################
+
+# the path of a diretory where temporary job files are stored
+JOB_STAGING_DIR = os.path.join(BASE_DIR, 'tmp_staging')
+
 ###############################################################################
 ###############################################################################
