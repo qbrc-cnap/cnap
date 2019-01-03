@@ -31,11 +31,13 @@ class AnalysisQueryException(Exception):
 
 
 class OrganizationWorkflowList(generics.ListCreateAPIView):
+    queryset = OrganizationWorkflow.objects.all()
     serializer_class = OrganizationWorkflowSerializer
     permission_classes = (permissions.IsAdminUser,)
 
 
 class OrganizationWorkflowDetail(generics.RetrieveUpdateDestroyAPIView):
+    queryset = OrganizationWorkflow.objects.all()
     serializer_class = OrganizationWorkflowSerializer
     permission_classes = (permissions.IsAdminUser,)
 

@@ -14,6 +14,7 @@ class OrganizationList(generics.ListCreateAPIView):
     '''
     This lists or creates the Organizations 
     '''
+    queryset = Organization.objects.all()
     serializer_class = OrganizationSerializer
     permission_classes = (permissions.IsAdminUser,)
 
@@ -23,6 +24,7 @@ class OrganizationDetail(generics.RetrieveUpdateDestroyAPIView):
     This is for details, updates, or deletion of a particular instance 
     of an Organization
     '''
+    queryset = Organization.objects.all()
     serializer_class = OrganizationSerializer
     permission_classes = (permissions.IsAdminUser,)
 
