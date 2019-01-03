@@ -95,5 +95,5 @@ class OrganizationWorkflow(models.Model):
     '''
     This model joins an Organization to the list of available Workflows
     '''
-    organization = models.ForeignKey(Organization)
-    workflow = models.ForeignKey(Workflow)
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
+    workflow = models.ForeignKey(Workflow, on_delete=models.CASCADE)
