@@ -5,7 +5,7 @@ from . import views
 urlpatterns = [
 
     # lists all AnalysisProject instances
-    path('projects/', views.AnalysisProjectList.as_view(), name='analysis-project-list'),
+    path('projects/', views.AnalysisProjectListAndCreate.as_view(), name='analysis-project-list-and-create'),
 
     # API view that gives details about a particular AnalysisProject 
     # (NOT the endpoint for actually running an analysis!)

@@ -62,7 +62,7 @@ class WorkflowDetail(generics.RetrieveUpdateDestroyAPIView):
     filter_fields = ('is_active', 'is_default')
 
 
-class AnalysisProjectList(generics.ListCreateAPIView):
+class AnalysisProjectListAndCreate(generics.ListCreateAPIView):
     '''
     This lists or creates instances of AnalysisProjects
     '''
