@@ -18,10 +18,19 @@ class WorkflowSerializer(serializers.ModelSerializer):
 
 
 class AnalysisProjectSerializer(serializers.ModelSerializer):
+    workflow = WorkflowSerializer(many=False, read_only=True)
     class Meta:
         model = AnalysisProject
         fields = '__all__'
-
+        read_only_fields = ('analysis_uuid', \
+            'analysis_bucketname', \
+            'started', \
+            'completed', \
+            'start_time', \
+            'finish_time', \
+            'success', \
+            'error', \
+        )
 
 class OrganizationWorkflowSerializer(serializers.ModelSerializer):
     class Meta:

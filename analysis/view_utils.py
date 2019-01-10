@@ -285,13 +285,12 @@ def start_job_on_gcp(request, data, workflow_obj):
     date_str = datetime.datetime.now().strftime('%H%M%S_%m%d%Y')
     if data['analysis_uuid']:
         staging_dir = os.path.join(settings.JOB_STAGING_DIR, 
-            data['analysis_uuid'], 
+            str(data['analysis_uuid']), 
             date_str
         )
         analysis_project = AnalysisProject.objects.get(
             analysis_uuid = data['analysis_uuid']
         )
-
 
     else:
         staging_dir = os.path.join(settings.JOB_STAGING_DIR, 

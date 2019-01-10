@@ -1,5 +1,26 @@
+import os
 import configparser
+from jinja2 import Environment, FileSystemLoader
 
+from django.conf import settings
+
+def get_jinja_template(template_path):
+
+    if template_path[0] != '/':
+        template_path = os.path.join(settings.BASE_DIR, template_path)
+
+    # load the environment/template for the jinja template engine: 
+    template_dir = os.path.realpath(
+        os.path.abspath(
+            os.path.dirname(
+                template_path
+            )
+        )
+    )
+    env = Environment(loader=FileSystemLoader(template_dir))
+    return env.get_template(
+        os.path.basename(template_path)
+    )
 
 def load_config(config_filepath, config_sections=[]):
     '''

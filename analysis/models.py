@@ -1,9 +1,15 @@
+from jinja2 import Environment, FileSystemLoader
+
 from django.db import models
 from django.contrib.auth import get_user_model
 import uuid
 
-from base.models import Organization
+from django.conf import settings
+from django.contrib.sites.models import Site
 
+from base.models import Organization
+from helpers.email_utils import send_email
+from helpers.utils import get_jinja_template
 
 class Workflow(models.Model):
     '''
@@ -55,6 +61,9 @@ class Workflow(models.Model):
         # ensure the the combination of a workflow and a version is unique
         unique_together = ('workflow_id', 'version_id')
 
+    def __str__(self):
+        return '%s (version ID: %s)' % (self.workflow_name, self.version_id)
+
 
 class AnalysisProject(models.Model):
     '''
@@ -67,7 +76,7 @@ class AnalysisProject(models.Model):
 
     # field for url referencing.  Serves the same purpose as primary key, but 
     # when users hit the URL for their analysis, we prefer it not be a simple integer
-    analysis_uuid = models.UUIDField(unique=True, default = uuid.uuid4)
+    analysis_uuid = models.UUIDField(unique=True, default = uuid.uuid4, editable=True)
 
     # an analysis needs a location where the files are stored.
     analysis_bucketname = models.CharField(max_length=63, blank=False)
@@ -90,6 +99,26 @@ class AnalysisProject(models.Model):
     success = models.BooleanField(default=True)
     error = models.BooleanField(default=False)
 
+    def save(self, *args, **kwargs):
+        bucketname = '%s-%s' % (settings.CONFIG_PARAMS['storage_bucket_prefix'], self.analysis_uuid)
+        self.analysis_bucketname = bucketname
+        super().save(*args, **kwargs)
+        if settings.EMAIL_ENABLED:
+            email_address = self.owner.email
+            current_site = Site.objects.get_current()
+            domain = current_site.domain
+            url = 'https://%s' % domain
+            context = {'site': url, 'user_email': email_address}
+            email_template = get_jinja_template('email_templates/new_project.html')
+            email_html = email_template.render(context)
+            email_plaintxt_template = get_jinja_template('email_templates/new_project.txt')
+            email_plaintxt = email_plaintxt_template.render(context)
+            email_subject = open('email_templates/new_project_subject.txt').readline().strip()
+            send_email(email_plaintxt, \
+                email_html, \
+                email_address, \
+                email_subject \
+            )
 
 class OrganizationWorkflow(models.Model):
     '''

@@ -48,20 +48,20 @@ $.ajax({
 
 // get available analyses/workflows:
 $.ajax({
-    url:"{{workflow_endpoint}}?is_active=true",
+    url:"{{analysis_list_endpoint}}",
     type:"GET",
     headers:{"X-CSRFToken": csrfToken},
     success:function(response){
         var analysisTable = $("#analysis-table tbody");
         var markup = "";
         for(var i=0; i<response.length; i++){
-            var item = response[i];
-            var title = item['workflow_title'];
-            var workflow_id = item['workflow_id'];
-            var version_id = item['version_id'];
-            var short_description = item['workflow_short_description'];
+            var workflow_obj = response[i]['workflow'];
+            var title = workflow_obj['workflow_title'];
+            var short_description = workflow_obj['workflow_short_description'];
+
+            var analysis_uuid = response[i]['analysis_uuid'];
             markup += `<tr>
-                      <td><a target="_blank" class="analysisLink" href="{{workflow_endpoint}}${workflow_id}/${version_id}/">${title} <i style="font-size:16px" class="fa">&#xf08e;</i></a></td>
+                      <td><a target="_blank" class="analysisLink" href="{{analysis_project_endpoint}}${analysis_uuid}/">${title} <i style="font-size:16px" class="fa">&#xf08e;</i></a></td>
                       <td>${short_description}</td>
                     </tr>`;
         }
