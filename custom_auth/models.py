@@ -1,3 +1,4 @@
+import uuid
 from django.db import models
 from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.contrib.auth.models import PermissionsMixin
@@ -37,6 +38,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     Custom model
     """
     email = models.EmailField(_('email address'), unique=True, null=False, max_length=255)
+    user_uuid = models.UUIDField(primary_key=False, default=uuid.uuid4, editable=True)
     is_staff = models.BooleanField(
         _('staff status'),
         default=False,

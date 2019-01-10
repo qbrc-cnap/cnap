@@ -74,6 +74,7 @@ class Uploader(object):
         for item in upload_data:
             cls._validate_ownership(item, requesting_user)
             cls._check_keys(item)
+            item['user_uuid'] = requesting_user.user_uuid
 
         return upload_data
 
@@ -304,7 +305,7 @@ class GoogleEnvironmentUploader(EnvironmentSpecificUploader, GoogleBase):
         # It places a 'destination' key in the dictionary for later use.
         # If the filenames are invalid, it throws an exception.
         for item_dict in upload_info:
-            bucket_name = os.path.join(settings.CONFIG_PARAMS['storage_bucket_prefix'], str(item_dict['owner']))
+            bucket_name = os.path.join(settings.CONFIG_PARAMS['storage_bucket_prefix'], str(item_dict['user_uuid']))
             item_name = item_dict['name']
             full_item_name = os.path.join(bucket_name, item_name)
         
