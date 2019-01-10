@@ -247,7 +247,7 @@ def create_input_template(file_dict, staging_dir, inputs_template_filename):
     This function calls out to the WOMtool which creates the input template
     required to run the WDL
     '''
-    main_wdl_file = [x for x in file_dict[WDL] if x == MAIN_WDL][0]
+    main_wdl_file = [x for x in file_dict[WDL] if os.path.basename(x) == MAIN_WDL][0]
     try:
         zip_file = file_dict[ZIP][0]
         unzip_cmd = 'unzip %s -d %s' % (
