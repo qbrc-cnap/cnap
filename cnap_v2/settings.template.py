@@ -344,6 +344,7 @@ CROMWELL_JAR = os.path.join(BASE_DIR, 'etc', 'cromwell-36.jar') # Broad Cromwell
 
 # the path of a diretory where temporary job files are stored
 JOB_STAGING_DIR = os.path.join(BASE_DIR, 'tmp_staging')
+CROMWELL_SERVER_URL = '{{cromwell_server_url}}'
 
 ###############################################################################
 ###############################################################################

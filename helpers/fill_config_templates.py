@@ -77,6 +77,19 @@ def take_inputs():
     accepted = False
     print('\n\n\n')
     while not accepted:
+        cromwell_server_url = input('Enter the URL for the Cromwell server, including the port, if any '
+                                      '(for example, "https://example.com:8000"):')
+        m = re.match('^https?://.*', cromwell_server_url)
+        if m and (m.group() == cromwell_server_url):
+            params['cromwell_server_url'] = cromwell_server_url
+            accepted = True
+        else:
+            print('Try again-- make sure you have http/https at the front.')
+
+
+    accepted = False
+    print('\n\n\n')
+    while not accepted:
         storage_bucket_prefix = input('Enter a prefix for storage buckets that will '
                                       'be created (lowercase letters, numbers, and dashes are accepted): ')
         m = re.match('[a-z0-9-]+', storage_bucket_prefix)

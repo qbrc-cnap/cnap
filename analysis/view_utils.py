@@ -10,12 +10,10 @@ from jinja2 import Environment, FileSystemLoader
 
 from django.conf import settings
 from django.http import HttpResponseBadRequest
+from django.contrib.auth import get_user_model
 
-from helpers import utils
 from analysis.models import Workflow, AnalysisProject
 import analysis.tasks as analysis_tasks
-
-THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 
 INPUT_ELEMENTS = settings.INPUT_ELEMENTS
 DISPLAY_ELEMENT = settings.DISPLAY_ELEMENT
@@ -25,6 +23,8 @@ TARGET_IDS = settings.TARGET_IDS
 NAME = settings.NAME
 WORKFLOW_ID = settings.WORKFLOW_ID
 VERSION_ID = settings.VERSION_ID
+WORKFLOW_LOCATION = 'location'
+USER_PK = 'user_pk'
 
 
 class MissingGuiSpecException(Exception):
@@ -49,12 +49,6 @@ class MissingMappingHandlerException(Exception):
     pass
 
 class InputMappingException(Exception):
-    pass
-
-class MockAnalysisProject(object):
-    '''
-    A mock class for use when testing.
-    '''
     pass
 
 
@@ -184,10 +178,14 @@ def validate_workflow_dir(workflow_obj):
         return False
 
 
-def fill_wdl_input(absolute_workflow_dir, data, user):
+def fill_wdl_input(data):
     '''
     Constructs the inputs to the WDL.  Returns a dict
     '''
+    absolute_workflow_dir = data[WORKFLOW_LOCATION]
+    user_pk = data[USER_PK]
+    user = get_user_model().objects.get(pk=user_pk)
+
     # load the wdl input into a dict
     wdl_input_path = os.path.join(absolute_workflow_dir,
         settings.WDL_INPUTS_TEMPLATE_NAME)
@@ -275,77 +273,9 @@ def start_job_on_gcp(request, data, workflow_obj):
     '''
     workflow_dir = workflow_obj.workflow_location
     location = os.path.join(settings.BASE_DIR, workflow_dir)
-    wdl_input_dict = fill_wdl_input(location, data, request.user)
+    data[WORKFLOW_LOCATION] = location
+    data[USER_PK] = request.user.pk
+    analysis_tasks.start_workflow(data)
+    print('task started...')
 
-    # if the 'analysis_uuid' key evaluates to something, then
-    # we have a "real" request to run analysis.  If it evaluates
-    # to None, then we are simply testing that the correct files/variables
-    # are created
 
-    date_str = datetime.datetime.now().strftime('%H%M%S_%m%d%Y')
-    if data['analysis_uuid']:
-        staging_dir = os.path.join(settings.JOB_STAGING_DIR, 
-            str(data['analysis_uuid']), 
-            date_str
-        )
-        analysis_project = AnalysisProject.objects.get(
-            analysis_uuid = data['analysis_uuid']
-        )
-
-    else:
-        staging_dir = os.path.join(settings.JOB_STAGING_DIR, 
-            'test', 
-            workflow_obj.workflow_name, 
-            date_str
-        )
-        analysis_project = MockAnalysisProject()
-        analysis_project.analysis_bucketname = 'some-mock-bucket'
-
-    # make the temporary staging dir:
-    try:
-        os.makedirs(staging_dir)
-    except OSError as ex:
-        if ex.errno == 17: # existed already
-            raise Exception('Staging directory already existed.  This should not happen.')
-        else:
-            raise Exception('Something else went wrong when attempting to create a staging'
-            ' directory at %s' % staging_dir)
-
-    # copy WDL files over to staging:
-    wdl_files = glob.glob(os.path.join(location, '*.' + settings.WDL))
-    for w in wdl_files:
-        shutil.copy(w, staging_dir)
-
-    # write the input dict to a file in the temp location
-    wdl_input_path = os.path.join(staging_dir, 'inputs.json')
-    with open(wdl_input_path, 'w') as fout:
-        json.dump(wdl_input_dict, fout)
-
-    # read config to get the names/locations of the files that accompany a job submission
-    config_path = os.path.join(THIS_DIR, 'wdl_job_config.cfg')
-    config_dict = utils.load_config(config_path)
-
-    # fill out the submission template
-    context = {
-        'pipeline_yaml': config_dict['default_pipeline_yaml'], \
-        'wdl_path': os.path.join(staging_dir, settings.MAIN_WDL), \
-        'workflow_bucket': analysis_project.analysis_bucketname, \
-        'inputs_json': wdl_input_path, \
-        'options_json': config_dict['default_options_json'], \
-        'output_folder': config_dict['output_folder'], 
-        'google_zone': settings.CONFIG_PARAMS['google_zone'], \
-        'gcloud': os.getenv('GCLOUD')
-    }
-    env = Environment(loader=FileSystemLoader(staging_dir))
-    submission_template = env.get_template(config_dict['submission_template'])
-    submission_script_path = os.path.join(staging_dir, 
-        config_dict['final_submission_script_name']
-    )
-    with open(submission_script_path, 'w') as fout:
-        fout.write(submission_template.render(context))
-
-    # start the job:
-    if data['analysis_uuid']:
-        analysis_tasks.start_workflow(staging_dir)
-    else:
-        print('View final staging dir at %s' % staging_dir)

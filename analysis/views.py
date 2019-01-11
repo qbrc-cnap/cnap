@@ -9,7 +9,6 @@ from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
 from django.urls import reverse
 from django.http import Http404
-from django.contrib.auth import get_user_model
 from django.core.exceptions import ObjectDoesNotExist
 
 
