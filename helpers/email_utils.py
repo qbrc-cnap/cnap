@@ -3,6 +3,7 @@ import json
 import base64
 
 from django.conf import settings
+from django.contrib.auth import get_user_model
 
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -11,6 +12,12 @@ from email.utils import formataddr
 
 from googleapiclient import discovery
 from google.oauth2.credentials import Credentials
+
+
+def notify_admins(message, subject):
+    admin_users = get_user_model().objects.filter(is_staff=True)
+    for u in admin_users:
+        send_email(message, message, u.email, subject)
 
 def send_email(plaintext_msg, message_html, recipient, subject):
 

@@ -22,8 +22,6 @@ TARGET_IDS = settings.TARGET_IDS
 NAME = settings.NAME
 WORKFLOW_ID = settings.WORKFLOW_ID
 VERSION_ID = settings.VERSION_ID
-WORKFLOW_LOCATION = 'location'
-USER_PK = 'user_pk'
 
 
 class MissingGuiSpecException(Exception):
@@ -39,15 +37,6 @@ class NonexistentWorkflowException(Exception):
     pass
 
 class InactiveWorkflowException(Exception):
-    pass
-
-class MissingDataException(Exception):
-    pass
-
-class MissingMappingHandlerException(Exception):
-    pass
-
-class InputMappingException(Exception):
     pass
 
 
@@ -184,9 +173,7 @@ def start_job_on_gcp(request, data, workflow_obj):
     '''
     workflow_dir = workflow_obj.workflow_location
     location = os.path.join(settings.BASE_DIR, workflow_dir)
-    data[WORKFLOW_LOCATION] = location
-    data[USER_PK] = request.user.pk
-    analysis_tasks.start_workflow(data)
-    print('task started...')
-
+    data[analysis_tasks.WORKFLOW_LOCATION] = location
+    data[analysis_tasks.USER_PK] = request.user.pk
+    analysis_tasks.start_workflow.delay(data)
 

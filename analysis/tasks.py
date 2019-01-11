@@ -5,18 +5,34 @@ import shutil
 import datetime
 import zipfile
 import requests
+from importlib import import_module
 
 from django.conf import settings
 from celery.decorators import task
 from django.contrib.auth import get_user_model
 
 from helpers import utils
+from helpers.email_utils import notify_admins
 from analysis.models import Workflow, AnalysisProject
-from analysis.view_utils import WORKFLOW_LOCATION, USER_PK
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 ZIPNAME = 'depenencies.zip'
 WDL_INPUTS = 'inputs.json'
+WORKFLOW_LOCATION = 'location'
+USER_PK = 'user_pk'
+
+
+class InputMappingException(Exception):
+    pass
+
+
+class MissingMappingHandlerException(Exception):
+    pass
+
+
+class MissingDataException(Exception):
+    pass
+
 
 class MockAnalysisProject(object):
     '''
@@ -24,6 +40,18 @@ class MockAnalysisProject(object):
     '''
     pass
 
+
+def handle_exception(ex, message = ''):
+    '''
+    This function handles situations where there an error when submitting
+    to the cromwell server (submission or execution)
+    '''
+    subject = 'Error encountered with asynchronous task.'
+    notify_admins(message, subject)
+
+def create_module_dot_path(filepath):
+    location_relative_to_basedir = os.path.relpath(filepath, start=settings.BASE_DIR)
+    return location_relative_to_basedir.replace('/', '.')
 
 def fill_wdl_input(data):
     '''
@@ -49,8 +77,8 @@ def fill_wdl_input(data):
     found_inputs = [] 
 
     # iterate through the input elements that were specified for the GUI
-    for element in gui_spec_json[INPUT_ELEMENTS]:
-        target = element[TARGET]
+    for element in gui_spec_json[settings.INPUT_ELEMENTS]:
+        target = element[settings.TARGET]
         if type(target)==str and target in wdl_input_dict:
             # if the GUI specified a string input, it is supposed to directly
             # map to a WDL input.  If not, something has been corrupted.
@@ -65,8 +93,8 @@ def fill_wdl_input(data):
         elif type(target)==dict:
             # if the "type" of target is a dict, it needs to have a name attribute that is 
             # present in the data payload. Otherwise, we cannot know where to map it
-            if target[NAME] in data:
-                unmapped_data = data[target[NAME]]
+            if target[settings.NAME] in data:
+                unmapped_data = data[target[settings.NAME]]
 
                 # unmapped_data could effectively be anything.  Its format
                 # is dictated by some javascript code.  For example, a file chooser
@@ -75,15 +103,15 @@ def fill_wdl_input(data):
                 # code which takes that payload and properly maps it to the WDL inputs
 
                 # Get the handler code:
-                handler_path = os.path.join(absolute_workflow_dir, target[HANDLER])
+                handler_path = os.path.join(absolute_workflow_dir, target[settings.HANDLER])
                 if os.path.isfile(handler_path):
                     # we have a proper file.  Call that to map our unmapped_data
                     # to the WDL inputs
-                    module_name = target[HANDLER][:-len(settings.PY_SUFFIX)]
+                    module_name = target[settings.HANDLER][:-len(settings.PY_SUFFIX)]
                     module_location = create_module_dot_path(absolute_workflow_dir)
                     module_name = module_location + '.' + module_name
                     mod = import_module(module_name)
-                    map_dict = mod.map_inputs(user, unmapped_data, target[TARGET_IDS])
+                    map_dict = mod.map_inputs(user, unmapped_data, target[settings.TARGET_IDS])
                     for key, val in map_dict.items():
                         if key in wdl_input_dict:
                             wdl_input_dict[key] = val
@@ -121,6 +149,7 @@ def start_workflow(data):
     # to None, then we are simply testing that the correct files/variables
     # are created
 
+    print('Working submitted with data: %s' % data)
     date_str = datetime.datetime.now().strftime('%H%M%S_%m%d%Y')
     if data['analysis_uuid']:
         staging_dir = os.path.join(settings.JOB_STAGING_DIR, 
@@ -178,8 +207,8 @@ def start_workflow(data):
     # pull together the components of the POST request to the Cromwell server
     submission_endpoint = config_dict['submit_endpoint']
     submission_url = settings.CROMWELL_SERVER_URL + submission_endpoint
-    data = {}
-    data = {'workflowType': config_dict['workflow_type'], \
+    payload = {}
+    payload = {'workflowType': config_dict['workflow_type'], \
         'workflowTypeVersion': config_dict['workflow_type_version']
     }
     files = {
@@ -191,8 +220,21 @@ def start_workflow(data):
 
     # start the job:
     if data['analysis_uuid']:
-        response = requests.post(submission_url, data=data, files=files)
-        print(response.text)
+        try:
+            response = requests.post(submission_url, data=payload, files=files)
+        except Exception as ex:
+            print('An exception was raised when requesting cromwell server')
+            print(ex)
+            message = 'An exception occurred when trying to submit a job to Cromwell. \n'
+            message += 'Project ID was: %s' % data['analysis_uuid']
+            message += str(ex)
+            handle_exception(ex, message=message)
+            raise ex
+        response_json = json.loads(response.text)
+        print(type(response_json))
+        if response_json['status'] == 'Submitted':
+            job_id = response_json['id']
+            print(job_id)
     else:
         print('View final staging dir at %s' % staging_dir)
         print('Would post the following:\n')
