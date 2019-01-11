@@ -21,6 +21,7 @@ are case-sensitive, so {{foo}} would be replaced by "Bar"
 import sys
 import os
 import configparser
+import uuid
 
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
 sys.path.append(os.path.realpath(os.pardir))
@@ -95,7 +96,17 @@ def get_urls():
     url_dict['upload_url'] = reverse('upload-transfer-initiation')
     url_dict['download_url'] = reverse('download-transfer-initiation')
     url_dict['logout_url'] = reverse('logout')
-    url_dict['workflow_endpoint'] = reverse('analysis-project-list')
+    url_dict['analysis_list_endpoint'] = reverse('analysis-project-list-and-create')
+
+    # for the project URLs, the only way to get the 'form' of the url is to submit a
+    # dummy uuid and strip it off
+    full_dummy_project_url = reverse('analysis-project-execute', args=[uuid.uui4()])
+    # go from 1 to -2 since the url is returned with leading and trailing slashes, so the
+    # split ends up with empty strings in the first and last position of the list.  the second
+    # to last element is the uuid, which we are removing.
+    project_endpoint = '/'.join(full_dummy_project_url.split('/')[1:-2])
+    project_endpoint = '/' + project_endpoint + '/' 
+    url_dict['analysis_project_endpoint'] = project_endpoint
     return url_dict
 
 
