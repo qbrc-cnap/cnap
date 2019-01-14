@@ -344,7 +344,13 @@ CROMWELL_JAR = os.path.join(BASE_DIR, 'etc', 'cromwell-36.jar') # Broad Cromwell
 
 # the path of a diretory where temporary job files are stored
 JOB_STAGING_DIR = os.path.join(BASE_DIR, 'tmp_staging')
+
+# the location of a cromwell server.  Should be auto-filled during app setup
 CROMWELL_SERVER_URL = '{{cromwell_server_url}}'
 
+# If a job fails, do we automatically inform a client?
+# If the admins wish to debug a failure (WITHOUT sending auto email to client)
+# then this should be set to True (True --> silent --> no email)
+SILENT_CLIENTSIDE_FAILURE = True
 ###############################################################################
 ###############################################################################

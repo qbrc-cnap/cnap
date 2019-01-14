@@ -100,25 +100,27 @@ class AnalysisProject(models.Model):
     error = models.BooleanField(default=False)
 
     def save(self, *args, **kwargs):
-        bucketname = '%s-%s' % (settings.CONFIG_PARAMS['storage_bucket_prefix'], self.analysis_uuid)
-        self.analysis_bucketname = bucketname
-        super().save(*args, **kwargs)
-        if settings.EMAIL_ENABLED:
-            email_address = self.owner.email
-            current_site = Site.objects.get_current()
-            domain = current_site.domain
-            url = 'https://%s' % domain
-            context = {'site': url, 'user_email': email_address}
-            email_template = get_jinja_template('email_templates/new_project.html')
-            email_html = email_template.render(context)
-            email_plaintxt_template = get_jinja_template('email_templates/new_project.txt')
-            email_plaintxt = email_plaintxt_template.render(context)
-            email_subject = open('email_templates/new_project_subject.txt').readline().strip()
-            send_email(email_plaintxt, \
-                email_html, \
-                email_address, \
-                email_subject \
-            )
+
+        if self._state.adding: # if creating, NOT updating
+            bucketname = '%s-%s' % (settings.CONFIG_PARAMS['storage_bucket_prefix'], self.analysis_uuid)
+            self.analysis_bucketname = bucketname
+            super().save(*args, **kwargs)
+            if settings.EMAIL_ENABLED:
+                email_address = self.owner.email
+                current_site = Site.objects.get_current()
+                domain = current_site.domain
+                url = 'https://%s' % domain
+                context = {'site': url, 'user_email': email_address}
+                email_template = get_jinja_template('email_templates/new_project.html')
+                email_html = email_template.render(context)
+                email_plaintxt_template = get_jinja_template('email_templates/new_project.txt')
+                email_plaintxt = email_plaintxt_template.render(context)
+                email_subject = open('email_templates/new_project_subject.txt').readline().strip()
+                send_email(email_plaintxt, \
+                    email_html, \
+                    email_address, \
+                    email_subject \
+                )
 
 class OrganizationWorkflow(models.Model):
     '''
@@ -126,3 +128,18 @@ class OrganizationWorkflow(models.Model):
     '''
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
     workflow = models.ForeignKey(Workflow, on_delete=models.CASCADE)
+
+
+class SubmittedJob(models.Model):
+    '''
+    This model is used for tracking jobs that are ongoing.  
+    '''
+
+    # the project that is being run
+    project = models.ForeignKey('AnalysisProject', on_delete=models.CASCADE)
+
+    # the job ID returned by Cromwell on the job submission
+    job_id = models.CharField(max_length=64, blank=False)
+
+    # status
+    job_status = models.CharField(max_length=200, blank=False)

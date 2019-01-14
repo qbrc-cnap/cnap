@@ -6,14 +6,15 @@ import datetime
 import zipfile
 import requests
 from importlib import import_module
+from jinja2 import Template
 
 from django.conf import settings
 from celery.decorators import task
 from django.contrib.auth import get_user_model
 
 from helpers import utils
-from helpers.email_utils import notify_admins
-from analysis.models import Workflow, AnalysisProject
+from helpers.email_utils import notify_admins, send_email
+from analysis.models import Workflow, AnalysisProject, SubmittedJob
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 ZIPNAME = 'depenencies.zip'
@@ -231,12 +232,125 @@ def start_workflow(data):
             handle_exception(ex, message=message)
             raise ex
         response_json = json.loads(response.text)
-        print(type(response_json))
         if response_json['status'] == 'Submitted':
             job_id = response_json['id']
-            print(job_id)
+            job = SubmittedJob(project=analysis_project, job_id=job_id, job_status='Submitted')
+            job.save()
+
+            # update the project also:
+            analysis_project.started = True
+            analysis_project.start_time = datetime.datetime.now()
+        else:
+            # In case we get other types of responses, inform the admins:
+            message = 'Job was submitted, but received an unexpected response from Cromwell:\n'
+            message += response.text
+            handle_exception(None, message=message)
     else:
         print('View final staging dir at %s' % staging_dir)
         print('Would post the following:\n')
         print('Data: %s\n' % data)
         print('Files as appropriate.  Keys are: %s' % files.keys())
+
+
+def handle_success(job):
+    '''
+    This is executed when a WDL job has completed and Cromwell has indicated success
+    `job` is an instance of SubmittedJob
+    '''
+    # update the AnalysisProject instance to reflect the success:
+    project = job.project
+    project.completed = True
+    project.success = True
+    project.error = False
+    project.finish_time = datetime.datetime.now()
+    project.save()
+
+    # inform client:
+    send_email(plaintext_msg, message_html, recipient, subject)
+
+
+def handle_failure(job):
+    '''
+    This is executed when a WDL job has completed and Cromwell has indicated a failure has occurred
+    `job` is an instance of SubmittedJob
+    '''
+    # update the AnalysisProject instance to reflect the failure:
+    project = job.project
+    project.completed = True
+    project.success = False
+    project.error = True
+    project.finish_time = datetime.datetime.now()
+    project.save()
+
+    # inform client (if desired):
+    if not settings.SILENT_CLIENTSIDE_FAILURE:
+        send_email(plaintext_msg, message_html, recipient, subject)
+
+    # notify admins:
+    message = 'Job (%s) experienced failure.' % job.job_id
+    subject = 'Cromwell job failure'
+    notify_admins(message, subject)
+
+
+@task(name='check_job')
+def check_job():
+    '''
+    Used for pinging the cromwell server to check job status
+    '''
+    terminal_actions = {
+        'Succeeded': handle_success,
+        'Failed': handle_failure
+    }
+    other_states = ['Submitted','Running']
+
+    config_path = os.path.join(THIS_DIR, 'wdl_job_config.cfg')
+    config_dict = utils.load_config(config_path)
+
+    # pull together the components of the request to the Cromwell server
+    query_endpoint = config_dict['query_status_endpoint']
+    query_url_template = Template(settings.CROMWELL_SERVER_URL + query_endpoint)
+
+    # get the job IDs for active jobs:
+    active_job_set = SubmittedJob.objects.all()
+    
+    for job in active_job_set:
+        query_url = query_url_template.render({'job_id': job.job_id})
+        try:
+            response = requests.get(query_url)
+            response_json = json.loads(response.text)
+            if (response_json['status'] == 'fail') or (response_json['status'] == 'error'):
+                handle_exception(None, 'Query for job failed with message: %s' % response_json['message'])
+            else: # the request itself was OK
+                status = response_json['status']
+
+                # if the job was in one of the finished states, execute some specific logic
+                if status in terminal_actions.keys():
+                    terminal_actions[status](job) # call the function to execute the logic for this end-state
+
+                    # remove job since complete:
+                    job.delete()
+
+                elif status in other_states:
+                    # any custom behavior for unfinished tasks
+                    # can be handled here if desired
+
+                    # update the job status in the database
+                    job.job_status = status
+                    job.save()
+                else:
+                    # has some status we do not recognize
+                    message = 'When querying for status of job ID: %s, ' % job.job_id
+                    message += 'received an unrecognized response:' % response.text
+                    handle_exception(None, message=message)
+                    job.job_status = 'Unknown'
+                    job.save()
+        except Exception as ex:
+            print('An exception was raised when requesting job status from cromwell server')
+            print(ex)
+            message = 'An exception occurred when trying to query a job. \n'
+            message += 'Job ID was: %s' % job.job_id
+            message += 'Project ID was: %s' % job.project.analysis_uuid
+            message += str(ex)
+            handle_exception(ex, message=message)
+            raise ex
+        
