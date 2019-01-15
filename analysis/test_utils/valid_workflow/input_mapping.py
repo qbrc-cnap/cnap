@@ -39,7 +39,7 @@ def map_inputs(user, unmapped_data, id_list):
     path_list = []
     for pk in unmapped_data:
         r = Resource.objects.get(pk=pk)
-        if r.owner == user:
+        if (r.owner == user) or (user.is_staff):
             path_list.append(r.path)
         else:
             raise Exception('The user %s is not the owner of Resource with primary key %s.' % (user, pk))

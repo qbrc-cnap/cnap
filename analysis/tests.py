@@ -15,19 +15,22 @@ from base.models import Resource
 THIS_DIR = os.path.realpath(os.path.abspath(os.path.dirname(__file__)))
 TEST_UTILS_DIR = os.path.join(THIS_DIR, 'test_utils')
 
-from .view_utils import get_workflow, \
+from .view_utils import query_workflow, \
     validate_workflow_dir, \
     fill_context, \
-    fill_wdl_input, \
     WORKFLOW_ID, \
     VERSION_ID, \
     MissingGuiSpecException, \
     WdlCountException, \
     MissingHtmlTemplateException, \
     NonexistentWorkflowException, \
-    InactiveWorkflowException, \
+    InactiveWorkflowException
+
+from .tasks import fill_wdl_input, \
     MissingDataException, \
-    InputMappingException
+    InputMappingException, \
+    WORKFLOW_LOCATION, \
+    USER_PK
 
 
 class ViewUtilsTest(TestCase):
@@ -204,16 +207,17 @@ class ViewUtilsTest(TestCase):
         # create a correct dict and assert that's ok:
         r1_pk = self.r1.pk
         r2_pk = self.r2.pk
+        workflow = Workflow.objects.get(workflow_id=10, version_id=1)
         payload = {}
-        payload[WORKFLOW_ID] = 10
-        payload[VERSION_ID] = 1
+        payload[WORKFLOW_LOCATION] = workflow.workflow_location
+        payload[USER_PK] = self.regular_user.pk
         payload['input_files'] = [r1_pk, r2_pk]
         payload['TestWorkflow.outputFilename'] = 'output.txt'
         expected_dict = {}
         expected_dict['TestWorkflow.outputFilename'] = 'output.txt'
         expected_dict['TestWorkflow.inputs'] = [self.r1.path, self.r2.path]
         with self.assertRaises(InputMappingException):
-            fill_wdl_input(mock_request, payload)
+            fill_wdl_input(payload)
 
 
     def test_gui_element_handler_module_missing_proper_method_raises_ex(self):
@@ -231,14 +235,14 @@ class ViewUtilsTest(TestCase):
 
     def test_nonexistent_workflow_id_raises_exception(self):
         '''
-        If a non-existent workflow id is sent to the `get_workflow` method
+        If a non-existent workflow id is sent to the `query_workflow` method
         it raises an exception
         '''
         all_workflows = Workflow.objects.all()
         max_id  = max([x.workflow_id for x in all_workflows])
         bad_id = max_id + 1
         with self.assertRaises(NonexistentWorkflowException):
-            get_workflow(bad_id)
+            query_workflow(bad_id)
 
 
     def test_no_default_workflow_raises_exception(self):
@@ -247,7 +251,7 @@ class ViewUtilsTest(TestCase):
         is_default field set, raise exception
         '''
         with self.assertRaises(NonexistentWorkflowException):
-            get_workflow(13)
+            query_workflow(13)
     
 
     def test_inactive_workflow_request_from_regular_user_raises_exception(self):
@@ -256,14 +260,14 @@ class ViewUtilsTest(TestCase):
         instantiate a workflow.  
         '''
         with self.assertRaises(InactiveWorkflowException):
-            get_workflow(8, admin_request=False)
+            query_workflow(8, admin_request=False)
 
     def test_inactive_workflow_request_from_admin_user_succeeds(self):
         '''
         If the workflow is valid, but inactive, we let an admin user
         instantiate a workflow. 
         '''
-        workflow = get_workflow(8, admin_request=True)
+        workflow = query_workflow(8, admin_request=True)
         self.assertTrue(workflow.workflow_id==8)
 
 
@@ -320,15 +324,16 @@ class ViewUtilsTest(TestCase):
 
         r1_pk = self.r1.pk
         r2_pk = self.r2.pk
+        valid_workflow = Workflow.objects.get(workflow_id=1, version_id=1)
         payload = {}
-        payload[WORKFLOW_ID] = 1
-        payload[VERSION_ID] = 1
+        payload[USER_PK] = self.regular_user.pk
+        payload[WORKFLOW_LOCATION] = valid_workflow.workflow_location
         payload['input_files'] = [r1_pk, r2_pk]
         payload['TestWorkflow.outputFilename'] = 'output.txt'
         expected_dict = {}
         expected_dict['TestWorkflow.outputFilename'] = 'output.txt'
         expected_dict['TestWorkflow.inputs'] = [self.r1.path, self.r2.path]
-        returned_dict = fill_wdl_input(mock_request, payload)
+        returned_dict = fill_wdl_input(payload)
         self.assertEqual(returned_dict, expected_dict)
 
 
@@ -339,23 +344,23 @@ class ViewUtilsTest(TestCase):
         '''
         mock_request = mock.MagicMock(user=self.regular_user)
 
-        # first send a bad payload-- it's blank except for the
-        # the workflow id/version id
+        # first send a bad payload-- 
+        valid_workflow = Workflow.objects.get(workflow_id=1, version_id=1)
         payload = {}
-        payload[WORKFLOW_ID] = 1
-        payload[VERSION_ID] = 1
+        payload[USER_PK] = self.regular_user.pk
+        payload[WORKFLOW_LOCATION] = valid_workflow.workflow_location
         with self.assertRaises(MissingDataException):
-            fill_wdl_input(mock_request, payload)
+            fill_wdl_input(payload)
 
         # now try a payload where the primary keys are good, but missing the string param:
         r1_pk = self.r1.pk
         r2_pk = self.r2.pk
         payload = {}
-        payload[WORKFLOW_ID] = 1
-        payload[VERSION_ID] = 1
+        payload[USER_PK] = self.regular_user.pk
+        payload[WORKFLOW_LOCATION] = valid_workflow.workflow_location
         payload['input_files'] = [r1_pk, r2_pk]
         with self.assertRaises(MissingDataException):
-            fill_wdl_input(mock_request, payload)
+            fill_wdl_input(payload)
 
     def test_fill_wdl_template_case2(self):
         '''
@@ -370,19 +375,20 @@ class ViewUtilsTest(TestCase):
         r1_pk = self.r1.pk
         r2_pk = self.r2.pk
         payload = {}
-        payload[WORKFLOW_ID] = 1
-        payload[VERSION_ID] = 1
+        valid_workflow = Workflow.objects.get(workflow_id=1, version_id=1)
+        payload[USER_PK] = self.regular_user.pk
+        payload[WORKFLOW_LOCATION] = valid_workflow.workflow_location
         payload['input_files'] = [r1_pk, r2_pk]
         payload['TestWorkflow.outputFilename'] = 'output.txt'
         expected_dict = {}
         expected_dict['TestWorkflow.outputFilename'] = 'output.txt'
         expected_dict['TestWorkflow.inputs'] = [self.r1.path, self.r2.path]
-        returned_dict = fill_wdl_input(mock_request, payload)
+        returned_dict = fill_wdl_input(payload)
         self.assertEqual(returned_dict, expected_dict)
 
         # now add some garbage and try again.
         payload['garbage_key'] = 'foo'
-        returned_dict = fill_wdl_input(mock_request, payload)
+        returned_dict = fill_wdl_input(payload)
         self.assertEqual(returned_dict, expected_dict)
 
     def test_fill_wdl_template_case8(self):
@@ -427,13 +433,14 @@ class ViewUtilsTest(TestCase):
         # create a correct dict and assert that's ok:
         r1_pk = self.r1.pk
         r2_pk = self.r2.pk
+        workflow = Workflow.objects.get(workflow_id=11, version_id=1)
         payload = {}
-        payload[WORKFLOW_ID] = 11
-        payload[VERSION_ID] = 1
+        payload[WORKFLOW_LOCATION] = workflow.workflow_location
+        payload[USER_PK] = self.regular_user.pk
         payload['input_files'] = [r1_pk, r2_pk]
         payload['TestWorkflow.outputFilename'] = 'output.txt'
         expected_dict = {}
         expected_dict['TestWorkflow.outputFilename'] = 'output.txt'
         expected_dict['TestWorkflow.inputs'] = [self.r1.path, self.r2.path]
         with self.assertRaises(InputMappingException):
-            fill_wdl_input(mock_request, payload)
+            fill_wdl_input(payload)

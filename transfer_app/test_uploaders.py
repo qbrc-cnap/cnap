@@ -1,4 +1,5 @@
 import json
+import uuid
 
 from django.test import TestCase
 import unittest.mock as mock
@@ -54,9 +55,9 @@ class DropboxGoogleUploadInitTestCase(TestCase):
         In addition, we setup appropriate environment variables that would be there in the
         implementation
         '''
-        self.admin_user = get_user_model().objects.create_user(email='admin@admin.com', password='abcd123!', is_staff=True)
-        self.regular_user = get_user_model().objects.create_user(email='reguser@gmail.com', password='abcd123!')
-        self.other_user = get_user_model().objects.create_user(email='otheruser@gmail.com', password='abcd123!')
+        self.admin_user = get_user_model().objects.create_user(email='admin@admin.com', password='abcd123!', is_staff=True, user_uuid=uuid.uuid4())
+        self.regular_user = get_user_model().objects.create_user(email='reguser@gmail.com', password='abcd123!', user_uuid=uuid.uuid4())
+        self.other_user = get_user_model().objects.create_user(email='otheruser@gmail.com', password='abcd123!', user_uuid=uuid.uuid4())
 
         settings.CONFIG_PARAMS['cloud_environment'] = settings.GOOGLE
         self.bucket_name = 'gs://user-storage-bucket'
@@ -150,6 +151,8 @@ class DropboxGoogleUploadInitTestCase(TestCase):
         upload_info.append({'path': 'https://dropbox-link.com/1', 'name':'f1.txt'})
         upload_info.append({'path': 'https://dropbox-link.com/2', 'name':'f2.txt'})
         user_pk = 1
+        user = get_user_model().objects.get(pk=user_pk)
+        user_uuid = user.user_uuid
 
         # since the method below modifies the upload_info in-place, we need to copy the result
         # BEFORE running the method we are testing:
@@ -158,7 +161,8 @@ class DropboxGoogleUploadInitTestCase(TestCase):
             edited_item = item.copy()
             edited_item['owner'] = user_pk
             edited_item['originator'] = user_pk
-            edited_item['destination'] = '%s/%s/%s' % (self.bucket_name, user_pk, edited_item['name'])
+            edited_item['user_uuid'] = user_uuid
+            edited_item['destination'] = '%s/%s/%s' % (self.bucket_name, str(user_uuid), edited_item['name'])
             expected_list.append(edited_item)
 
         response, error_messages = uploaders.GoogleDropboxUploader.check_format(upload_info, user_pk)
@@ -175,6 +179,8 @@ class DropboxGoogleUploadInitTestCase(TestCase):
         '''
         upload_info = {'path': 'https://dropbox-link.com/1', 'name':'f1.txt'}
         user_pk = 1
+        user = get_user_model().objects.get(pk=user_pk)
+        user_uuid = user.user_uuid        
 
         # since the method below modifies the upload_info in-place, we need to copy the result
         # BEFORE running the method we are testing:
@@ -183,7 +189,8 @@ class DropboxGoogleUploadInitTestCase(TestCase):
             'name':'f1.txt',
             'owner': user_pk,
             'originator': user_pk,
-            'destination': '%s/%s/%s' % (self.bucket_name, user_pk, upload_info['name'])
+            'user_uuid': user_uuid,
+            'destination': '%s/%s/%s' % (self.bucket_name, str(user_uuid), upload_info['name'])
             },
         ]
 
@@ -498,7 +505,9 @@ class DriveGoogleUploadInitTestCase(TestCase):
         upload_info = []
         upload_info.append({'file_id': 'abc123', 'name':'f1.txt', 'drive_token': 'fooToken'})
         upload_info.append({'file_id': 'def123', 'name':'f2.txt', 'drive_token': 'fooToken'})
+        user = get_user_model().objects.get(pk=1)
         user_pk = 1
+        user_uuid = user.user_uuid
 
         # since the method below modifies the upload_info in-place, we need to copy the result
         # BEFORE running the method we are testing:
@@ -507,7 +516,8 @@ class DriveGoogleUploadInitTestCase(TestCase):
             edited_item = item.copy()
             edited_item['owner'] = user_pk
             edited_item['originator'] = user_pk
-            edited_item['destination'] = '%s/%s/%s' % (self.bucket_name, user_pk, edited_item['name'])
+            edited_item['user_uuid'] = user_uuid
+            edited_item['destination'] = '%s/%s/%s' % (self.bucket_name, str(user_uuid), edited_item['name'])
             expected_list.append(edited_item)
 
         response, error_messages = uploaders.GoogleDriveUploader.check_format(upload_info, user_pk)
@@ -523,7 +533,9 @@ class DriveGoogleUploadInitTestCase(TestCase):
         a list so that downstream methods can handle both cases consistently.
         '''
         upload_info = {'file_id': 'abc123', 'name':'f1.txt', 'drive_token': 'fooToken'}
-        user_pk = 1
+        user = get_user_model().objects.get(pk=1)
+        user_pk = user.pk
+        user_uuid = user.user_uuid
 
         # since the method below modifies the upload_info in-place, we need to copy the result
         # BEFORE running the method we are testing:
@@ -533,7 +545,8 @@ class DriveGoogleUploadInitTestCase(TestCase):
             'owner': user_pk,
             'originator': user_pk,
             'drive_token': 'fooToken',
-            'destination': '%s/%s/%s' % (self.bucket_name, user_pk, upload_info['name'])
+            'user_uuid': user_uuid,
+            'destination': '%s/%s/%s' % (self.bucket_name, str(user_uuid), upload_info['name'])
             },
         ]
 
