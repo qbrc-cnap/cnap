@@ -104,7 +104,6 @@ class AnalysisProject(models.Model):
         if self._state.adding: # if creating, NOT updating
             bucketname = '%s-%s' % (settings.CONFIG_PARAMS['storage_bucket_prefix'], self.analysis_uuid)
             self.analysis_bucketname = bucketname
-            super().save(*args, **kwargs)
             if settings.EMAIL_ENABLED:
                 email_address = self.owner.email
                 current_site = Site.objects.get_current()
@@ -121,6 +120,8 @@ class AnalysisProject(models.Model):
                     email_address, \
                     email_subject \
                 )
+        super().save(*args, **kwargs)
+
 
 class OrganizationWorkflow(models.Model):
     '''

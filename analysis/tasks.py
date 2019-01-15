@@ -150,7 +150,7 @@ def start_workflow(data):
     # to None, then we are simply testing that the correct files/variables
     # are created
 
-    print('Working submitted with data: %s' % data)
+    print('Workflow submitted with data: %s' % data)
     date_str = datetime.datetime.now().strftime('%H%M%S_%m%d%Y')
     if data['analysis_uuid']:
         staging_dir = os.path.join(settings.JOB_STAGING_DIR, 
@@ -224,7 +224,7 @@ def start_workflow(data):
         try:
             response = requests.post(submission_url, data=payload, files=files)
         except Exception as ex:
-            print('An exception was raised when requesting cromwell server')
+            print('An exception was raised when requesting cromwell server:')
             print(ex)
             message = 'An exception occurred when trying to submit a job to Cromwell. \n'
             message += 'Project ID was: %s' % data['analysis_uuid']
@@ -232,18 +232,23 @@ def start_workflow(data):
             handle_exception(ex, message=message)
             raise ex
         response_json = json.loads(response.text)
-        if response_json['status'] == 'Submitted':
-            job_id = response_json['id']
-            job = SubmittedJob(project=analysis_project, job_id=job_id, job_status='Submitted')
-            job.save()
+        if response.status_code == 201:
+            if response_json['status'] == 'Submitted':
+                job_id = response_json['id']
+                job = SubmittedJob(project=analysis_project, job_id=job_id, job_status='Submitted')
+                job.save()
 
-            # update the project also:
-            analysis_project.started = True
-            analysis_project.start_time = datetime.datetime.now()
+                # update the project also:
+                analysis_project.started = True
+                analysis_project.start_time = datetime.datetime.now()
+                analysis_project.save()
+            else:
+                # In case we get other types of responses, inform the admins:
+                message = 'Job was submitted, but received an unexpected response from Cromwell:\n'
+                message += response.text
+                handle_exception(None, message=message)
         else:
-            # In case we get other types of responses, inform the admins:
-            message = 'Job was submitted, but received an unexpected response from Cromwell:\n'
-            message += response.text
+            message = 'Did not submit job-- status code was %d, and response text was: %s' % (response.status_code, response.text)
             handle_exception(None, message=message)
     else:
         print('View final staging dir at %s' % staging_dir)
@@ -318,7 +323,7 @@ def check_job():
         try:
             response = requests.get(query_url)
             response_json = json.loads(response.text)
-            if (response_json['status'] == 'fail') or (response_json['status'] == 'error'):
+            if (response.status_code == 404) or (response.status_code == 400) or (response.status_code == 500):
                 handle_exception(None, 'Query for job failed with message: %s' % response_json['message'])
             else: # the request itself was OK
                 status = response_json['status']
@@ -340,7 +345,7 @@ def check_job():
                 else:
                     # has some status we do not recognize
                     message = 'When querying for status of job ID: %s, ' % job.job_id
-                    message += 'received an unrecognized response:' % response.text
+                    message += 'received an unrecognized response: %s' % response.text
                     handle_exception(None, message=message)
                     job.job_status = 'Unknown'
                     job.save()

@@ -2,6 +2,7 @@ import os
 import sys
 import shutil
 import uuid
+import json
 import datetime
 from importlib import invalidate_caches
 
@@ -32,6 +33,7 @@ from .view_utils import query_workflow, \
 
 from .tasks import fill_wdl_input, \
     start_workflow, \
+    check_job, \
     MissingDataException, \
     InputMappingException, \
     WORKFLOW_LOCATION, \
@@ -77,9 +79,9 @@ class TasksTestCase(TestCase):
 
         # create a mock analysis project, tying it to
         # the valid workflow and the 'regular' user
-        uuid = uuid.uuid4()
+        self.analysis_uuid = uuid.uuid4()
         project = AnalysisProject.objects.create(
-            analysis_uuid = uuid,
+            analysis_uuid = self.analysis_uuid,
             workflow = w1,
             owner = self.regular_user,
             start_time = datetime.datetime.now()
@@ -88,8 +90,11 @@ class TasksTestCase(TestCase):
 
         # create a 'data' dict that we can use repeatedly:
         self.data = {
-            'analysis_uuid': uuid,
-            WORKFLOW_LOCATION: w1.workflow_location
+            'analysis_uuid': self.analysis_uuid,
+            WORKFLOW_LOCATION: w1.workflow_location,
+            USER_PK: self.regular_user.pk,
+            'input_files': [self.r1.pk, self.r2.pk],
+            'TestWorkflow.outputFilename': 'output.txt'
         }
 
     def tearDown(self):
@@ -98,11 +103,132 @@ class TasksTestCase(TestCase):
 
     @mock.patch('analysis.tasks.handle_exception')
     @mock.patch('analysis.tasks.requests')
-    def test_catch_ex_if_unreachable_cromwell(self, mock_requests, mock_handle_ex):
+    def test_catch_ex_if_unreachable_cromwell_case1(self, mock_requests, mock_handle_ex):
+        '''
+        This covers where the requests.post function raises an exception
+        '''
         myex = Exception('Some ex')
         mock_requests.post.side_effect = myex
+        with self.assertRaises(Exception):
+          start_workflow(self.data)
+        self.assertTrue(mock_handle_ex.called)
+
+    @mock.patch('analysis.tasks.handle_exception')
+    @mock.patch('analysis.tasks.requests')
+    def test_catch_ex_if_unreachable_cromwell_case2(self, mock_requests, mock_handle_ex):
+        '''
+        This covers where the requests.post receives a 500 from the cromwell server
+        '''
+        mock_return = mock.MagicMock()
+        mock_return.status_code = 500
+        mock_return.text = json.dumps({'some_key': 'some_value'})
+        mock_requests.post.return_value = mock_return
+
         start_workflow(self.data)
-        mock_handle_ex.assert_called_once()
+        self.assertTrue(mock_handle_ex.called)
+    @mock.patch('analysis.tasks.handle_exception')
+    @mock.patch('analysis.tasks.requests')
+    def test_catch_ex_if_unreachable_cromwell_case3(self, mock_requests, mock_handle_ex):
+        '''
+        This covers where the requests.post receives a 400 from the cromwell server
+        '''
+        mock_return = mock.MagicMock()
+        mock_return.status_code = 400
+        mock_return.text = json.dumps({'some_key': 'some_value'})
+        mock_requests.post.return_value = mock_return
+
+        start_workflow(self.data)
+        self.assertTrue(mock_handle_ex.called)
+
+    @mock.patch('analysis.tasks.handle_exception')
+    @mock.patch('analysis.tasks.requests')
+    def test_catch_ex_if_unreachable_cromwell_case4(self, mock_requests, mock_handle_ex):
+        '''
+        This covers where the requests.post receives a 404 from the cromwell server
+        '''
+        mock_return = mock.MagicMock()
+        mock_return.status_code = 404
+        mock_return.text = json.dumps({'some_key': 'some_value'})
+        mock_requests.post.return_value = mock_return
+
+        start_workflow(self.data)
+        self.assertTrue(mock_handle_ex.called)
+
+    @mock.patch('analysis.tasks.requests')
+    def test_successful_submission_creates_database_objects(self, mock_requests):
+        '''
+        This covers a case where the Cromwell server responds to a workflow status query with 201,
+        and we see that all the database changes were made
+        '''
+
+        mock_uuid = 'e442e52a-9de1-47f0-8b4f-e6e565008cf1'
+        mock_return = mock.MagicMock()
+        mock_return.status_code = 201
+        mock_return.text = json.dumps({'id': mock_uuid,
+            'status': 'Submitted'
+        })
+        mock_requests.post.return_value = mock_return
+
+        # before doing anything, check the status of the projects:
+        project = AnalysisProject.objects.get(analysis_uuid=self.analysis_uuid)
+        self.assertFalse(project.started)
+
+        # "start" it...
+        start_workflow(self.data)
+
+        # ensure that the proper objects were created in the db:
+        submitted_job = SubmittedJob.objects.get(job_id=mock_uuid)
+        self.assertTrue(submitted_job.project.analysis_uuid == self.data['analysis_uuid'])
+
+        # check that the project was marked as stated in the db
+        project = AnalysisProject.objects.get(analysis_uuid=self.analysis_uuid)
+        self.assertTrue(project.started)
+
+
+    @mock.patch('analysis.tasks.handle_exception')
+    @mock.patch('analysis.tasks.requests')
+    def test_unknown_response_generates_notification(self, mock_requests, mock_handle_ex):
+        '''
+        This covers a case where the Cromwell server responds to a workflow submission with 201,
+        but has an unexpected status payload
+        '''
+        mock_uuid = 'e442e52a-9de1-47f0-8b4f-e6e565008cf1'
+        mock_return = mock.MagicMock()
+        mock_return.status_code = 201
+        mock_return.text = json.dumps({'id': mock_uuid,
+            'status': 'Something unexpected...'
+        })
+        mock_requests.post.return_value = mock_return
+
+        # "start" it...
+        start_workflow(self.data)
+
+        # check that everything was unchanged:
+        self.assertTrue(mock_handle_ex.called) # notification was sent
+        project = AnalysisProject.objects.get(analysis_uuid=self.analysis_uuid)
+        self.assertFalse(project.started)
+        self.assertEqual(len(SubmittedJob.objects.all()), 0)
+
+    @mock.patch('analysis.tasks.handle_exception')
+    @mock.patch('analysis.tasks.requests')
+    def test_unknown_response_generates_notification_case2(self, mock_requests, mock_handle_ex):
+        '''
+        This covers a case where the Cromwell server responds to a workflow status query with 200,
+        but has an unexpected status payload
+        '''
+        # create a SubmittedJob to start
+        mock_uuid = 'e442e52a-9de1-47f0-8b4f-e6e565008cf1'
+        job = SubmittedJob(project=self.analysis_project, job_id=mock_uuid, job_status='Submitted')
+        job.save()
+
+        mock_return = mock.MagicMock()
+        mock_return.status_code = 200
+        mock_return.text = json.dumps({'status': 'Something unexpected...'})
+        mock_requests.get.return_value = mock_return
+
+        # now mock a query that returns something we do not expect:
+        check_job()
+        self.assertTrue(mock_handle_ex.called) # notification was sent
 
 
 class ViewUtilsTest(TestCase):
