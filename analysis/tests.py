@@ -1,6 +1,8 @@
 import os
 import sys
 import shutil
+import uuid
+import datetime
 from importlib import invalidate_caches
 
 
@@ -9,7 +11,9 @@ import unittest.mock as mock
 
 from django.contrib.auth import get_user_model
 
-from analysis.models import Workflow
+from analysis.models import Workflow, \
+    AnalysisProject, \
+    SubmittedJob
 from base.models import Resource
 
 THIS_DIR = os.path.realpath(os.path.abspath(os.path.dirname(__file__)))
@@ -27,10 +31,78 @@ from .view_utils import query_workflow, \
     InactiveWorkflowException
 
 from .tasks import fill_wdl_input, \
+    start_workflow, \
     MissingDataException, \
     InputMappingException, \
     WORKFLOW_LOCATION, \
     USER_PK
+
+class TasksTestCase(TestCase):
+    '''
+    This test class covers some of the operations performed
+    by the functions in the asynchronous tasks (celery) code.
+
+    We are NOT testing the async nature-- only that the code does what is
+    expected whenever it happens to be executed.
+    '''
+    def setUp(self):
+
+        self.admin_user = get_user_model().objects.create_user(email='admin@admin.com', password='abcd123!', is_staff=True)
+        self.regular_user = get_user_model().objects.create_user(email='reguser@gmail.com', password='abcd123!')
+
+        # create a couple of resources owned by the regular user:
+        self.r1 = Resource.objects.create(
+            source='google_storage',
+            path='gs://a/b/reg_owned1.txt',
+            size=2e9,
+            owner=self.regular_user,
+        )
+        self.r2 = Resource.objects.create(
+            source='google_storage',
+            path='gs://a/b/reg_owned2.txt',
+            size=2.1e9,
+            owner=self.regular_user,
+        )
+
+        # create a valid workflow
+        w1_dir = os.path.join(TEST_UTILS_DIR, 'valid_workflow')
+        w1 = Workflow.objects.create(
+            workflow_id = 1,
+            version_id = 1,
+            workflow_name = 'validWorkflow',
+            is_default=True,
+            is_active=True,
+            workflow_location=w1_dir
+        )
+
+        # create a mock analysis project, tying it to
+        # the valid workflow and the 'regular' user
+        uuid = uuid.uuid4()
+        project = AnalysisProject.objects.create(
+            analysis_uuid = uuid,
+            workflow = w1,
+            owner = self.regular_user,
+            start_time = datetime.datetime.now()
+        )
+        self.analysis_project = project
+
+        # create a 'data' dict that we can use repeatedly:
+        self.data = {
+            'analysis_uuid': uuid,
+            WORKFLOW_LOCATION: w1.workflow_location
+        }
+
+    def tearDown(self):
+        pass
+
+
+    @mock.patch('analysis.tasks.handle_exception')
+    @mock.patch('analysis.tasks.requests')
+    def test_catch_ex_if_unreachable_cromwell(self, mock_requests, mock_handle_ex):
+        myex = Exception('Some ex')
+        mock_requests.post.side_effect = myex
+        start_workflow(self.data)
+        mock_handle_ex.assert_called_once()
 
 
 class ViewUtilsTest(TestCase):
