@@ -201,6 +201,10 @@ for key, val in CONFIG_PARAMS.items():
     elif val=='False' or val == 'false':
         CONFIG_PARAMS[key] = False
 
+# using the value of EXPIRATION_PERIOD_DAYS from the config, set a timedelta:
+# This logic could be altered as desired:
+EXPIRATION_PERIOD = datetime.timedelta(days=int(CONFIG_PARAMS['EXPIRATION_PERIOD_DAYS']))
+
 additional_sections = [GOOGLE_DRIVE, DROPBOX, GOOGLE]
 LIVE_TEST_CONFIG_PARAMS = utils.load_config(os.path.join(CONFIG_DIR, 'live_tests.cfg'), additional_sections)
 

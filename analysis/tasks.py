@@ -262,6 +262,94 @@ def start_workflow(data):
         print('Data: %s\n' % data)
         print('Files as appropriate.  Keys are: %s' % files.keys())
 
+def parse_outputs(obj):
+    '''
+    depending on how the workflow was created, the outputs object can be relatively complex
+    e.g. for a scattered job, it can have nested lists for each key.  Other times, a simple
+    list, or even a string.
+
+    `obj` is itself a dictionary OR a list.  Returns a list of strings
+    '''
+    all_outputs = []
+    if type(obj) == dict:
+        for key, val in obj.items():
+            if type(val) == str: # if simple string output, just a single file:
+                all_outputs.append(val)
+            else: # covers dict and list
+                all_outputs.extend(parse_outputs(val))
+    elif type(obj) == list:
+        for item in obj:
+            if type(item) == str:
+                all_outputs.append(item)
+            else:
+                all_outputs.extend(parse_outputs(item))
+    else:
+        raise Exception('Unexpected type')
+    return all_outputs
+
+def get_resource_size(path):
+    '''
+    This is used to query for the size of a file located at `path`.
+    Depending on the environment, this is different
+
+    TODO: abstract this for different cloud providers!!
+    '''
+    if settings.CONFIG_PARAMS['cloud_environment'] == settings.GOOGLE:
+        from googleapiclient.discovery import build
+        client = build('storage', 'v1')
+        bucket_prefix = settings.CONFIG_PARAMS['google_storage_gs_prefix']
+        p = p[len(bucket_prefix):]
+        bucketname = p.split('/')[0]
+        objectname = '/'.join(p.split('/')[1:])
+        response = client.objects().get(bucket=bucketname, object=objectname).execute()
+        return int(response['size'])
+    else:
+        raise Exception('Have not implemented for this cloud provider yet')
+
+def register_outputs(job):
+    '''
+    This adds outputs from the workflow to the list of Resources owned by the client
+    This way they are able to download files produced by the workflow
+    '''
+    config_path = os.path.join(THIS_DIR, 'wdl_job_config.cfg')
+    config_dict = utils.load_config(config_path)
+
+    # pull together the components of the request to the Cromwell server
+    outputs_endpoint = config_dict['outputs_endpoint']
+    outputs_url_template = Template(settings.CROMWELL_SERVER_URL + outputs_endpoint)
+    outputs_url = outputs_url_template.render({'job_id': job.job_id})
+    
+    try:
+        response = requests.get(outputs_url)
+        response_json = json.loads(response.text)
+        if (response.status_code == 404) or (response.status_code == 400) or (response.status_code == 500):
+            handle_exception(None, 'Query for job failed with message: %s' % response_json['message'])
+        else: # the request itself was OK
+            outputs = response_json['outputs']
+            output_filepath_list = parse_outputs(outputs)
+            environment = settings.CONFIG_PARAMS['cloud_environment']
+            owner = job.project.owner
+            expiration_datetime = datetime.datetime.now() + settings.EXPIRATION_PERIOD
+            for p in output_filepath_list:
+                size_in_bytes = get_resource_size(p)
+                r = Resource(
+                    source = environment,
+                    path = p,
+                    name = os.path.basename(p),
+                    owner = owner,
+                    size = size_in_bytes
+                    expiration_date = expiration_datetime
+                )
+                r.save()
+    except Exceptions as ex:
+        print('An exception was raised when requesting job outputs from cromwell server')
+        print(ex)
+        message = 'An exception occurred when trying to query outputs from Cromwell. \n'
+        message += 'Job ID was: %s' % job.job_id
+        message += 'Project ID was: %s' % job.project.analysis_uuid
+        message += str(ex)
+        handle_exception(ex, message=message)
+        raise ex
 
 def handle_success(job):
     '''
@@ -275,6 +363,9 @@ def handle_success(job):
     project.error = False
     project.finish_time = datetime.datetime.now()
     project.save()
+
+    # register the output files:
+    register_outputs(job)
 
     # inform client:
     email_address = project.owner.email
