@@ -237,7 +237,11 @@ def start_workflow(data):
         if response.status_code == 201:
             if response_json['status'] == 'Submitted':
                 job_id = response_json['id']
-                job = SubmittedJob(project=analysis_project, job_id=job_id, job_status='Submitted')
+                job = SubmittedJob(project=analysis_project, 
+                    job_id=job_id, 
+                    job_status='Submitted', 
+                    job_staging_dir=staging_dir
+                )
                 job.save()
 
                 # update the project also:
@@ -285,6 +289,9 @@ def handle_success(job):
     email_subject = open('email_templates/analysis_success_subject.txt').readline().strip()
     send_email(email_plaintxt, email_html, email_address, email_subject)
 
+    # delete the staging dir where the files were:
+    staging_dir = job.job_staging_dir
+    shutil.rmtree(staging_dir)
 
 def handle_failure(job):
     '''

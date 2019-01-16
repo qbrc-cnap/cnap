@@ -144,3 +144,7 @@ class SubmittedJob(models.Model):
 
     # status
     job_status = models.CharField(max_length=200, blank=False)
+
+    # where the staging directory is-- for debug purposes.
+    # This is an absolute path
+    job_staging_dir = models.CharField(max_length=1000, blank=False)
