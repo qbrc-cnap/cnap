@@ -11,8 +11,10 @@ from jinja2 import Template
 from django.conf import settings
 from celery.decorators import task
 from django.contrib.auth import get_user_model
+from django.contrib.sites.models import Site
 
 from helpers import utils
+from helpers.utils import get_jinja_template
 from helpers.email_utils import notify_admins, send_email
 from analysis.models import Workflow, AnalysisProject, SubmittedJob
 
@@ -271,7 +273,17 @@ def handle_success(job):
     project.save()
 
     # inform client:
-    send_email(plaintext_msg, message_html, recipient, subject)
+    email_address = project.owner.email
+    current_site = Site.objects.get_current()
+    domain = current_site.domain
+    url = 'https://%s' % domain
+    context = {'site': url, 'user_email': email_address}
+    email_template = get_jinja_template('email_templates/analysis_success.html')
+    email_html = email_template.render(context)
+    email_plaintxt_template = get_jinja_template('email_templates/analysis_success.txt')
+    email_plaintxt = email_plaintxt_template.render(context)
+    email_subject = open('email_templates/analysis_success_subject.txt').readline().strip()
+    send_email(email_plaintxt, email_html, email_address, email_subject)
 
 
 def handle_failure(job):
@@ -317,7 +329,6 @@ def check_job():
 
     # get the job IDs for active jobs:
     active_job_set = SubmittedJob.objects.all()
-    
     for job in active_job_set:
         query_url = query_url_template.render({'job_id': job.job_id})
         try:

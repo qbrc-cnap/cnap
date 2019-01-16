@@ -113,30 +113,49 @@ class TasksTestCase(TestCase):
           start_workflow(self.data)
         self.assertTrue(mock_handle_ex.called)
 
+    def _mock_response(self, status_code, status_str=None):
+        '''
+        helper function which constructs the mock return object 
+        so there is less test code copied
+        '''
+        mock_return = mock.MagicMock()
+        mock_return.status_code = status_code
+        d = {'message': 'some msg'}
+        if status_str:
+            d['status'] = status_str
+        mock_return.text = json.dumps(d)
+        return mock_return
+
+
+    def _create_submission(self):
+        '''
+        helper function for use when checking job status.  Creates a database
+        object that is necessary to execute loop
+        '''
+        # create a job that we are pretending to query
+        mock_uuid = 'e442e52a-9de1-47f0-8b4f-e6e565008cf1'
+        job = SubmittedJob(project=self.analysis_project, job_id=mock_uuid, job_status='Submitted')
+        job.save()
+        return job
+
+
     @mock.patch('analysis.tasks.handle_exception')
     @mock.patch('analysis.tasks.requests')
     def test_catch_ex_if_unreachable_cromwell_case2(self, mock_requests, mock_handle_ex):
         '''
         This covers where the requests.post receives a 500 from the cromwell server
         '''
-        mock_return = mock.MagicMock()
-        mock_return.status_code = 500
-        mock_return.text = json.dumps({'some_key': 'some_value'})
-        mock_requests.post.return_value = mock_return
-
+        mock_requests.post.return_value = self._mock_response(500)
         start_workflow(self.data)
         self.assertTrue(mock_handle_ex.called)
+
     @mock.patch('analysis.tasks.handle_exception')
     @mock.patch('analysis.tasks.requests')
     def test_catch_ex_if_unreachable_cromwell_case3(self, mock_requests, mock_handle_ex):
         '''
         This covers where the requests.post receives a 400 from the cromwell server
         '''
-        mock_return = mock.MagicMock()
-        mock_return.status_code = 400
-        mock_return.text = json.dumps({'some_key': 'some_value'})
-        mock_requests.post.return_value = mock_return
-
+        mock_requests.post.return_value = self._mock_response(400)
         start_workflow(self.data)
         self.assertTrue(mock_handle_ex.called)
 
@@ -146,13 +165,138 @@ class TasksTestCase(TestCase):
         '''
         This covers where the requests.post receives a 404 from the cromwell server
         '''
-        mock_return = mock.MagicMock()
-        mock_return.status_code = 404
-        mock_return.text = json.dumps({'some_key': 'some_value'})
-        mock_requests.post.return_value = mock_return
-
+        mock_requests.post.return_value = self._mock_response(404)
         start_workflow(self.data)
         self.assertTrue(mock_handle_ex.called)
+
+    @mock.patch('analysis.tasks.handle_exception')
+    @mock.patch('analysis.tasks.requests')
+    def test_catch_ex_if_unreachable_cromwell_case5(self, mock_requests, mock_handle_ex):
+        '''
+        This covers where the requests.get receives a 404 from the cromwell server
+        '''
+        self._create_submission()
+        mock_requests.get.return_value = self._mock_response(404)
+        check_job()
+        self.assertTrue(mock_handle_ex.called)
+
+    @mock.patch('analysis.tasks.handle_exception')
+    @mock.patch('analysis.tasks.requests')
+    def test_catch_ex_if_unreachable_cromwell_case6(self, mock_requests, mock_handle_ex):
+        '''
+        This covers where the requests.get receives a 400 from the cromwell server
+        '''
+        self._create_submission()
+        mock_requests.get.return_value = self._mock_response(400)
+        check_job()
+        self.assertTrue(mock_handle_ex.called)
+
+    @mock.patch('analysis.tasks.handle_exception')
+    @mock.patch('analysis.tasks.requests')
+    def test_catch_ex_if_unreachable_cromwell_case7(self, mock_requests, mock_handle_ex):
+        '''
+        This covers where the requests.get receives a 500 from the cromwell server
+        '''
+        self._create_submission()
+        mock_requests.get.return_value = self._mock_response(500)
+        check_job()
+        self.assertTrue(mock_handle_ex.called)
+
+    @mock.patch('analysis.tasks.requests')
+    def test_still_running_job_updates_status(self, mock_requests):
+        '''
+        This covers the case where we check on a job that is still running.  Ensure
+        that the status is reset appropriately
+        '''
+        project_pk = self.analysis_project.pk
+        project = AnalysisProject.objects.get(pk=project_pk)
+        self.assertFalse(project.completed)
+
+        job = self._create_submission()
+        job_uuid = job.job_id
+        self.assertTrue(job.job_status == 'Submitted')
+        mock_requests.get.return_value = self._mock_response(200, status_str='Running')
+        check_job()
+
+        # query the database for updated object:
+        job = SubmittedJob.objects.get(job_id=job_uuid)
+        self.assertTrue(job.job_status == 'Running')
+        project = job.project
+        self.assertFalse(project.completed)
+
+
+    @mock.patch('analysis.tasks.handle_exception')
+    @mock.patch('analysis.tasks.requests')
+    def test_unexpected_but_successful_response(self, mock_requests, mock_handle_ex):
+        '''
+        This covers the case where we check on a job that returns 200, but the
+        status is unrecognized.  We then set the status, and inform staff
+        '''
+        project_pk = self.analysis_project.pk
+        project = AnalysisProject.objects.get(pk=project_pk)
+        self.assertFalse(project.completed)
+
+        self._create_submission()
+        mock_requests.get.return_value = self._mock_response(200, status_str='Something')
+        check_job()
+
+        # check that the success method was called:
+        self.assertTrue(mock_handle_ex.called)
+
+        # ensure the SubmittedJob item was cleaned up
+        all_jobs = SubmittedJob.objects.all()
+        self.assertTrue(len(all_jobs) == 1)
+
+    @mock.patch('analysis.tasks.send_email')
+    @mock.patch('analysis.tasks.requests')
+    def test_successful_job_triggers_downstream_actions(self, mock_requests, mock_email_send):
+        '''
+        This covers the case where we check on a job that is successful.  Ensure
+        the follow-up actions are followed
+        '''
+        project_pk = self.analysis_project.pk
+        project = AnalysisProject.objects.get(pk=project_pk)
+        self.assertFalse(project.completed)
+
+        self._create_submission()
+        mock_requests.get.return_value = self._mock_response(200, status_str='Succeeded')
+        check_job()
+
+        # check that the success method was called:
+        self.assertTrue(mock_email_send.called)
+        project = AnalysisProject.objects.get(pk=project_pk)
+        self.assertTrue(project.completed)
+        self.assertTrue(project.success)
+        self.assertFalse(project.error)
+
+        # ensure the SubmittedJob item was cleaned up
+        all_jobs = SubmittedJob.objects.all()
+        self.assertTrue(len(all_jobs) == 0)
+
+    @mock.patch('analysis.tasks.notify_admins')
+    @mock.patch('analysis.tasks.requests')
+    def test_failed_job_triggers_downstream_actions(self, mock_requests, mock_admin_email):
+        '''
+        This covers the case where we check on a job that has failed.  Ensure
+        the follow-up actions are followed
+        '''
+        project_pk = self.analysis_project.pk
+        project = AnalysisProject.objects.get(pk=project_pk)
+
+        self._create_submission()
+        mock_requests.get.return_value = self._mock_response(200, status_str='Failed')
+        check_job()
+
+        # check that the success method was called:
+        self.assertTrue(mock_admin_email.called)
+        project = AnalysisProject.objects.get(pk=project_pk)
+        self.assertTrue(project.completed)
+        self.assertFalse(project.success)
+        self.assertTrue(project.error)
+
+        # ensure the SubmittedJob item was cleaned up
+        all_jobs = SubmittedJob.objects.all()
+        self.assertTrue(len(all_jobs) == 0)
 
     @mock.patch('analysis.tasks.requests')
     def test_successful_submission_creates_database_objects(self, mock_requests):
