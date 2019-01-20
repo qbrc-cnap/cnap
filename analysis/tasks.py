@@ -17,6 +17,7 @@ from helpers import utils
 from helpers.utils import get_jinja_template
 from helpers.email_utils import notify_admins, send_email
 from analysis.models import Workflow, AnalysisProject, SubmittedJob
+from base.models import Resource
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 ZIPNAME = 'depenencies.zip'

@@ -127,7 +127,7 @@ class TasksTestCase(TestCase):
 
     @mock.patch('analysis.tasks.handle_exception')
     @mock.patch('analysis.tasks.requests')
-    def test_inform_staff_if_cromwell_returns_error_case404(self, mock_requests, mock_handle_ex)
+    def test_inform_staff_if_cromwell_returns_error_case404(self, mock_requests, mock_handle_ex):
         '''
         This test covers the case when the job has finished.  After it has finished, 
         we check for outputs, which will be added to the downloads
@@ -139,7 +139,7 @@ class TasksTestCase(TestCase):
 
     @mock.patch('analysis.tasks.handle_exception')
     @mock.patch('analysis.tasks.requests')
-    def test_inform_staff_if_cromwell_returns_error_case400(self, mock_requests, mock_handle_ex)
+    def test_inform_staff_if_cromwell_returns_error_case400(self, mock_requests, mock_handle_ex):
         '''
         This test covers the case when the job has finished.  After it has finished, 
         we check for outputs, which will be added to the downloads
@@ -151,7 +151,7 @@ class TasksTestCase(TestCase):
 
     @mock.patch('analysis.tasks.handle_exception')
     @mock.patch('analysis.tasks.requests')
-    def test_inform_staff_if_cromwell_returns_error_case500(self, mock_requests, mock_handle_ex)
+    def test_inform_staff_if_cromwell_returns_error_case500(self, mock_requests, mock_handle_ex):
         '''
         This test covers the case when the job has finished.  After it has finished, 
         we check for outputs, which will be added to the downloads
@@ -163,12 +163,13 @@ class TasksTestCase(TestCase):
 
     @mock.patch('analysis.tasks.handle_exception')
     @mock.patch('analysis.tasks.requests')
-    def test_inform_staff_if_cromwell_unreachable_during_output_registration(self, mock_requests, mock_handle_ex)
+    def test_inform_staff_if_cromwell_unreachable_during_output_registration(self, mock_requests, mock_handle_ex):
         '''
         This test covers the case when the job has finished.  After it has finished, 
         we check for outputs, which will be added to the downloads
         '''
-        mock_requests.get.return_value = self._mock_response(404)
+        myex = Exception('Some ex')
+        mock_requests.get.side_effect = myex
         job = self._create_submission()
         with self.assertRaises(Exception):
             register_outputs(job)
@@ -183,7 +184,7 @@ class TasksTestCase(TestCase):
         mock_handle_ex, 
         mock_resource_size,
         mock_output_parser
-    )
+    ):
         '''
         This test covers the case when the job has finished.  After it has finished, 
         we check for outputs, which will be added to the downloads
@@ -204,7 +205,7 @@ class TasksTestCase(TestCase):
 
         mock_requests.get.return_value = mock_response
         
-        register_outputs(job)
+        register_outputs(mock_job)
         expected_resource = Resource.objects.get(path=path, name='foo.txt')
 
     def test_output_parser_case1(self):
@@ -212,7 +213,7 @@ class TasksTestCase(TestCase):
         If there is only a single output, returns a single element list
         '''
         d = {'workflow.some_output': 'prefix://some-bucket/folder/foo.txt'}
-        expected_return = 'prefix://some-bucket/folder/foo.txt'
+        expected_return = ['prefix://some-bucket/folder/foo.txt',]
         return_val = parse_outputs(d)
         self.assertEqual(return_val, expected_return)
 
@@ -240,19 +241,20 @@ class TasksTestCase(TestCase):
         If there are multiple outputs, returns a dictionary
         where each key is a single file
         '''
-        d = {'workflow.some_output1': 'prefix://some-bucket/folder/foo.txt'}
+        d = {'workflow.some_output1': 'prefix://some-bucket/folder/foo.txt',
             'workflow.some_output2': 'prefix://some-bucket/folder/bar.txt'}
         expected_return = ['prefix://some-bucket/folder/foo.txt', 
             'prefix://some-bucket/folder/bar.txt'
         ]
         return_val = parse_outputs(d)
-        self.assertEqual(return_val, expected_return)
+        for x in expected_return:
+            self.assertTrue(x in return_val)
 
     def test_output_parser_case4(self):
         '''
         If there is one Array[File] output
         '''
-        d = {'workflow.some_output1': ['prefix://some-bucket/folder/foo.txt'}
+        d = {'workflow.some_output1': ['prefix://some-bucket/folder/foo.txt',
             'prefix://some-bucket/folder/bar.txt']}
         expected_return = ['prefix://some-bucket/folder/foo.txt', 
             'prefix://some-bucket/folder/bar.txt'
