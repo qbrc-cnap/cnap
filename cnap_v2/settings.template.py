@@ -12,7 +12,7 @@ https://docs.djangoproject.com/en/2.0/ref/settings/
 
 import os
 import sys
-
+import datetime
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -203,7 +203,7 @@ for key, val in CONFIG_PARAMS.items():
 
 # using the value of EXPIRATION_PERIOD_DAYS from the config, set a timedelta:
 # This logic could be altered as desired:
-EXPIRATION_PERIOD = datetime.timedelta(days=int(CONFIG_PARAMS['EXPIRATION_PERIOD_DAYS']))
+EXPIRATION_PERIOD = datetime.timedelta(days=int(CONFIG_PARAMS['expiration_period_days']))
 
 additional_sections = [GOOGLE_DRIVE, DROPBOX, GOOGLE]
 LIVE_TEST_CONFIG_PARAMS = utils.load_config(os.path.join(CONFIG_DIR, 'live_tests.cfg'), additional_sections)
@@ -358,3 +358,11 @@ CROMWELL_SERVER_URL = '{{cromwell_server_url}}'
 SILENT_CLIENTSIDE_FAILURE = True
 ###############################################################################
 ###############################################################################
+
+# These are "email addresses" to use in the unit tests.
+# Keeping them here allows us to avoid sending emails in those cases
+ADMIN_TEST_EMAIL = 'admin@admin.com'
+REGULAR_TEST_EMAIL = 'user@foobarbaz.com'
+OTHER_TEST_EMAIL = 'other-user@foobarbaz.com'
+YET_ANOTHER_TEST_EMAIL = 'yet-another-user@foobarbaz.com'
+TEST_EMAIL_ADDRESSES = [ADMIN_TEST_EMAIL, REGULAR_TEST_EMAIL, OTHER_TEST_EMAIL, YET_ANOTHER_TEST_EMAIL]

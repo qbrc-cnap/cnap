@@ -4,6 +4,7 @@ from rest_framework import status
 
 from django.urls import reverse
 from django.contrib.auth import get_user_model
+from django.conf import settings
 
 from base.models import Resource
 
@@ -11,9 +12,9 @@ from base.models import Resource
 def create_data(testcase_obj):
 
     # create two users-- one is admin, other is regular
-    testcase_obj.regular_user = get_user_model().objects.create_user(email='reguser@gmail.com', password='abcd123!')
-    testcase_obj.admin_user = get_user_model().objects.create_user(email='admin@admin.com', password='abcd123!', is_staff=True)
-    testcase_obj.other_user = get_user_model().objects.create_user(email='otheruser@gmail.com', password='abcd123!')
+    testcase_obj.regular_user = get_user_model().objects.create_user(email=settings.REGULAR_TEST_EMAIL, password='abcd123!')
+    testcase_obj.admin_user = get_user_model().objects.create_user(email=settings.ADMIN_TEST_EMAIL, password='abcd123!', is_staff=True)
+    testcase_obj.other_user = get_user_model().objects.create_user(email=settings.OTHER_TEST_EMAIL, password='abcd123!')
 
     # create a couple of Resources owned by admin:
     r1 = Resource.objects.create(
@@ -68,7 +69,7 @@ class ResourceListTestCase(TestCase):
     def test_admin_can_list_all_resources(self):
         r = Resource.objects.all()
         client = APIClient()
-        client.login(email='admin@admin.com', password='abcd123!') 
+        client.login(email=settings.ADMIN_TEST_EMAIL, password='abcd123!') 
         url = reverse('resource-list')
         response = client.get(url)
         self.assertEqual(response.status_code,200) 
@@ -76,8 +77,8 @@ class ResourceListTestCase(TestCase):
 
     def test_regular_user_can_list_only_their_resources(self):
         client = APIClient()
-        client.login(email='reguser@gmail.com', password='abcd123!')
-        u = get_user_model().objects.filter(email='reguser@gmail.com')[0]
+        client.login(email=settings.REGULAR_TEST_EMAIL, password='abcd123!')
+        u = get_user_model().objects.filter(email=settings.REGULAR_TEST_EMAIL)[0]
         reguser_pk = u.pk
         url = reverse('resource-list')
         response = client.get(url)
@@ -106,16 +107,16 @@ Tests for creation of Resource:
 '''
 class ResourceCreateTestCase(TestCase):
     def setUp(self):
-        self.regular_user = get_user_model().objects.create_user(email='reguser@gmail.com', password='abcd123!')
-        self.admin_user = get_user_model().objects.create_user(email='admin@admin.com', password='abcd123!', is_staff=True)
+        self.regular_user = get_user_model().objects.create_user(email=settings.REGULAR_TEST_EMAIL, password='abcd123!')
+        self.admin_user = get_user_model().objects.create_user(email=settings.ADMIN_TEST_EMAIL, password='abcd123!', is_staff=True)
 
     def test_admin_can_create_resource_for_self(self):
         # establish the admin client:
         client = APIClient()
-        client.login(email='admin@admin.com', password='abcd123!')
+        client.login(email=settings.ADMIN_TEST_EMAIL, password='abcd123!')
 
         # get the admin user's pk:
-        u = get_user_model().objects.filter(email='admin@admin.com')[0]
+        u = get_user_model().objects.filter(email=settings.ADMIN_TEST_EMAIL)[0]
         adminuser_pk = u.pk
         url = reverse('resource-list')
         data = {'source': 'google_bucket', \
@@ -136,10 +137,10 @@ class ResourceCreateTestCase(TestCase):
     def test_admin_can_create_resource_for_other(self):
         # establish the admin client:
         client = APIClient()
-        client.login(email='admin@admin.com', password='abcd123!')
+        client.login(email=settings.ADMIN_TEST_EMAIL, password='abcd123!')
 
         # get the regular user's pk:
-        u = get_user_model().objects.filter(email='reguser@gmail.com')[0]
+        u = get_user_model().objects.filter(email=settings.REGULAR_TEST_EMAIL)[0]
         reguser_pk = u.pk
         url = reverse('resource-list')
         data = {'source': 'google_bucket', \
@@ -160,14 +161,14 @@ class ResourceCreateTestCase(TestCase):
     def test_regular_user_can_create_resource_for_self(self):
         # establish the regular client:
         client = APIClient()
-        client.login(email='reguser@gmail.com', password='abcd123!')
+        client.login(email=settings.REGULAR_TEST_EMAIL, password='abcd123!')
 
         # initial number of Resource objects:
         r_orig = Resource.objects.all()
         r_orig_len = len(r_orig)
 
         # get the regular user's pk:
-        u = get_user_model().objects.filter(email='reguser@gmail.com')[0]
+        u = get_user_model().objects.filter(email=settings.REGULAR_TEST_EMAIL)[0]
         reguser_pk = u.pk
         url = reverse('resource-list')
         data = {'source': 'google_bucket', \
@@ -188,13 +189,13 @@ class ResourceCreateTestCase(TestCase):
     def test_regular_user_cannot_create_resource_for_other(self):
         # establish the regular client:
         client = APIClient()
-        client.login(email='reguser@gmail.com', password='abcd123!')
+        client.login(email=settings.REGULAR_TEST_EMAIL, password='abcd123!')
 
         # initial number of Resource objects:
         r_orig = Resource.objects.all()
 
         # get the admin user's pk:
-        u = get_user_model().objects.filter(email='admin@admin.com')[0]
+        u = get_user_model().objects.filter(email=settings.ADMIN_TEST_EMAIL)[0]
         adminuser_pk = u.pk
         url = reverse('resource-list')
         data = {'source': 'google_bucket', \
@@ -228,53 +229,53 @@ class ResourceDetailTestCase(TestCase):
     def test_return_404_for_missing_resource(self):
 
         admin_client = APIClient()
-        admin_client.login(email='admin@admin.com', password='abcd123!') 
+        admin_client.login(email=settings.ADMIN_TEST_EMAIL, password='abcd123!') 
         url = reverse('resource-detail', args=[666,]) # some non-existant pk
         response = admin_client.get(url)
         self.assertEqual(response.status_code,404) 
 
         reg_client = APIClient()
-        reg_client.login(email='reguser@gmail.com', password='abcd123!') 
+        reg_client.login(email=settings.REGULAR_TEST_EMAIL, password='abcd123!') 
         url = reverse('resource-detail', args=[666,]) # some non-existant pk
         response = reg_client.get(url)
         self.assertEqual(response.status_code,404)
 
     def test_admin_user_can_query_own_resource(self):
-        admin_user = get_user_model().objects.get(email='admin@admin.com')
+        admin_user = get_user_model().objects.get(email=settings.ADMIN_TEST_EMAIL)
         r = Resource.objects.filter(owner = admin_user)
         instance = r[0]
         admin_client = APIClient()
-        admin_client.login(email='admin@admin.com', password='abcd123!') 
+        admin_client.login(email=settings.ADMIN_TEST_EMAIL, password='abcd123!') 
         url = reverse('resource-detail', args=[instance.pk,])
         response = admin_client.get(url)
         self.assertEqual(response.status_code, 200)
 
     def test_admin_user_can_query_others_resource(self):
-        reg_user = get_user_model().objects.get(email='reguser@gmail.com')
+        reg_user = get_user_model().objects.get(email=settings.REGULAR_TEST_EMAIL)
         r = Resource.objects.filter(owner = reg_user)
         instance = r[0]
         admin_client = APIClient()
-        admin_client.login(email='admin@admin.com', password='abcd123!')
+        admin_client.login(email=settings.ADMIN_TEST_EMAIL, password='abcd123!')
         url = reverse('resource-detail', args=[instance.pk,])
         response = admin_client.get(url)
         self.assertEqual(response.status_code, 200)
 
     def test_regular_user_denied_access_to_others_resource(self):
-        admin_user = get_user_model().objects.get(email='admin@admin.com')
+        admin_user = get_user_model().objects.get(email=settings.ADMIN_TEST_EMAIL)
         r = Resource.objects.filter(owner = admin_user)
         instance = r[0]
         reg_client = APIClient()
-        reg_client.login(email='reguser@gmail.com', password='abcd123!') 
+        reg_client.login(email=settings.REGULAR_TEST_EMAIL, password='abcd123!') 
         url = reverse('resource-detail', args=[instance.pk,])
         response = reg_client.get(url)
         self.assertEqual(response.status_code,404)
 
     def test_regular_user_given_access_to_own_resource(self):
-        reg_user = get_user_model().objects.get(email='reguser@gmail.com')
+        reg_user = get_user_model().objects.get(email=settings.REGULAR_TEST_EMAIL)
         r = Resource.objects.filter(owner = reg_user)
         instance = r[0]
         reg_client = APIClient()
-        reg_client.login(email='reguser@gmail.com', password='abcd123!') 
+        reg_client.login(email=settings.REGULAR_TEST_EMAIL, password='abcd123!') 
         url = reverse('resource-detail', args=[instance.pk,])
         response = reg_client.get(url)
         self.assertEqual(response.status_code, 200)
@@ -299,7 +300,7 @@ class UserResourceListTestCase(TestCase):
         nonexistent_user_pk = max_pk + 1
 
         admin_client = APIClient()
-        admin_client.login(email='admin@admin.com', password='abcd123!') 
+        admin_client.login(email=settings.ADMIN_TEST_EMAIL, password='abcd123!') 
         url = reverse('user-resource-list', args=[nonexistent_user_pk,])
         response = admin_client.get(url)
         self.assertEqual(response.status_code, 404)
@@ -311,10 +312,10 @@ class UserResourceListTestCase(TestCase):
         functionality is already handled by a request to the /resources/ endpoint
         '''
         client = APIClient()
-        client.login(email='reguser@gmail.com', password='abcd123!')
+        client.login(email=settings.REGULAR_TEST_EMAIL, password='abcd123!')
 
         # get the regular user's pk:
-        u = get_user_model().objects.filter(email='reguser@gmail.com')[0]
+        u = get_user_model().objects.filter(email=settings.REGULAR_TEST_EMAIL)[0]
         reguser_pk = u.pk
 
         url = reverse('user-resource-list', args=[reguser_pk])
@@ -325,10 +326,10 @@ class UserResourceListTestCase(TestCase):
 
         # establish the admin client:
         client = APIClient()
-        client.login(email='admin@admin.com', password='abcd123!')
+        client.login(email=settings.ADMIN_TEST_EMAIL, password='abcd123!')
 
         # get the regular user's pk:
-        u = get_user_model().objects.filter(email='reguser@gmail.com')[0]
+        u = get_user_model().objects.filter(email=settings.REGULAR_TEST_EMAIL)[0]
         reguser_pk = u.pk
 
         url = reverse('user-resource-list', args=[reguser_pk])

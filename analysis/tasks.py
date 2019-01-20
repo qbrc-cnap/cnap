@@ -337,11 +337,11 @@ def register_outputs(job):
                     path = p,
                     name = os.path.basename(p),
                     owner = owner,
-                    size = size_in_bytes
+                    size = size_in_bytes,
                     expiration_date = expiration_datetime
                 )
                 r.save()
-    except Exceptions as ex:
+    except Exception as ex:
         print('An exception was raised when requesting job outputs from cromwell server')
         print(ex)
         message = 'An exception occurred when trying to query outputs from Cromwell. \n'

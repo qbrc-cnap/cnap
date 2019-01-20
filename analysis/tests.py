@@ -5,11 +5,10 @@ import uuid
 import json
 import datetime
 from importlib import invalidate_caches
-
-
-from django.test import TestCase
 import unittest.mock as mock
 
+from django.test import TestCase
+from django.conf import settings
 from django.contrib.auth import get_user_model
 
 from analysis.models import Workflow, \
@@ -49,8 +48,8 @@ class TasksTestCase(TestCase):
     '''
     def setUp(self):
 
-        self.admin_user = get_user_model().objects.create_user(email='admin@admin.com', password='abcd123!', is_staff=True)
-        self.regular_user = get_user_model().objects.create_user(email='reguser@gmail.com', password='abcd123!')
+        self.admin_user = get_user_model().objects.create_user(email=settings.ADMIN_TEST_EMAIL, password='abcd123!', is_staff=True)
+        self.regular_user = get_user_model().objects.create_user(email=settings.REGULAR_TEST_EMAIL, password='abcd123!')
 
         # create a couple of resources owned by the regular user:
         self.r1 = Resource.objects.create(
@@ -247,9 +246,11 @@ class TasksTestCase(TestCase):
         all_jobs = SubmittedJob.objects.all()
         self.assertTrue(len(all_jobs) == 1)
 
+    @mock.patch('analysis.tasks.shutil')
+    @mock.patch('analysis.tasks.register_outputs')
     @mock.patch('analysis.tasks.send_email')
     @mock.patch('analysis.tasks.requests')
-    def test_successful_job_triggers_downstream_actions(self, mock_requests, mock_email_send):
+    def test_successful_job_triggers_downstream_actions(self, mock_requests, mock_email_send, mock_register_outputs, mock_shutil):
         '''
         This covers the case where we check on a job that is successful.  Ensure
         the follow-up actions are followed
@@ -264,6 +265,7 @@ class TasksTestCase(TestCase):
 
         # check that the success method was called:
         self.assertTrue(mock_email_send.called)
+        self.assertTrue(mock_register_outputs.called)
         project = AnalysisProject.objects.get(pk=project_pk)
         self.assertTrue(project.completed)
         self.assertTrue(project.success)
@@ -385,8 +387,8 @@ class ViewUtilsTest(TestCase):
 
     def setUp(self):
 
-        self.admin_user = get_user_model().objects.create_user(email='admin@admin.com', password='abcd123!', is_staff=True)
-        self.regular_user = get_user_model().objects.create_user(email='reguser@gmail.com', password='abcd123!')
+        self.admin_user = get_user_model().objects.create_user(email=settings.ADMIN_TEST_EMAIL, password='abcd123!', is_staff=True)
+        self.regular_user = get_user_model().objects.create_user(email=settings.REGULAR_TEST_EMAIL, password='abcd123!')
 
         # create a couple of resources owned by the regular user:
         self.r1 = Resource.objects.create(

@@ -33,9 +33,9 @@ class GoogleEnvironmentDownloadTestCase(TestCase):
         In a download, users are transferring away from our systems, downloading it to another storage 
         The Resource instances already exist.
         '''
-        self.admin_user = get_user_model().objects.create_user(email='admin@admin.com', password='abcd123!', is_staff=True)
-        self.regular_user = get_user_model().objects.create_user(email='reguser@gmail.com', password='abcd123!')
-        self.other_user = get_user_model().objects.create_user(email='otheruser@gmail.com', password='abcd123!')
+        self.admin_user = get_user_model().objects.create_user(email=settings.ADMIN_TEST_EMAIL, password='abcd123!', is_staff=True)
+        self.regular_user = get_user_model().objects.create_user(email=settings.REGULAR_TEST_EMAIL, password='abcd123!')
+        self.other_user = get_user_model().objects.create_user(email=settings.OTHER_TEST_EMAIL, password='abcd123!')
 
         # create a couple of resources owned by the regular user:
         r1 = Resource.objects.create(
@@ -77,9 +77,9 @@ class GoogleEnvironmentDownloadTestCase(TestCase):
         Here, we leave out the destination as part of the request.
         '''
         client = APIClient()
-        client.login(email='reguser@gmail.com', password='abcd123!')
+        client.login(email=settings.REGULAR_TEST_EMAIL, password='abcd123!')
 
-        reguser = get_user_model().objects.get(email='reguser@gmail.com')
+        reguser = get_user_model().objects.get(email=settings.REGULAR_TEST_EMAIL)
 
         url = reverse('download-transfer-initiation')
         d = {}
@@ -92,9 +92,9 @@ class GoogleEnvironmentDownloadTestCase(TestCase):
         Here, we leave out the resource primary keys as part of the request.
         '''
         client = APIClient()
-        client.login(email='reguser@gmail.com', password='abcd123!')
+        client.login(email=settings.REGULAR_TEST_EMAIL, password='abcd123!')
 
-        reguser = get_user_model().objects.get(email='reguser@gmail.com')
+        reguser = get_user_model().objects.get(email=settings.REGULAR_TEST_EMAIL)
 
         url = reverse('download-transfer-initiation')
         d = {}
@@ -107,9 +107,9 @@ class GoogleEnvironmentDownloadTestCase(TestCase):
         Here, one of the primary keys is NOT an integer
         '''
         client = APIClient()
-        client.login(email='reguser@gmail.com', password='abcd123!')
+        client.login(email=settings.REGULAR_TEST_EMAIL, password='abcd123!')
 
-        reguser = get_user_model().objects.get(email='reguser@gmail.com')
+        reguser = get_user_model().objects.get(email=settings.REGULAR_TEST_EMAIL)
 
         url = reverse('download-transfer-initiation')
         d = {}
@@ -123,9 +123,9 @@ class GoogleEnvironmentDownloadTestCase(TestCase):
         Here, the resource pk list is empty
         '''
         client = APIClient()
-        client.login(email='reguser@gmail.com', password='abcd123!')
+        client.login(email=settings.REGULAR_TEST_EMAIL, password='abcd123!')
 
-        reguser = get_user_model().objects.get(email='reguser@gmail.com')
+        reguser = get_user_model().objects.get(email=settings.REGULAR_TEST_EMAIL)
 
         url = reverse('download-transfer-initiation')
         d = {}
@@ -139,9 +139,9 @@ class GoogleEnvironmentDownloadTestCase(TestCase):
         Here, one of the primary keys does not exist-- reject
         '''
         client = APIClient()
-        client.login(email='reguser@gmail.com', password='abcd123!')
+        client.login(email=settings.REGULAR_TEST_EMAIL, password='abcd123!')
 
-        reguser = get_user_model().objects.get(email='reguser@gmail.com')
+        reguser = get_user_model().objects.get(email=settings.REGULAR_TEST_EMAIL)
 
         url = reverse('download-transfer-initiation')
         d = {}
@@ -155,9 +155,9 @@ class GoogleEnvironmentDownloadTestCase(TestCase):
         Here, a user requests to download a Resource that does NOT belong to them
         '''
         client = APIClient()
-        client.login(email='reguser@gmail.com', password='abcd123!')
+        client.login(email=settings.REGULAR_TEST_EMAIL, password='abcd123!')
 
-        reguser = get_user_model().objects.get(email='reguser@gmail.com')
+        reguser = get_user_model().objects.get(email=settings.REGULAR_TEST_EMAIL)
 
         url = reverse('download-transfer-initiation')
         d = {}
@@ -171,9 +171,9 @@ class GoogleEnvironmentDownloadTestCase(TestCase):
         Here, a user requests to download a Resource that has expired
         '''
         client = APIClient()
-        client.login(email='reguser@gmail.com', password='abcd123!')
+        client.login(email=settings.REGULAR_TEST_EMAIL, password='abcd123!')
 
-        reguser = get_user_model().objects.get(email='reguser@gmail.com')
+        reguser = get_user_model().objects.get(email=settings.REGULAR_TEST_EMAIL)
 
         url = reverse('download-transfer-initiation')
         d = {}
