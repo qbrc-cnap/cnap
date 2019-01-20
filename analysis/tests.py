@@ -33,6 +33,8 @@ from .view_utils import query_workflow, \
 from .tasks import fill_wdl_input, \
     start_workflow, \
     check_job, \
+    register_outputs, \
+    parse_outputs, \
     MissingDataException, \
     InputMappingException, \
     WORKFLOW_LOCATION, \
@@ -99,19 +101,6 @@ class TasksTestCase(TestCase):
     def tearDown(self):
         pass
 
-
-    @mock.patch('analysis.tasks.handle_exception')
-    @mock.patch('analysis.tasks.requests')
-    def test_catch_ex_if_unreachable_cromwell_case1(self, mock_requests, mock_handle_ex):
-        '''
-        This covers where the requests.post function raises an exception
-        '''
-        myex = Exception('Some ex')
-        mock_requests.post.side_effect = myex
-        with self.assertRaises(Exception):
-          start_workflow(self.data)
-        self.assertTrue(mock_handle_ex.called)
-
     def _mock_response(self, status_code, status_str=None):
         '''
         helper function which constructs the mock return object 
@@ -125,7 +114,6 @@ class TasksTestCase(TestCase):
         mock_return.text = json.dumps(d)
         return mock_return
 
-
     def _create_submission(self):
         '''
         helper function for use when checking job status.  Creates a database
@@ -137,6 +125,152 @@ class TasksTestCase(TestCase):
         job.save()
         return job
 
+    @mock.patch('analysis.tasks.handle_exception')
+    @mock.patch('analysis.tasks.requests')
+    def test_inform_staff_if_cromwell_returns_error_case404(self, mock_requests, mock_handle_ex)
+        '''
+        This test covers the case when the job has finished.  After it has finished, 
+        we check for outputs, which will be added to the downloads
+        '''
+        mock_requests.get.return_value = self._mock_response(404)
+        job = self._create_submission()
+        register_outputs(job)
+        self.assertTrue(mock_handle_ex.called)
+
+    @mock.patch('analysis.tasks.handle_exception')
+    @mock.patch('analysis.tasks.requests')
+    def test_inform_staff_if_cromwell_returns_error_case400(self, mock_requests, mock_handle_ex)
+        '''
+        This test covers the case when the job has finished.  After it has finished, 
+        we check for outputs, which will be added to the downloads
+        '''
+        mock_requests.get.return_value = self._mock_response(400)
+        job = self._create_submission()
+        register_outputs(job)
+        self.assertTrue(mock_handle_ex.called)
+
+    @mock.patch('analysis.tasks.handle_exception')
+    @mock.patch('analysis.tasks.requests')
+    def test_inform_staff_if_cromwell_returns_error_case500(self, mock_requests, mock_handle_ex)
+        '''
+        This test covers the case when the job has finished.  After it has finished, 
+        we check for outputs, which will be added to the downloads
+        '''
+        mock_requests.get.return_value = self._mock_response(500)
+        job = self._create_submission()
+        register_outputs(job)
+        self.assertTrue(mock_handle_ex.called)
+
+    @mock.patch('analysis.tasks.handle_exception')
+    @mock.patch('analysis.tasks.requests')
+    def test_inform_staff_if_cromwell_unreachable_during_output_registration(self, mock_requests, mock_handle_ex)
+        '''
+        This test covers the case when the job has finished.  After it has finished, 
+        we check for outputs, which will be added to the downloads
+        '''
+        mock_requests.get.return_value = self._mock_response(404)
+        job = self._create_submission()
+        with self.assertRaises(Exception):
+            register_outputs(job)
+        self.assertTrue(mock_handle_ex.called)
+
+    @mock.patch('analysis.tasks.parse_outputs')
+    @mock.patch('analysis.tasks.get_resource_size')
+    @mock.patch('analysis.tasks.handle_exception')
+    @mock.patch('analysis.tasks.requests')
+    def test_add_resources_after_job_completion(self, 
+        mock_requests, 
+        mock_handle_ex, 
+        mock_resource_size,
+        mock_output_parser
+    )
+        '''
+        This test covers the case when the job has finished.  After it has finished, 
+        we check for outputs, which will be added to the downloads
+        '''
+        mock_response = mock.MagicMock()
+        mock_response.status_code = 200
+        path = 'prefix://some-bucket/folder/foo.txt'
+        # doesn't matter what this is since we mocked out the parse_outputs func
+        mock_output = {'outputs': {'abc':'def'}}
+        mock_response.text = json.dumps(mock_output)
+
+        mock_job = mock.MagicMock()
+        mock_job.project = self.analysis_project
+
+        mock_output_parser.return_value = [path,]
+
+        mock_resource_size.return_value = 2000
+
+        mock_requests.get.return_value = mock_response
+        
+        register_outputs(job)
+        expected_resource = Resource.objects.get(path=path, name='foo.txt')
+
+    def test_output_parser_case1(self):
+        '''
+        If there is only a single output, returns a single element list
+        '''
+        d = {'workflow.some_output': 'prefix://some-bucket/folder/foo.txt'}
+        expected_return = 'prefix://some-bucket/folder/foo.txt'
+        return_val = parse_outputs(d)
+        self.assertEqual(return_val, expected_return)
+
+    def test_output_parser_case2(self):
+        '''
+        If there is a scatter within a subworkflow (final output
+        if a Array[Array[File]]), you can get a series of nested lists
+        That should be collapsed to a single list of files.
+        '''
+        d = {'workflow.some_output': [
+            ['prefix://some-bucket/folder/foo1.txt', 'prefix://some-bucket/folder/foo2.txt'],
+            ['prefix://some-bucket/folder/bar1.txt', 'prefix://some-bucket/folder/bar2.txt']
+            ]
+        }
+        expected_return = ['prefix://some-bucket/folder/foo1.txt',
+            'prefix://some-bucket/folder/foo2.txt',
+            'prefix://some-bucket/folder/bar1.txt',
+            'prefix://some-bucket/folder/bar2.txt'
+        ]
+        return_val = parse_outputs(d)
+        self.assertEqual(return_val, expected_return)
+
+    def test_output_parser_case3(self):
+        '''
+        If there are multiple outputs, returns a dictionary
+        where each key is a single file
+        '''
+        d = {'workflow.some_output1': 'prefix://some-bucket/folder/foo.txt'}
+            'workflow.some_output2': 'prefix://some-bucket/folder/bar.txt'}
+        expected_return = ['prefix://some-bucket/folder/foo.txt', 
+            'prefix://some-bucket/folder/bar.txt'
+        ]
+        return_val = parse_outputs(d)
+        self.assertEqual(return_val, expected_return)
+
+    def test_output_parser_case4(self):
+        '''
+        If there is one Array[File] output
+        '''
+        d = {'workflow.some_output1': ['prefix://some-bucket/folder/foo.txt'}
+            'prefix://some-bucket/folder/bar.txt']}
+        expected_return = ['prefix://some-bucket/folder/foo.txt', 
+            'prefix://some-bucket/folder/bar.txt'
+        ]
+        return_val = parse_outputs(d)
+        self.assertEqual(return_val, expected_return) 
+
+    @mock.patch('analysis.tasks.handle_exception')
+    @mock.patch('analysis.tasks.requests')
+    def test_catch_ex_if_unreachable_cromwell_case1(self, mock_requests, mock_handle_ex):
+        '''
+        This covers where the requests.post function raises an exception
+        '''
+        myex = Exception('Some ex')
+        mock_requests.post.side_effect = myex
+        with self.assertRaises(Exception):
+          start_workflow(self.data)
+        self.assertTrue(mock_handle_ex.called)
 
     @mock.patch('analysis.tasks.handle_exception')
     @mock.patch('analysis.tasks.requests')
