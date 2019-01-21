@@ -11,6 +11,18 @@ from base.models import Organization
 from helpers.email_utils import send_email
 from helpers.utils import get_jinja_template
 
+
+class Warning(models.Model):
+    '''
+    This class is used to track when periodic tasks generate errors.
+    For example, if the Cromwell server is down and we cannot check job status
+    we send an email to the admins.  Since that task might run every minute, that would
+    send many, many emails before it can be fixed.  The entries in this database table
+    track this so that doesn't happen
+    '''
+    message = models.CharField(max_length=2000)
+
+
 class Workflow(models.Model):
     '''
     This class captures the notion of a fully implemented

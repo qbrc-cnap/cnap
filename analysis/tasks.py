@@ -428,6 +428,7 @@ def check_job():
 
     # get the job IDs for active jobs:
     active_job_set = SubmittedJob.objects.all()
+    print('%d active jobs found.' % len(active_job_set))
     for job in active_job_set:
         query_url = query_url_template.render({'job_id': job.job_id})
         try:
@@ -466,6 +467,13 @@ def check_job():
             message += 'Job ID was: %s' % job.job_id
             message += 'Project ID was: %s' % job.project.analysis_uuid
             message += str(ex)
-            handle_exception(ex, message=message)
+            warnings_sent = Warning.objects.all()
+            if len(warnings_sent) == 0:
+                handle_exception(ex, message=message)
+
+                # add a 'Warning' object in the database so that we don't
+                # overwhelm the admin email boxes.
+                warn = Warning(message=message)
+                warn.save()
             raise ex
         
