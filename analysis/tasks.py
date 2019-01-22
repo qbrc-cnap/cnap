@@ -299,7 +299,7 @@ def get_resource_size(path):
         from googleapiclient.discovery import build
         client = build('storage', 'v1')
         bucket_prefix = settings.CONFIG_PARAMS['google_storage_gs_prefix']
-        p = p[len(bucket_prefix):]
+        p = path[len(bucket_prefix):]
         bucketname = p.split('/')[0]
         objectname = '/'.join(p.split('/')[1:])
         response = client.objects().get(bucket=bucketname, object=objectname).execute()
