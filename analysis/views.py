@@ -3,7 +3,7 @@ import json
 
 from django.conf import settings
 from django.shortcuts import render
-from django.http import HttpResponseBadRequest
+from django.http import HttpResponseBadRequest, JsonResponse
 from django.views import View
 from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
@@ -267,9 +267,11 @@ class AnalysisView(View):
 
         try:
             start_job_on_gcp(request, j, workflow_obj)
+            return JsonResponse({'message': '''
+            Your analysis has been submitted.  You may return to this page to check on the status of the job.  
+            If it has been enabled, an email will be sent upon completion'''})
         except Exception as ex:
             return HttpResponseBadRequest('Error when instantiating workflow.')
 
 
-        return render(request, 'analysis/home.html', {'msg': 'post view'})
 
