@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+
+
+
+{% block page_specific_css %}
+<style>
+.pad-top-bottom-20{
+    padding-top:20px;
+    padding-bottom:20px;
+}
+</style>
+{% endblock %}
+
+
+
+{% block content%}
+<div class="pad-top-bottom-20">
+<div>
+<h3>
+Success!  
+</h3>
+</div>
+<div>
+<p>Completed at: {{finish_time}}</p>
+</div>
+</div>
+{% endblock %}

@@ -38,6 +38,9 @@ function create_post(payload){
             //data: payload,
             success: function(response){
                 console.log('Success!');
+
+                // reload the page, which will show the job status
+                window.location.href = window.location.href;
             },
             error: function(xhr, status, err){
                 console.log('Error!');
