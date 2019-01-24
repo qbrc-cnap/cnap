@@ -232,6 +232,9 @@ def start_workflow(data):
             message = 'An exception occurred when trying to submit a job to Cromwell. \n'
             message += 'Project ID was: %s' % data['analysis_uuid']
             message += str(ex)
+            analysis_project.status = 'Error on job submission'
+            analysis_project.error = True
+            analysis_project.save()
             handle_exception(ex, message=message)
             raise ex
         response_json = json.loads(response.text)
@@ -246,8 +249,9 @@ def start_workflow(data):
                 job.save()
 
                 # update the project also:
-                analysis_project.started = True
+                analysis_project.started = True # should already be set
                 analysis_project.start_time = datetime.datetime.now()
+                analysis_project.status = 'Submitted...'
                 analysis_project.save()
             else:
                 # In case we get other types of responses, inform the admins:
@@ -256,6 +260,9 @@ def start_workflow(data):
                 handle_exception(None, message=message)
         else:
             message = 'Did not submit job-- status code was %d, and response text was: %s' % (response.status_code, response.text)
+            analysis_project.status = 'Error on job submission'
+            analysis_project.error = True
+            analysis_project.save()
             handle_exception(None, message=message)
     else:
         print('View final staging dir at %s' % staging_dir)
@@ -324,6 +331,9 @@ def register_outputs(job):
         response = requests.get(outputs_url)
         response_json = json.loads(response.text)
         if (response.status_code == 404) or (response.status_code == 400) or (response.status_code == 500):
+            job.project.status = 'Analysis completed.  Error encountered when collecting final outputs.'
+            job.project.error = True
+            job.project.save()
             handle_exception(None, 'Query for job failed with message: %s' % response_json['message'])
         else: # the request itself was OK
             outputs = response_json['outputs']
@@ -349,6 +359,9 @@ def register_outputs(job):
         message += 'Job ID was: %s' % job.job_id
         message += 'Project ID was: %s' % job.project.analysis_uuid
         message += str(ex)
+        job.project.status = 'Analysis completed.  Error encountered when collecting final outputs.'
+        job.project.error = True
+        job.project.save()
         handle_exception(ex, message=message)
         raise ex
 
@@ -362,6 +375,7 @@ def handle_success(job):
     project.completed = True
     project.success = True
     project.error = False
+    project.status = 'Successful completion'
     project.finish_time = datetime.datetime.now()
     project.save()
 
@@ -453,6 +467,10 @@ def check_job():
                     # update the job status in the database
                     job.job_status = status
                     job.save()
+
+                    project = job.project
+                    project.status = status
+                    project.save()
                 else:
                     # has some status we do not recognize
                     message = 'When querying for status of job ID: %s, ' % job.job_id
@@ -467,13 +485,15 @@ def check_job():
             message += 'Job ID was: %s' % job.job_id
             message += 'Project ID was: %s' % job.project.analysis_uuid
             message += str(ex)
-            warnings_sent = Warning.objects.all()
+            warnings_sent = Warning.objects.get(job=job)
             if len(warnings_sent) == 0:
                 handle_exception(ex, message=message)
 
                 # add a 'Warning' object in the database so that we don't
                 # overwhelm the admin email boxes.
-                warn = Warning(message=message)
+                warn = Warning(message=message, job=job)
                 warn.save()
+            else:
+                print('Error when querying cromwell for job status.  Notification suppressed')
             raise ex
         

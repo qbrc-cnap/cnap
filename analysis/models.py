@@ -12,17 +12,6 @@ from helpers.email_utils import send_email
 from helpers.utils import get_jinja_template
 
 
-class Warning(models.Model):
-    '''
-    This class is used to track when periodic tasks generate errors.
-    For example, if the Cromwell server is down and we cannot check job status
-    we send an email to the admins.  Since that task might run every minute, that would
-    send many, many emails before it can be fixed.  The entries in this database table
-    track this so that doesn't happen
-    '''
-    message = models.CharField(max_length=2000)
-
-
 class Workflow(models.Model):
     '''
     This class captures the notion of a fully implemented
@@ -105,6 +94,9 @@ class AnalysisProject(models.Model):
     # boolean for whether complete
     completed = models.BooleanField(default=False)
 
+    # for displaying the job status, as returned by Cromwell
+    status = models.CharField(max_length=200, blank=False)
+
     # fields to track status
     start_time = models.DateTimeField(blank=True, null=True)
     finish_time = models.DateTimeField(blank=True, null=True)
@@ -160,3 +152,15 @@ class SubmittedJob(models.Model):
     # where the staging directory is-- for debug purposes.
     # This is an absolute path
     job_staging_dir = models.CharField(max_length=1000, blank=False)
+
+
+class Warning(models.Model):
+    '''
+    This class is used to track when periodic tasks generate errors.
+    For example, if the Cromwell server is down and we cannot check job status
+    we send an email to the admins.  Since that task might run every minute, that would
+    send many, many emails before it can be fixed.  The entries in this database table
+    track this so that doesn't happen
+    '''
+    message = models.CharField(max_length=2000)
+    job = models.ForeignKey('SubmittedJob', on_delete=models.CASCADE)

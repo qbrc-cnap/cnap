@@ -171,7 +171,7 @@ class AnalysisView(View):
         if analysis_uuid:
             # get the workflow object based on the UUID:
             analysis_project = AnalysisProject.objects.get(analysis_uuid=analysis_uuid)
-            return (analysis_project.workflow, analysis_uuid)
+            return (analysis_project.workflow, analysis_project)
         else:
 
             if staff_request:
@@ -196,10 +196,29 @@ class AnalysisView(View):
         '''
 
         try:
-            workflow_obj, analysis_uuid = AnalysisView.get_workflow(kwargs, request.user.is_staff)
+            workflow_obj, analysis_project = AnalysisView.get_workflow(kwargs, request.user.is_staff)
         except AnalysisQueryException as ex:
             message = str(ex)
             return HttpResponseBadRequest(message)
+
+        # if a specific analysis was requested
+        if analysis_project:
+            if analysis_project.started:
+                if not analysis_project.completed:
+                    # in progress, return status page
+                    context = {}
+                    context['job_status'] = analysis_project.status
+                    context['start_time'] = analysis_project.start_time
+                    return render(request, 'analysis/in_progress.html', context)
+                else: # started AND complete
+                    if analysis_project.success:
+                        # return a success page
+                        context = {}
+                        context['finish_time'] = analysis_project.finish_time
+                        return render(request, 'analysis/complete_success.html', context)
+                    elif analysis_project.error:
+                        # return a page indicating error
+                        return render(request, 'analysis/complete_error.html',{})
 
         # if we are here, we have a workflow object from the database.
         # We can use that to find the appropriate workflow directory where
@@ -232,10 +251,10 @@ class AnalysisView(View):
             settings.FORM_CSS_NAME)
 
         # the url so the POST goes to the correct URL
-        if analysis_uuid:
+        if analysis_project:
             context_dict['submit_url'] = reverse('analysis-project-execute', 
                 kwargs={
-                    'analysis_uuid': analysis_uuid
+                    'analysis_uuid': analysis_project.analysis_uuid
                 }
             )
         else:
@@ -255,17 +274,23 @@ class AnalysisView(View):
         '''
 
         try:
-            workflow_obj, analysis_uuid = AnalysisView.get_workflow(kwargs, request.user.is_staff)
+            workflow_obj, analysis_project = AnalysisView.get_workflow(kwargs, request.user.is_staff)
         except AnalysisQueryException as ex:
             message = str(ex)
             return HttpResponseBadRequest(message)
 
+        if analysis_project.started:
+            return HttpResponseBadRequest('Analysis was already started/run.')
+
         # parse the payload from the POST request and make a dictionary
         data = request.POST.get('data')
         j = json.loads(data)
-        j['analysis_uuid'] = analysis_uuid
+        j['analysis_uuid'] = analysis_project.analysis_uuid
 
         try:
+            analysis_project.started = True
+            analysis_project.status = 'Preparing workflow'
+            analysis_project.save()
             start_job_on_gcp(request, j, workflow_obj)
             return JsonResponse({'message': '''
             Your analysis has been submitted.  You may return to this page to check on the status of the job.  
