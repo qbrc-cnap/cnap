@@ -100,7 +100,7 @@ def get_urls():
 
     # for the project URLs, the only way to get the 'form' of the url is to submit a
     # dummy uuid and strip it off
-    full_dummy_project_url = reverse('analysis-project-execute', args=[uuid.uui4()])
+    full_dummy_project_url = reverse('analysis-project-execute', args=[uuid.uuid4()])
     # go from 1 to -2 since the url is returned with leading and trailing slashes, so the
     # split ends up with empty strings in the first and last position of the list.  the second
     # to last element is the uuid, which we are removing.

@@ -27,6 +27,7 @@ def populate():
         )
     except django.db.utils.IntegrityError as ex:
         print('Could not create user.  Likely already exists.')
+        test_user = user_model.objects.get(email=params['test_email'])
         #sys.exit(0)
 
     file_list = [x.strip() for x in params['files_to_transfer'].split(',')]
