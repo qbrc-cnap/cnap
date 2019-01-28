@@ -90,12 +90,19 @@ def take_inputs():
     accepted = False
     print('\n\n\n')
     while not accepted:
-        storage_bucket_prefix = input('Enter a prefix for storage buckets that will '
-                                      'be created (lowercase letters, numbers, and dashes are accepted): ')
+        storage_bucket_prefix = input('Enter a name for the root storage bucket; all CNAP files will be located in this bucket. '
+                                      'Ideally, it should already exist.  No validation is performed here.  Do NOT include '
+                                      'the filesystem prefix (e.g. "gs://", "s3://"): ')
         m = re.match('[a-z0-9-]+', storage_bucket_prefix)
-        if m.group() != storage_bucket_prefix:
-            print('We enforce stricter guidelines than the storage providers and only '
-                  'allow lowercase letters, numbers, and dashes.  Try again.')
+        if not m or (m.group() != storage_bucket_prefix):
+            print('Are you sure "%s" is correct?  A rudimentary check revealed that there were characters'
+              ' that are possible "out of bounds".  However, we also are checking a more restrictive'
+              ' naming pattern than the storage providers.  Thus, ignore if the bucket exists and you'
+              ' are certain that the name is correct.\n' % storage_bucket_prefix)
+            confirm = input('Is %s correct? (y/n): ' % storage_bucket_prefix)
+            if confirm.lower()[0] == 'y':
+                params['storage_bucket_prefix'] = storage_bucket_prefix
+                accepted = True                
         else:
             params['storage_bucket_prefix'] = storage_bucket_prefix
             accepted = True
