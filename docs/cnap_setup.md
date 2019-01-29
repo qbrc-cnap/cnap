@@ -192,7 +192,10 @@ Before launching the startup script, you should decide which client storage prov
 ```
 /opt/startup/startup_commands.sh
 ```
-Answer the questions as prompted.  
+Answer the questions as prompted.  Some notes on the questions:
+- You must choose at least one cloud-based storage provider (Dropbox, Google Drive, others).  Otherwise it will exit.
+- For transfers, we spawn "worker" machines that perform the transfers in parallel.  These need to communicate back to the main application to signal that they have completed.  To verify the identity of those requests to the main application, we use a key exchange.  To that end, some of the prompts will ask you to input random character strings that are multiples of 8 characters.
+- One of the prompts will ask you to enter the name of a bucket.  This bucket will be the "root" of all files associated with CNAP.  While it is not strictly necessary (as transfers will create buckets as necessary to perform their work), you should create this bucket beforehand-- this way you know the name is available and will remain as such.  Note that the setup script does not check the validity of the name, existence of the bucket, etc.  It merely substitutes the name of the bucket into the proper variables.
 
 If you experience a problem with this startup script (or make an error and exit), it is possible that subsequent re-runs will give errors related to processes that are controlled by the supervisor process manager.  If that is the case, you can query if there are any active processes being managed by supervisor with `supervisorctl status`.  If there are indeed active processes, you can stop with `supervisorctl stop all`, and remove them individually with `supervisorctl remove <name>` (there is no command to remove all at once).  Following that, you likely need to stop the supervisord process itself by finding its PID (`ps -ef | grep supervisord`) followed by `kill -9 <PID>`.
 
@@ -350,11 +353,11 @@ At the time of writing, application is placed in default "development" status.  
  Following that, you will need to create OAuth credentials for your application.  We note that the ability to read/write to a user's Google Drive requires an application review by Google.  Typically, an attempt to create new OAuth credentials with the read/write "scope" will result in Google asking you to fill-in the "OAuth consent" screen.  Since it is challenging to anticipate changes in procedure and steps, we advise searching for some phrase like, "obtain OAuth credentials Google Drive API".  
 
  Once the application is approved, the OAuth2 credentials you obtain should be for a web application, which will require you to register the callbacks, similar to Dropbox above.  The Google Drive callback is:
- - `https://<YOUR DOMAIN>/drive/callback/`
+ - `https://<YOUR DOMAIN>/transfers/drive/callback/`
  
  and for live-testing:
- - `https://<YOUR DOMAIN>/test/drive-callback/` (for testing OAuth2 token exchange)
- - `https://<YOUR DOMAIN>/drive/transfer-test/drive-callback/` (for live-testing an actual transfer)
+ - `https://<YOUR DOMAIN>/transfers/test/drive-callback/` (for testing OAuth2 token exchange)
+ - `https://<YOUR DOMAIN>/transfers/test/transfer-test/drive-callback/` (for live-testing an actual transfer)
 
  With these steps successfully completed, you will need to obtain the ID (typically `<random characters>.apps.googleusercontent.com`) and secret for the credentials.  You will eventually enter those at the prompt when starting the application container.
  
@@ -403,6 +406,14 @@ EMAIL_CREDENTIALS_FILE = '/www/credentials/final_gmail_creds.json'
 Provided that `EMAIL_ENABLED=True`, Gmail integration is complete.
 
 #### Additional notes and remarks:
+
+**Storage hierarchy**
+
+All user files are held under the "root" bucket which was input as part of the setup prompts.  In that section, we indicated that the bucket should ideally be created *prior* to the application starts, so that one can ensure the bucket is not claimed by someone else in the interim (bucket names must be globally unique).
+
+User files are kept in "folders" underneath that root, identified by their user UUID.  Thus, one can find a user's files under (here for Google storage) `gs://<root bucket name>/<user UUID>/`.  Furthermore, output files from an analysis (identified by another UUID) would be stored in `gs://<root bucket name>/<user UUID>/<analysis UUID>/`.
+
+Uploads are placed in a special uploads folder, e.g. `gs://<root bucket name>/<user UUID>/uploads/`
 
 **Asynchronous code**
 
