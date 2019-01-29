@@ -60,7 +60,7 @@ class DropboxGoogleUploadInitTestCase(TestCase):
         self.other_user = get_user_model().objects.create_user(email=settings.OTHER_TEST_EMAIL, password='abcd123!', user_uuid=uuid.uuid4())
 
         settings.CONFIG_PARAMS['cloud_environment'] = settings.GOOGLE
-        self.bucket_name = 'gs://user-storage-bucket'
+        self.bucket_name = 'gs://cnap-storage-bucket'
         settings.CONFIG_PARAMS['storage_bucket_prefix'] = self.bucket_name
 
     def test_reject_malformed_upload_request_for_dropbox_google_case1(self):
@@ -162,7 +162,11 @@ class DropboxGoogleUploadInitTestCase(TestCase):
             edited_item['owner'] = user_pk
             edited_item['originator'] = user_pk
             edited_item['user_uuid'] = user_uuid
-            edited_item['destination'] = '%s/%s/%s' % (self.bucket_name, str(user_uuid), edited_item['name'])
+            edited_item['destination'] = '%s/%s/%s' % (self.bucket_name, 
+                str(user_uuid), 
+                uploaders.UPLOADS_FOLDER_NAME, 
+                edited_item['name']
+            )
             expected_list.append(edited_item)
 
         response, error_messages = uploaders.GoogleDropboxUploader.check_format(upload_info, user_pk)
@@ -190,7 +194,10 @@ class DropboxGoogleUploadInitTestCase(TestCase):
             'owner': user_pk,
             'originator': user_pk,
             'user_uuid': user_uuid,
-            'destination': '%s/%s/%s' % (self.bucket_name, str(user_uuid), upload_info['name'])
+            'destination': '%s/%s/%s' % (self.bucket_name, 
+                str(user_uuid), 
+                uploads.UPLOADS_FOLDER_NAME, 
+                upload_info['name'])
             },
         ]
 
@@ -394,7 +401,7 @@ class DriveGoogleUploadInitTestCase(TestCase):
         self.other_user = get_user_model().objects.create_user(email=settings.OTHER_TEST_EMAIL, password='abcd123!')
 
         settings.CONFIG_PARAMS['cloud_environment'] = settings.GOOGLE
-        self.bucket_name = 'gs://user-storage-bucket'
+        self.bucket_name = 'gs://cnap-storage-bucket'
         settings.CONFIG_PARAMS['storage_bucket_prefix'] = self.bucket_name
 
     def test_reject_malformed_upload_request_for_drive_google_case1(self):
@@ -517,7 +524,10 @@ class DriveGoogleUploadInitTestCase(TestCase):
             edited_item['owner'] = user_pk
             edited_item['originator'] = user_pk
             edited_item['user_uuid'] = user_uuid
-            edited_item['destination'] = '%s/%s/%s' % (self.bucket_name, str(user_uuid), edited_item['name'])
+            edited_item['destination'] = '%s/%s/%s' % (self.bucket_name, 
+                str(user_uuid), 
+                uploaders.UPLOADS_FOLDER_NAME, 
+                edited_item['name'])
             expected_list.append(edited_item)
 
         response, error_messages = uploaders.GoogleDriveUploader.check_format(upload_info, user_pk)
@@ -546,7 +556,10 @@ class DriveGoogleUploadInitTestCase(TestCase):
             'originator': user_pk,
             'drive_token': 'fooToken',
             'user_uuid': user_uuid,
-            'destination': '%s/%s/%s' % (self.bucket_name, str(user_uuid), upload_info['name'])
+            'destination': '%s/%s/%s' % (self.bucket_name, 
+                str(user_uuid), 
+                uploaders.UPLOADS_FOLDER_NAME, 
+                upload_info['name'])
             },
         ]
 
@@ -748,7 +761,7 @@ class GoogleEnvironmentUploadInitTestCase(TestCase):
         self.other_user = get_user_model().objects.create_user(email=settings.OTHER_TEST_EMAIL, password='abcd123!')
 
         settings.CONFIG_PARAMS['cloud_environment'] = settings.GOOGLE
-        self.bucket_name = 'gs://user-storage-bucket'
+        self.bucket_name = 'gs://cnap-storage-bucket'
         settings.CONFIG_PARAMS['storage_bucket_prefix'] = self.bucket_name
 
     def test_reject_long_name_in_google(self):
