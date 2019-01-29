@@ -162,7 +162,7 @@ class DropboxGoogleUploadInitTestCase(TestCase):
             edited_item['owner'] = user_pk
             edited_item['originator'] = user_pk
             edited_item['user_uuid'] = user_uuid
-            edited_item['destination'] = '%s/%s/%s' % (self.bucket_name, 
+            edited_item['destination'] = '%s/%s/%s/%s' % (self.bucket_name, 
                 str(user_uuid), 
                 uploaders.UPLOADS_FOLDER_NAME, 
                 edited_item['name']
@@ -194,9 +194,9 @@ class DropboxGoogleUploadInitTestCase(TestCase):
             'owner': user_pk,
             'originator': user_pk,
             'user_uuid': user_uuid,
-            'destination': '%s/%s/%s' % (self.bucket_name, 
+            'destination': '%s/%s/%s/%s' % (self.bucket_name, 
                 str(user_uuid), 
-                uploads.UPLOADS_FOLDER_NAME, 
+                uploaders.UPLOADS_FOLDER_NAME, 
                 upload_info['name'])
             },
         ]
@@ -524,7 +524,7 @@ class DriveGoogleUploadInitTestCase(TestCase):
             edited_item['owner'] = user_pk
             edited_item['originator'] = user_pk
             edited_item['user_uuid'] = user_uuid
-            edited_item['destination'] = '%s/%s/%s' % (self.bucket_name, 
+            edited_item['destination'] = '%s/%s/%s/%s' % (self.bucket_name, 
                 str(user_uuid), 
                 uploaders.UPLOADS_FOLDER_NAME, 
                 edited_item['name'])
@@ -556,7 +556,7 @@ class DriveGoogleUploadInitTestCase(TestCase):
             'originator': user_pk,
             'drive_token': 'fooToken',
             'user_uuid': user_uuid,
-            'destination': '%s/%s/%s' % (self.bucket_name, 
+            'destination': '%s/%s/%s/%s' % (self.bucket_name, 
                 str(user_uuid), 
                 uploaders.UPLOADS_FOLDER_NAME, 
                 upload_info['name'])
