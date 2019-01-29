@@ -29,15 +29,19 @@ $.ajax({
     success:function(response){
         var tableBody = $("#download-table tbody");
         var markup = "";
-        for(var i=0; i<response.length; i++){
-            var item = response[i];
-            var size = humanFileSize(item['size']);
-            var filename = item['name'];
-            markup += `<tr>
+        if (response.length > 0){
+            for(var i=0; i<response.length; i++){
+                var item = response[i];
+                var size = humanFileSize(item['size']);
+                var filename = item['name'];
+                markup += `<tr>
                       <td><input class="download-selector" type="checkbox" target="${item['id']}"/></td>
                       <td>${filename}</td>
                       <td>${size}</td>
                     </tr>`;
+            }
+        } else {
+            markup = `<tr><td colspan="2" align="center">No resources to download</td></tr>`
         }
         tableBody.append(markup); 
     },
@@ -162,15 +166,20 @@ get_history = function(){
         success:function(response){
             var tableBody = $("#history-table tbody");
             var markup = "";
-            for(var i=0; i<response.length; i++){
-                var item = response[i];
-                var pk = item['id'];
-                history[pk] = item;
-                var filename = item['resource']['name'];
-                markup += `<tr>
+            if (response.length > 0 ){
+                for(var i=0; i<response.length; i++){
+                    var item = response[i];
+                    var pk = item['id'];
+                    history[pk] = item;
+                    var filename = item['resource']['name'];
+                    markup += `<tr>
                       <td>${filename}</td>
                       <td><span class="detail-loader" detail-key="${pk}">View</span></td>
                     </tr>`;
+                }
+            }
+            else {
+                markup = `<tr><td colspan="2" align="center">No user history to show</td></tr>`
             }
             tableBody.empty().append(markup);
 
@@ -450,6 +459,7 @@ $(".init-download-btn").click(function(){
             }
         });
     }else{
+        showErrorDialog(["You must select a resource to download first."]);
         console.log("Nothing to do- no resources selected.");
     }
 
