@@ -54,16 +54,20 @@ $.ajax({
     success:function(response){
         var analysisTable = $("#analysis-table tbody");
         var markup = "";
-        for(var i=0; i<response.length; i++){
-            var workflow_obj = response[i]['workflow'];
-            var title = workflow_obj['workflow_title'];
-            var short_description = workflow_obj['workflow_short_description'];
+        if (response.length > 0){
+            for(var i=0; i<response.length; i++){
+                var workflow_obj = response[i]['workflow'];
+                var title = workflow_obj['workflow_title'];
+                var short_description = workflow_obj['workflow_short_description'];
 
-            var analysis_uuid = response[i]['analysis_uuid'];
-            markup += `<tr>
+                var analysis_uuid = response[i]['analysis_uuid'];
+                markup += `<tr>
                       <td><a target="_blank" class="analysisLink" href="{{analysis_project_endpoint}}${analysis_uuid}/">${title} <i style="font-size:16px" class="fa">&#xf08e;</i></a></td>
                       <td>${short_description}</td>
                     </tr>`;
+            }
+        } else {
+            markup = `<tr><td colspan="2" align="center">No analysis projects have been created for this user.  Contact the administrator to set one up.</td></tr>`
         }
         analysisTable.append(markup); 
 
