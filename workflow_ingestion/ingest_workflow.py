@@ -19,6 +19,7 @@ import glob
 import re
 import json
 import sys
+import time
 import subprocess as sp
 from importlib import import_module
 from inspect import signature
@@ -107,7 +108,7 @@ def parse_commandline():
         '--dir',
         required=True,
         dest=NEW_WDL_DIR,
-        help='Path to a directory containing CWL '
+        help='Path to a directory containing WDL '
              'files, GUI specs, and other files to be incorporated.'
     )
     args = parser.parse_args()
@@ -427,6 +428,13 @@ def inspect_handler_module(module_path, fn_name, arg_num):
         module_path, 
         start=settings.BASE_DIR
     )
+
+    # if we do not sleep and/or list the directory, the import_module sometimes fails to find
+    # the file that is there.  Adding the sleep and directory listing seems to fix that...
+    time.sleep(1)
+    dir_listing = os.listdir(os.path.dirname(module_path_relative_to_base))
+    if not os.path.basename(module_path_relative_to_base) in dir_listing:
+        print('The module was not in the correct location.  Generally this should not happen.')
     module_dot_path = module_path_relative_to_base.replace('/', '.')[:-(len(PYFILE) + 1)]
     mod = import_module(module_dot_path)
     if not hasattr(mod, fn_name):
@@ -727,3 +735,6 @@ if __name__ == '__main__':
 
     # cleanup the staging dir:
     shutil.rmtree(staging_dir)
+
+    # let the user know where the final files are:
+    print('Success!  Your new workflow has been added to the database and the files are located at %s' % destination_dir)
