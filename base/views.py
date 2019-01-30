@@ -39,7 +39,7 @@ class ResourceList(generics.ListCreateAPIView):
     serializer_class = ResourceSerializer
     permission_classes = (permissions.IsAuthenticated,)
     filter_backends = (DjangoFilterBackend,)
-    filter_fields = ('is_active',)
+    filter_fields = ('is_active', 'originated_from_upload')
     
     def get_queryset(self):
         '''

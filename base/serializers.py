@@ -13,6 +13,7 @@ class ResourceSerializer(serializers.ModelSerializer):
                   'size', \
                   'owner', \
                   'is_active', \
+                  'originated_from_upload', \
                   'date_added', \
                   'expiration_date' \
         )

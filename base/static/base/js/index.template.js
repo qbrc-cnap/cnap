@@ -23,7 +23,7 @@ var csrfToken = getCookie('csrftoken');
 
 // Get the active resources for the download tab:
 $.ajax({
-    url:"{{resource_endpoint}}?is_active=true",
+    url:"{{resource_endpoint}}?is_active=true&originated_from_upload=false",
     type:"GET",
     headers:{"X-CSRFToken": csrfToken},
     success:function(response){
