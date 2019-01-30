@@ -279,6 +279,9 @@ class AnalysisView(View):
             message = str(ex)
             return HttpResponseBadRequest(message)
 
+        if analysis_project is None:
+            return JsonResponse({'message': 'No action taken since workflow was not assigned to a project.'})
+
         if analysis_project.started:
             return HttpResponseBadRequest('Analysis was already started/run.')
 
