@@ -79,8 +79,8 @@ class AnalysisProject(models.Model):
     # when users hit the URL for their analysis, we prefer it not be a simple integer
     analysis_uuid = models.UUIDField(unique=True, default = uuid.uuid4, editable=True)
 
-    # an analysis needs a location where the files are stored.
-    analysis_bucketname = models.CharField(max_length=63, blank=False)
+    # an analysis needs a location where the files are stored.  Filled in the save method
+    analysis_bucketname = models.CharField(max_length=63, blank=True)
 
     # foreign key to the Workflow
     workflow = models.ForeignKey('Workflow', on_delete=models.CASCADE)
@@ -95,18 +95,20 @@ class AnalysisProject(models.Model):
     completed = models.BooleanField(default=False)
 
     # for displaying the job status, as returned by Cromwell
-    status = models.CharField(max_length=200, blank=False)
+    status = models.CharField(max_length=200, default='', blank=True)
 
     # fields to track status
     start_time = models.DateTimeField(blank=True, null=True)
     finish_time = models.DateTimeField(blank=True, null=True)
-    success = models.BooleanField(default=True)
+    success = models.BooleanField(default=False)
     error = models.BooleanField(default=False)
 
     def save(self, *args, **kwargs):
 
         if self._state.adding: # if creating, NOT updating
-            bucketname = '%s-%s' % (settings.CONFIG_PARAMS['storage_bucket_prefix'], self.analysis_uuid)
+            bucketname = '%s/%s/%s' % (settings.CONFIG_PARAMS['storage_bucket_prefix'], \
+                str(self.owner.user_uuid), \
+                self.analysis_uuid)
             self.analysis_bucketname = bucketname
             if settings.EMAIL_ENABLED:
                 email_address = self.owner.email
