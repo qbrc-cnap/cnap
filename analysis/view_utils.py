@@ -100,14 +100,13 @@ def query_workflow(workflow_id, version_id=None, admin_request=False):
         raise NonexistentWorkflowException('The workflow with workflow_id=%s was not found' % workflow_id) 
     
     # If a version was specified, get that. Otherwise, get the default
-    if version_id:
+    if version_id is not None:
         workflow_obj = workflow_obj_queryset.filter(version_id=version_id)
     else:
         workflow_obj = workflow_obj_queryset.filter(is_default=True)
 
     # Obviously we need to have a result at this point, or we throw an exception
     if workflow_obj.exists():
-
         # there should only be one result returned.  Otherwise, we have a problem.
         if len(workflow_obj) == 1:
 
