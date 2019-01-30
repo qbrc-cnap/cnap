@@ -65,6 +65,15 @@ class GoogleEnvironmentDownloadTestCase(TestCase):
             owner=self.regular_user,
             is_active=False
         )
+
+        r5 = Resource.objects.create(
+            source='google_storage',
+            path='gs://a/b/reg_owned3.txt',
+            size=2.8e9,
+            owner=self.regular_user,
+            originated_from_upload=True
+        )
+
         settings.CONFIG_PARAMS['cloud_environment'] = settings.GOOGLE
       
         site = Site.objects.get(pk=1)
@@ -162,6 +171,25 @@ class GoogleEnvironmentDownloadTestCase(TestCase):
         url = reverse('download-transfer-initiation')
         d = {}
         d['resource_pks'] = [1, 2, 3] # 3 is owned by someone other user
+        d['destination'] = self.destination
+        response = client.post(url, {"data":json.dumps(d)}, format='json')
+        self.assertEqual(response.status_code, 400)
+
+    def _test_rejects_download_request_based_on_upload_status(self):
+        '''
+        Here, a user requests to download a Resource that was previously uploaded
+        We don't want users to up/download the same file.  Typically the UI only 
+        displays Resources that don't originate from uploads.  However, one can technically
+        still add the PK to the list if they hacked up the  POST request to add it
+        '''
+        client = APIClient()
+        client.login(email=settings.REGULAR_TEST_EMAIL, password='abcd123!')
+
+        reguser = get_user_model().objects.get(email=settings.REGULAR_TEST_EMAIL)
+
+        url = reverse('download-transfer-initiation')
+        d = {}
+        d['resource_pks'] = [1, 2, 5] # 5 is owned by them, but originated from upload
         d['destination'] = self.destination
         response = client.post(url, {"data":json.dumps(d)}, format='json')
         self.assertEqual(response.status_code, 400)
@@ -541,6 +569,8 @@ class GoogleDropboxDownloadTestCase(GoogleEnvironmentDownloadTestCase):
     def test_simultaneous_download_by_two_originators(self):
         super()._test_simultaneous_download_by_two_originators()
 
+    def test_rejects_download_request_based_on_upload_status(self):
+        super()._test_rejects_download_request_based_on_upload_status()
 
 class GoogleDriveDownloadTestCase(GoogleEnvironmentDownloadTestCase):
 
@@ -574,6 +604,9 @@ class GoogleDriveDownloadTestCase(GoogleEnvironmentDownloadTestCase):
 
     def test_reformats_request_for_download(self):
         super()._test_reformats_request_for_download()
+
+    def test_rejects_download_request_based_on_upload_status(self):
+        super()._test_rejects_download_request_based_on_upload_status()
 
     @mock.patch('transfer_app.downloaders.os')
     @mock.patch('transfer_app.downloaders.hashlib')

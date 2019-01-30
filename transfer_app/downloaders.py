@@ -65,10 +65,10 @@ class Downloader(object):
             raise exceptions.ExceptionWithMessage(ex)
         if not requesting_user.is_staff:
             all_user_resources = Resource.objects.user_resources(requesting_user)
-            all_user_resource_pks = [x.pk for x in all_user_resources if x.is_active]
+            all_user_resource_pks = [x.pk for x in all_user_resources if (x.is_active and not x.originated_from_upload)]
             if len(set(download_info).difference(set(all_user_resource_pks))) > 0:
                 raise exceptions.ExceptionWithMessage('''
-                    Requesting to transfer a resource you do not own.                
+                    Requesting to transfer a resource you do not own, is not active, or not able to be downloaded.                
                 ''')    
         reformatted_info = []
         for pk in download_info:
