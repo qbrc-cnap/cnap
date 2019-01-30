@@ -111,7 +111,8 @@ class Uploader(object):
                 name = item['name'],
                 owner = owner,
                 size = filesize_in_bytes,
-                is_active=False # otherwise it will present the file for re-download
+                originated_from_upload = True,
+                is_active=True # otherwise it will present the file for re-download
             )
             r.save()
 

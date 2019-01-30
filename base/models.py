@@ -34,6 +34,9 @@ class Resource(models.Model):
     # this boolean controls whether a Resource is active and able to be transferred
     is_active = models.BooleanField(null=False, default=True)
 
+    # if the file was uploaded by the client.
+    originated_from_upload = models.BooleanField(null=False, default=False)
+
     # The date the resource was added:
     # auto_now_add sets the timestamp when an instance of created
     date_added = models.DateTimeField(null=False, auto_now_add=True)
