@@ -15,7 +15,7 @@
             <th>
                 {% if choose_multiple %}
                 <input 
-                    class="select-all-checkbox" 
+                    class="select-all-cbx" 
                     table-target="chooser-table-{{id}}" 
                     type="checkbox"/>
                 {% endif %}
@@ -43,3 +43,20 @@
         {% endraw %}
     </tbody>
 </table>
+
+<script>
+$(".select-all-cbx").click(function(){
+    var targetedTable = $(this).attr("table-target");
+    var inputs = $("#" + targetedTable).find("input");
+
+    if ($(this).prop("checked") == true){
+        $(inputs).each(function(number, el){
+            $(el).prop("checked", true);
+        });
+    }else{
+        $(inputs).each(function(number, el){
+            $(el).prop("checked", false);
+        });                }
+
+});
+</script>
