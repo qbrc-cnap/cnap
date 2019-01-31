@@ -219,7 +219,7 @@ var dbxOptions = {
         var data = [];
         for( var i=0; i < files.length; i++){
             var f = files[i];
-            data.push({"path":f.link, "name":f.name, "size_in_bytes":f.bytes});
+            data.push({"source_path":f.link, "name":f.name, "size_in_bytes":f.bytes});
         }
 
         $.ajax({

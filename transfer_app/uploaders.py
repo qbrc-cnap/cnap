@@ -87,7 +87,7 @@ class Uploader(object):
 
         This function expects that self.upload_data is a list and each
         item in the list is a dict.  Each dict NEEDS to have 'owner', 'destination', and
-        'path' among the keys
+        'source_path' among the keys
         '''
         if len(self.upload_data) > 0:
             tc = TransferCoordinator()
@@ -107,12 +107,13 @@ class Uploader(object):
 
             r = Resource(
                 source = self.source,
-                path = item['path'],
+                source_path = item['source_path'],
+                path = item['destination'],
                 name = item['name'],
                 owner = owner,
                 size = filesize_in_bytes,
                 originated_from_upload = True,
-                is_active=True # otherwise it will present the file for re-download
+                is_active=False # not uploaded yet, so not active.  Will be active if download completes
             )
             r.save()
 
@@ -145,7 +146,7 @@ class DropboxUploader(Uploader):
     source = settings.DROPBOX
 
     # the only required keys (as part of the request payload for specifying an upload):
-    required_keys = ['path',]
+    required_keys = ['source_path',]
 
     @classmethod
     def check_format(cls, upload_data, uploader_pk):
@@ -157,12 +158,12 @@ class DropboxUploader(Uploader):
         is required, although one may include ownership info as well.
 
         If a list is sent, then it is a list of json-objects, like:
-        upload_data = [{'path':'<some dropbox url>'},{'path':'<some dropbox url>'},{'path':'<some dropbox url>'}]
+        upload_data = [{'source_path':'<some dropbox url>'},{'source_path':'<some dropbox url>'},{'source_path':'<some dropbox url>'}]
     
         Check each one for the required keys isted above
 
         If only a single item is being transferred, an object can be sent:
-        upload_data = {'path':'<some dropbox url>'}
+        upload_data = {'source_path':'<some dropbox url>'}
         (this object will ultimately be placed inside a list of length 1 for consistent handling)
 
         uploader_pk is the primary key for the User requesting the upload.  In the case that
@@ -177,7 +178,7 @@ class DropboxUploader(Uploader):
     def _transfer_setup(self):
         '''
         For the case of a Dropbox upload, self.upload_data is already 
-        in the correct format for using in the parent method since it has 'path'
+        in the correct format for using in the parent method since it has 'source_path'
         and 'owner' keys
 
         
@@ -235,11 +236,11 @@ class DriveUploader(Uploader):
                 ...
             ] 
         To properly work with Uploader._transfer_setup, we need to massage the keys in each dict of that list
-        In this case, we need to add a 'path' key.  Since the file_id is an analog of a path (in the sense that
+        In this case, we need to add a 'source_path' key.  Since the file_id is an analog of a path (in the sense that
         it uniquely identifies something), we just use that.
         '''
         for item in self.upload_data:
-            item['path'] = item['file_id']
+            item['source_path'] = item['file_id']
 
     def _transfer_setup(self):
         self._reformat_data()
@@ -422,7 +423,7 @@ class GoogleDropboxUploader(GoogleEnvironmentUploader):
 
         for i, item in enumerate(self.uploader.upload_data):
             cmd = self._prep_single_upload(custom_config, i, item)
-            cmd += ' --container-arg="-path" --container-arg="%s"' % item['path'] # the special Dropbox link
+            cmd += ' --container-arg="-path" --container-arg="%s"' % item['source_path'] # the special Dropbox link
             cmd += ' --container-arg="-destination" --container-arg="%s"' % item['destination'] # the destination (in storage)
             self.launcher.go(cmd)
  

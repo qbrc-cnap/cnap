@@ -75,8 +75,8 @@ class DropboxGoogleUploadInitTestCase(TestCase):
 
         # a list of dicts to be used in the request
         upload_info = []
-        upload_info.append({'path': 'https://dropbox-link.com/1', 'name':'f1.txt'})
-        upload_info.append({'path': 'https://dropbox-link.com/2', 'name':'f2.txt'})
+        upload_info.append({'source_path': 'https://dropbox-link.com/1', 'name':'f1.txt'})
+        upload_info.append({'source_path': 'https://dropbox-link.com/2', 'name':'f2.txt'})
         upload_info = json.dumps(upload_info)
         request_dict = {'upload_source':'junk', 'upload_info': upload_info}
         url = reverse('upload-transfer-initiation')
@@ -86,7 +86,7 @@ class DropboxGoogleUploadInitTestCase(TestCase):
     def test_reject_malformed_upload_request_for_dropbox_google_case2(self):
         '''
         This tests that improperly formatted requests are rejected
-        Here, a required key is missing ('pathS' is used instead of 'path')
+        Here, a required key is missing ('source_pathS' is used instead of 'source_path')
         '''
         client = APIClient()
         client.login(email=settings.REGULAR_TEST_EMAIL, password='abcd123!')
@@ -95,8 +95,8 @@ class DropboxGoogleUploadInitTestCase(TestCase):
 
         # a list of dicts to be used in the request
         upload_info = []
-        upload_info.append({'pathS': 'https://dropbox-link.com/1', 'name':'f1.txt'})
-        upload_info.append({'path': 'https://dropbox-link.com/2', 'name':'f2.txt'})
+        upload_info.append({'source_pathS': 'https://dropbox-link.com/1', 'name':'f1.txt'})
+        upload_info.append({'source_path': 'https://dropbox-link.com/2', 'name':'f2.txt'})
         upload_info = json.dumps(upload_info)
         request_dict = {'upload_source':settings.DROPBOX, 'upload_info': upload_info}
         url = reverse('upload-transfer-initiation')
@@ -115,8 +115,8 @@ class DropboxGoogleUploadInitTestCase(TestCase):
 
         # a list of dicts to be used in the request
         upload_info = []
-        upload_info.append({'pathS': 'https://dropbox-link.com/1', 'name':'f1.txt'})
-        upload_info.append({'path': 'https://dropbox-link.com/2', 'name':'f2.txt'})
+        upload_info.append({'source_pathS': 'https://dropbox-link.com/1', 'name':'f1.txt'})
+        upload_info.append({'source_path': 'https://dropbox-link.com/2', 'name':'f2.txt'})
         upload_info = json.dumps(upload_info)
         request_dict = {'upload_info': upload_info}
         url = reverse('upload-transfer-initiation')
@@ -148,8 +148,8 @@ class DropboxGoogleUploadInitTestCase(TestCase):
         so that the spawned workers have all the information they need.
         '''
         upload_info = []
-        upload_info.append({'path': 'https://dropbox-link.com/1', 'name':'f1.txt'})
-        upload_info.append({'path': 'https://dropbox-link.com/2', 'name':'f2.txt'})
+        upload_info.append({'source_path': 'https://dropbox-link.com/1', 'name':'f1.txt'})
+        upload_info.append({'source_path': 'https://dropbox-link.com/2', 'name':'f2.txt'})
         user_pk = 1
         user = get_user_model().objects.get(pk=user_pk)
         user_uuid = user.user_uuid
@@ -181,7 +181,7 @@ class DropboxGoogleUploadInitTestCase(TestCase):
         list, the upload_info is a dict.  HOWEVER, the prep work should put this into 
         a list so that downstream methods can handle both cases consistently.
         '''
-        upload_info = {'path': 'https://dropbox-link.com/1', 'name':'f1.txt'}
+        upload_info = {'source_path': 'https://dropbox-link.com/1', 'name':'f1.txt'}
         user_pk = 1
         user = get_user_model().objects.get(pk=user_pk)
         user_uuid = user.user_uuid        
@@ -189,7 +189,7 @@ class DropboxGoogleUploadInitTestCase(TestCase):
         # since the method below modifies the upload_info in-place, we need to copy the result
         # BEFORE running the method we are testing:
         expected = [
-            {'path': 'https://dropbox-link.com/1', 
+            {'source_path': 'https://dropbox-link.com/1', 
             'name':'f1.txt',
             'owner': user_pk,
             'originator': user_pk,
@@ -206,12 +206,12 @@ class DropboxGoogleUploadInitTestCase(TestCase):
 
     def test_dropbox_upload_format_checker_rejects_poor_format_case1(self):
         '''
-        Checks if request is missing the 'path' key
+        Checks if request is missing the 'source_path' key
         This is likely a double-test of the one above, but does not hurt
         '''
         upload_info = []
         upload_info.append({'name':'f1.txt'})
-        upload_info.append({'path': 'https://dropbox-link.com/2', 'name':'f2.txt'})
+        upload_info.append({'source_path': 'https://dropbox-link.com/2', 'name':'f2.txt'})
         user_pk = 1
         with self.assertRaises(exceptions.ExceptionWithMessage):
             uploaders.DropboxUploader.check_format(upload_info, user_pk)
@@ -221,8 +221,8 @@ class DropboxGoogleUploadInitTestCase(TestCase):
         Checks if request is missing the 'name' key
         '''
         upload_info = []
-        upload_info.append({'path': 'https://dropbox-link.com/1'})
-        upload_info.append({'path': 'https://dropbox-link.com/2', 'name':'f2.txt'})
+        upload_info.append({'source_path': 'https://dropbox-link.com/1'})
+        upload_info.append({'source_path': 'https://dropbox-link.com/2', 'name':'f2.txt'})
         user_pk = 1
         with self.assertRaises(exceptions.ExceptionWithMessage):
             uploaders.DropboxUploader.check_format(upload_info, user_pk)
@@ -234,8 +234,8 @@ class DropboxGoogleUploadInitTestCase(TestCase):
         is making the request.  Since they are are not admin, they can only assign to themself
         '''
         upload_info = []
-        upload_info.append({'path': 'https://dropbox-link.com/1', 'name':'f1.txt', 'owner':2})
-        upload_info.append({'path': 'https://dropbox-link.com/2', 'name':'f2.txt', 'owner':2})
+        upload_info.append({'source_path': 'https://dropbox-link.com/1', 'name':'f1.txt', 'owner':2})
+        upload_info.append({'source_path': 'https://dropbox-link.com/2', 'name':'f2.txt', 'owner':2})
         user_pk = 3
         with self.assertRaises(exceptions.ExceptionWithMessage):
             uploaders.DropboxUploader.check_format(upload_info, user_pk)
@@ -245,8 +245,8 @@ class DropboxGoogleUploadInitTestCase(TestCase):
         Checks that cannot use the primary key of a non-existant user
         '''
         upload_info = []
-        upload_info.append({'path': 'https://dropbox-link.com/1', 'name':'f1.txt', 'owner':5})
-        upload_info.append({'path': 'https://dropbox-link.com/2', 'name':'f2.txt', 'owner':5})
+        upload_info.append({'source_path': 'https://dropbox-link.com/1', 'name':'f1.txt', 'owner':5})
+        upload_info.append({'source_path': 'https://dropbox-link.com/2', 'name':'f2.txt', 'owner':5})
         user_pk = 5
         with self.assertRaises(exceptions.ExceptionWithMessage):
             uploaders.DropboxUploader.check_format(upload_info, user_pk)
@@ -256,8 +256,8 @@ class DropboxGoogleUploadInitTestCase(TestCase):
         Checks that self-assignment works when the request contains the user's pk
         '''
         upload_info = []
-        upload_info.append({'path': 'https://dropbox-link.com/1', 'name':'f1.txt', 'owner':2})
-        upload_info.append({'path': 'https://dropbox-link.com/2', 'name':'f2.txt', 'owner':2})
+        upload_info.append({'source_path': 'https://dropbox-link.com/1', 'name':'f1.txt', 'owner':2})
+        upload_info.append({'source_path': 'https://dropbox-link.com/2', 'name':'f2.txt', 'owner':2})
         user_pk = 2
         expected_dict = upload_info.copy()
         for item in expected_dict:
@@ -270,8 +270,8 @@ class DropboxGoogleUploadInitTestCase(TestCase):
         Here, an admin can assign ownership to someone else
         '''
         upload_info = []
-        upload_info.append({'path': 'https://dropbox-link.com/1', 'name':'f1.txt', 'owner':2})
-        upload_info.append({'path': 'https://dropbox-link.com/2', 'name':'f2.txt', 'owner':2})
+        upload_info.append({'source_path': 'https://dropbox-link.com/1', 'name':'f1.txt', 'owner':2})
+        upload_info.append({'source_path': 'https://dropbox-link.com/2', 'name':'f2.txt', 'owner':2})
         user_pk = 1
         expected_dict = upload_info.copy()
         for item in expected_dict:
@@ -292,8 +292,8 @@ class DropboxGoogleUploadInitTestCase(TestCase):
         
         # prep the upload info as is usually performed:
         upload_info = []
-        upload_info.append({'path': 'https://dropbox-link.com/1', 'name':'f1.txt', 'owner':2})
-        upload_info.append({'path': 'https://dropbox-link.com/2', 'name':'f2.txt', 'owner':2})
+        upload_info.append({'source_path': 'https://dropbox-link.com/1', 'name':'f1.txt', 'owner':2})
+        upload_info.append({'source_path': 'https://dropbox-link.com/2', 'name':'f2.txt', 'owner':2})
         upload_info, error_messages = uploader_cls.check_format(upload_info, 2)
         
         # instantiate the class, but mock out the launcher.
@@ -327,7 +327,7 @@ class DropboxGoogleUploadInitTestCase(TestCase):
         uploader_cls = uploaders.get_uploader(source)
         self.assertEqual(uploader_cls, uploaders.GoogleDropboxUploader)
 
-        upload_info = {'path': 'https://dropbox-link.com/1', 'name':'f1.txt', 'owner':2}
+        upload_info = {'source_path': 'https://dropbox-link.com/1', 'name':'f1.txt', 'owner':2}
 
         upload_info, error_messages = uploader_cls.check_format(upload_info, 2)
         
@@ -359,7 +359,7 @@ class DropboxGoogleUploadInitTestCase(TestCase):
         upload_info = []
         filesize = 100e9 # 100GB
         upload_info.append({
-                        'path': 'https://dropbox-link.com/1', 
+                        'source_path': 'https://dropbox-link.com/1', 
                         'name':'f1.txt', 
                         'owner':2, 
                         'size_in_bytes': filesize})
@@ -771,8 +771,8 @@ class GoogleEnvironmentUploadInitTestCase(TestCase):
         
         upload_info = []
         long_name = 'x'*2000 + '.txt'
-        upload_info.append({'path': 'https://dropbox-link.com/1', 'name':long_name, 'owner':2})
-        upload_info.append({'path': 'https://dropbox-link.com/2', 'name':'f2.txt', 'owner':2})
+        upload_info.append({'source_path': 'https://dropbox-link.com/1', 'name':long_name, 'owner':2})
+        upload_info.append({'source_path': 'https://dropbox-link.com/2', 'name':'f2.txt', 'owner':2})
 
         with self.assertRaises(exceptions.FilenameException):
             upload_info, error_messages = uploader_cls.check_format(upload_info, 2)
@@ -790,8 +790,8 @@ class GoogleEnvironmentUploadInitTestCase(TestCase):
         
         # prep the upload info as is usually performed:
         upload_info = []
-        upload_info.append({'path': 'https://dropbox-link.com/1', 'name':'f1.txt', 'owner':2})
-        upload_info.append({'path': 'https://dropbox-link.com/2', 'name':'f2.txt', 'owner':2})
+        upload_info.append({'source_path': 'https://dropbox-link.com/1', 'name':'f1.txt', 'owner':2})
+        upload_info.append({'source_path': 'https://dropbox-link.com/2', 'name':'f2.txt', 'owner':2})
         upload_info, error_messages = uploader_cls.check_format(upload_info, 2)
 
         self.assertEqual(len(upload_info), 2)
@@ -809,8 +809,8 @@ class GoogleEnvironmentUploadInitTestCase(TestCase):
 
         # prep the upload info as is usually performed:
         additional_uploads = []
-        additional_uploads.append({'path': 'https://dropbox-link.com/3', 'name':'f3.txt', 'owner':2}) #new
-        additional_uploads.append({'path': 'https://dropbox-link.com/2', 'name':'f2.txt', 'owner':2}) # same as above- so reject!
+        additional_uploads.append({'source_path': 'https://dropbox-link.com/3', 'name':'f3.txt', 'owner':2}) #new
+        additional_uploads.append({'source_path': 'https://dropbox-link.com/2', 'name':'f2.txt', 'owner':2}) # same as above- so reject!
         processed_uploads, error_messages = uploader_cls.check_format(additional_uploads, 2)
 
         self.assertEqual(len(processed_uploads), 1)
@@ -847,8 +847,8 @@ class GoogleEnvironmentUploadInitTestCase(TestCase):
         
         # prep the upload info as is usually performed:
         upload_info = []
-        upload_info.append({'path': 'https://dropbox-link.com/1', 'name':'f1.txt', 'owner':2})
-        upload_info.append({'path': 'https://dropbox-link.com/2', 'name':'f2.txt', 'owner':2})
+        upload_info.append({'source_path': 'https://dropbox-link.com/1', 'name':'f1.txt', 'owner':2})
+        upload_info.append({'source_path': 'https://dropbox-link.com/2', 'name':'f2.txt', 'owner':2})
         upload_info, error_messages = uploader_cls.check_format(upload_info, 2)
 
         self.assertEqual(len(upload_info), 2)
@@ -866,8 +866,8 @@ class GoogleEnvironmentUploadInitTestCase(TestCase):
 
         # prep the upload info as is usually performed:
         additional_uploads = []
-        additional_uploads.append({'path': 'https://dropbox-link.com/2', 'name':'f2.txt', 'owner':2}) # same as above- so reject!
-        additional_uploads.append({'path': 'https://dropbox-link.com/1', 'name':'f1.txt', 'owner':2})# same as above- reject
+        additional_uploads.append({'source_path': 'https://dropbox-link.com/2', 'name':'f2.txt', 'owner':2}) # same as above- so reject!
+        additional_uploads.append({'source_path': 'https://dropbox-link.com/1', 'name':'f1.txt', 'owner':2})# same as above- reject
         processed_uploads, error_messages = uploader_cls.check_format(additional_uploads, 2)
 
         self.assertEqual(len(processed_uploads), 0)
@@ -903,8 +903,8 @@ class GoogleEnvironmentUploadInitTestCase(TestCase):
         
         # prep the upload info as is usually performed:
         upload_info = []
-        upload_info.append({'path': 'https://dropbox-link.com/1', 'name':'f1.txt', 'owner':2})
-        upload_info.append({'path': 'https://dropbox-link.com/2', 'name':'f2.txt', 'owner':2})
+        upload_info.append({'source_path': 'https://dropbox-link.com/1', 'name':'f1.txt', 'owner':2})
+        upload_info.append({'source_path': 'https://dropbox-link.com/2', 'name':'f2.txt', 'owner':2})
         upload_info, error_messages = uploader_cls.check_format(upload_info, 2)
 
         self.assertEqual(len(upload_info), 2)
@@ -941,7 +941,7 @@ class GoogleEnvironmentUploadInitTestCase(TestCase):
 
         # prep the upload info as is usually performed:
         additional_uploads = []
-        additional_uploads.append({'path': 'https://dropbox-link.com/2', 'name':'f2.txt', 'owner':2}) # same as above
+        additional_uploads.append({'source_path': 'https://dropbox-link.com/2', 'name':'f2.txt', 'owner':2}) # same as above
         processed_uploads, error_messages = uploader_cls.check_format(additional_uploads, 2)
 
         self.assertEqual(len(processed_uploads), 1)

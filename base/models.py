@@ -17,6 +17,9 @@ class Resource(models.Model):
     # the location (e.g. string like 'google') where the Resource is 
     source = models.CharField(max_length=100, null=False)
 
+    # if the file was uploaded from Dropbox, Drive, etc. what was the "source" used to locate it?
+    source_path = models.CharField(max_length=1000, null=True, blank=True, default='')
+
     # the location (e.g. URL) where the Resource lives, relative to source
     # e.g. gs://bucket/dir/object.txt for google buckets
     path = models.CharField(max_length=1000, null=False)
@@ -48,7 +51,7 @@ class Resource(models.Model):
     objects = ResourceManager()
     
     def __str__(self):
-        return '%s' % self.source
+        return '%s' % self.name
 
     def get_owner(self):
         return self.owner

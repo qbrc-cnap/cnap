@@ -8,6 +8,7 @@ class ResourceSerializer(serializers.ModelSerializer):
         model = Resource
         fields = ('id', \
                   'source', \
+                  'source_path', \
                   'path', \
                   'name', \
                   'size', \
