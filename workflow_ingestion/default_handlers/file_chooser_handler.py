@@ -1,3 +1,4 @@
+import re
 import os
 
 from base.models import Resource
@@ -31,15 +32,19 @@ class ResourceDisplay(object):
         self.size = size
         self.human_readable_size = self.get_human_readable_size(self.size)
 
-def add_to_context(request, context_dict):
+def add_to_context(request, context_dict, context_args):
     '''
     This method is called by the view for the workflow.
     Dictates which dynamic content is sent to the front-end
+    context_args is a dictionary that contains ways to impose custom behavior
     '''
     user = request.user
     r = Resource.objects.user_resources(user)
     display_resources = []
+    filter = context_args['filter']
     for rr in r:
         if rr.is_active:
-            display_resources.append(ResourceDisplay(rr.pk, rr.name, rr.size))
+            m = re.match(filter, rr.name)
+            if m and (m.group(0) == rr.name):
+                display_resources.append(ResourceDisplay(rr.pk, rr.name, rr.size))
     context_dict['user_resources'] = display_resources

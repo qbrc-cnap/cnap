@@ -499,7 +499,7 @@ def check_handlers(staging_dir):
             # need to check that the handler contains the proper entry function
             # and has correct syntax:
             module_path = os.path.join(staging_dir, module_name)
-            inspect_handler_module(module_path, 'add_to_context', 2)    
+            inspect_handler_module(module_path, 'add_to_context', 3)    
             
             handler_module_list.append(module_name)
 

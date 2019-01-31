@@ -26,10 +26,12 @@
                     "default": false
                 },
                 {
-                    "name": "filter",
-                    "type": "string",
+                    "name": "context_args",
+                    "type": "mapping",
                     "required": false,
-                    "default": ".*"
+                    "default": {
+                        "filter": ".*"
+                    }
                 },
                 {
                     "name": "handler",
