@@ -216,6 +216,12 @@ class TransferComplete(APIView):
                     transfer_obj.finish_time = now
                     transfer_obj.save()
 
+                    # set the Resource to active if successful
+                    if success:
+                        resource = transfer_obj.resource
+                        resource.is_active = True
+                        resource.save()
+
                     # now check if all the Transfers belonging to this TransferCoordinator are complete:
                     try:
                         tc = transfer_obj.coordinator
