@@ -95,6 +95,11 @@ a{
     align-items: center;
 }
 
+.table-title{
+    margin-top: 15px;
+    margin-bottom: 15px;
+}
+
 .custom-table{
     margin-top:20px;
     margin-bottom: 20px;
