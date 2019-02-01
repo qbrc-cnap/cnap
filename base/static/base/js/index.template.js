@@ -52,7 +52,7 @@ $.ajax({
 
 // get available analyses/workflows:
 $.ajax({
-    url:"{{analysis_list_endpoint}}",
+    url:"{{analysis_list_endpoint}}?completed=false",
     type:"GET",
     headers:{"X-CSRFToken": csrfToken},
     success:function(response){
@@ -84,8 +84,12 @@ $.ajax({
 function parseDateString(s){
     // string is formatted like:
     //  YYYY-MM-DDTHH:MM:SS.XXXXXXZ
-    var contents = s.split("T");
-    return contents[0];
+    if (s !== null){
+        var contents = s.split("T");
+        return contents[0];
+    } else {
+        return "-";
+    }
 }
 
 function parseDurationString(s){
@@ -113,8 +117,8 @@ function parseDurationString(s){
     }
 }
 
-function showDetail(pk){
-    var item = history[pk];
+function showTransferDetail(pk){
+    var item = transfer_history[pk];
     var filename = item['resource']['name'];
     var startTime = parseDateString(item['start_time']);
     var direction = item['download'] ? "Download" : "Upload";
@@ -154,23 +158,67 @@ function showDetail(pk){
     $("#history-detail-section").show();
 }
 
-// need this in the global scope
-var history = {};
+function showAnalysisHistoryDetail(pk){
+    var item = analysis_history[pk];
+    console.log(item);
+    var workflow_name = item['workflow']['workflow_name'];
+    var workflow_version = item['workflow']['version_id'];
+    var workflow_description = item['workflow']['workflow_long_description'];
+
+    var startTime = parseDateString(item['start_time']);
+    var status = item['status'];
+
+    var completed = item['completed'];
+    var completedSymbol = completed ? "&#10004;" :"&#x2716;";
+    var success = "-";
+    var successSymbol = "-";
+    var finishTime = "-";
+    if(completed){
+        success = item['success'];
+        finishTime = parseDateString(item['finish_time']);
+        if(success){
+            successSymbol = "&#10004;";
+        }else{
+            successSymbol = "&#x2716;"
+        }
+    }
+
+    // compose the table content:
+    var markup = ""
+    markup += `<tr><td>Workflow name</td><td>${workflow_name}</td></tr>`;
+    markup += `<tr><td>Workflow version</td><td>${workflow_version}</td></tr>`;
+    markup += `<tr><td>Workflow description</td><td>${workflow_description}</td></tr>`;
+    markup += `<tr><td>Status</td><td>${status}</td></tr>`;
+    markup += `<tr><td>Start time</td><td>${startTime}</td></tr>`;
+    markup += `<tr><td>Finish time</td><td>${finishTime}</td></tr>`;
+    markup += `<tr><td>Completed</td><td>${completedSymbol}</td></tr>`;
+    markup += `<tr><td>Success</td><td>${successSymbol}</td></tr>`;
+    $("#history-detail-table tbody").empty().append(markup);
+
+    //hide other content:
+    $(".subcontent").hide();
+    $("#history-detail-section").show();
+}
+
+// need these in the global scope
+var transfer_history = {};
+var analysis_history = {};
 
 // get the history
 get_history = function(){
+
     $.ajax({
         url:"{{transferred_resources_endpoint}}",
         type:"GET",
         headers:{"X-CSRFToken": csrfToken},
         success:function(response){
-            var tableBody = $("#history-table tbody");
+            var tableBody = $("#transfer-history-table tbody");
             var markup = "";
             if (response.length > 0 ){
                 for(var i=0; i<response.length; i++){
                     var item = response[i];
                     var pk = item['id'];
-                    history[pk] = item;
+                    transfer_history[pk] = item;
                     var filename = item['resource']['name'];
                     markup += `<tr>
                       <td>${filename}</td>
@@ -179,20 +227,58 @@ get_history = function(){
                 }
             }
             else {
-                markup = `<tr><td colspan="2" align="center">No user history to show</td></tr>`
+                markup = `<tr><td colspan="2" align="center">No transfer history to show</td></tr>`
             }
             tableBody.empty().append(markup);
 
             $(".detail-loader").click(function(e){
                 e.preventDefault();
                 var targetedDetail = $(this).attr("detail-key");
-                showDetail(targetedDetail);
+                showTransferDetail(targetedDetail);
             });
         },
         error:function(){
             console.log('error!');
         }
     });
+
+    $.ajax({
+        url:"{{analysis_list_endpoint}}?started=true",
+        type:"GET",
+        headers:{"X-CSRFToken": csrfToken},
+        success:function(response){
+            console.log(response);
+            var tableBody = $("#analysis-history-table tbody");
+            var markup = "";
+            if (response.length > 0 ){
+                for(var i=0; i<response.length; i++){
+                    var item = response[i];
+                    var uuid = item['analysis_uuid'];
+                    var pk = item['id'];
+                    analysis_history[pk] = item;
+                    var analysis_name = item['workflow']['workflow_name'];
+                    markup += `<tr>
+                      <td>${analysis_name}</td>
+                      <td><span class="detail-loader" detail-key="${pk}">View</span></td>
+                    </tr>`;
+                }
+            }
+            else {
+                markup = `<tr><td colspan="2" align="center">No analysis history to show</td></tr>`
+            }
+            tableBody.empty().append(markup);
+
+            $(".detail-loader").click(function(e){
+                e.preventDefault();
+                var targetedDetail = $(this).attr("detail-key");
+                showAnalysisHistoryDetail(targetedDetail);
+            });
+        },
+        error:function(){
+            console.log('error!');
+        }
+    });
+
 }
 
 get_history();

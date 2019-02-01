@@ -67,6 +67,8 @@ class AnalysisProjectListAndCreate(generics.ListCreateAPIView):
     '''
     serializer_class = AnalysisProjectSerializer
     permission_classes = (permissions.IsAuthenticated,)
+    filter_backends = (DjangoFilterBackend,)
+    filter_fields = ('started', 'completed')
 
     def get_queryset(self):
         user = self.request.user
