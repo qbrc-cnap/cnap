@@ -16,7 +16,7 @@ from django.contrib.sites.models import Site
 from helpers import utils
 from helpers.utils import get_jinja_template
 from helpers.email_utils import notify_admins, send_email
-from analysis.models import Workflow, AnalysisProject, SubmittedJob
+from analysis.models import Workflow, AnalysisProject, SubmittedJob, Warning, Issue
 from base.models import Resource
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -51,6 +51,11 @@ def handle_exception(ex, message = ''):
     to the cromwell server (submission or execution)
     '''
     subject = 'Error encountered with asynchronous task.'
+
+    # save this problem in the database:
+    issue = Issue(message = message)
+    issue.save()
+
     notify_admins(message, subject)
 
 def create_module_dot_path(filepath):
