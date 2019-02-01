@@ -341,9 +341,9 @@ def map_inputs(user, unmapped_data, id_list):
 In this example, we iterate through the integer primary keys (PK) supplied by the front end.  For each PK we lookup the file `Resource`, check that it "belongs to" the client, and decide if it's a tumor or normal sample based on the filename.  In this way, we populate lists containing paths to the files we will analyze.  Of course, the logic here is completely arbitrary and dependent on your application.  A more robust example might include logic to ensure that all the files are properly paired.   
 
 
-#### Creation of custom elements (advanced)
+#### Creation of custom elements (advanced, optional)
 
-The CNAP provides a set of native HTML input elements with reasonable defaults "out of the box".  We also include custom a file-chooser element, as selection of files is a common input to many analysis pipelines.  Therefore, the file-chooser provides an instructive example of how to create new, complex input elements for the CNAP GUI, if desired.
+The CNAP provides a set of native HTML input elements with reasonable defaults "out of the box".  We also include custom a file-chooser element, as selection of files is a common input to many analysis pipelines.  The file-chooser also provides a complete and instructive example of how to create new, complex input elements for the CNAP GUI, if desired.
 
 The first step in the creation of any custom element is to design and write the HTML.  Following that, one can reverse-engineer the customizable portions and specify those as parameters in the `gui_spec.json` file.  For a concrete example, let's look at the HTML file supporting the file-chooser element: 
 
@@ -413,11 +413,11 @@ $(".select-all-cbx").click(function(){
 });
 </script>
 ```
-Here, we see that the file-chooser is basically a plain HTML table.  For initial design mockup, it might make sense to hardcode everything and see how it looks (including mock data, like files).  Then, work backwards to "template" portions that can or should be dynamic.  Above, we see template elements like `{{label}}` and  `{{description}}` that are *always* displayed regardless of the client.  Other portions, however, have template code that is wrapped in `{% raw %}...{% endraw %}` tags; notably, those portions correspond to content that will be client-dependent.  Therefore, any client-dependent content *needs* to be wrapped in the "raw" tags.  
+Here, we see that the file-chooser is basically a plain HTML table.  For initial design mockup, it might make sense to hardcode everything and see how it looks (including mock data, like files).  Then, work backwards to "template" portions that can or should be dynamic.  Above, we see template elements like `{{label}}` and  `{{description}}` that are *always* displayed regardless of the client.  Other portions, however, have template code that is wrapped in `{% raw %}...{% endraw %}` tags; notably, those portions correspond to content that will be client-dependent.  Therefore, any client-dependent templated content *needs* to be wrapped in the "raw" tags.  
 
-We need to do this because our GUI construction ultimately happens in two steps.  When we initially integrate the workflow using the `ingest_workflow.py` script, we use the developer-supplied `gui.json` file to fill-in those client-independent portions such as `{{label}}`; that user-independent content will be shown to all clients and will never change.  In that first templating pass, the portions wrapped in `{% raw %}...{% endraw %}` will be ignored, except that the "raw" tag wrappers themselves will be removed.  This "first pass template" is saved as the workflow's "final" template, and is ready to display dynamic, user-dependent content (file information, in this case) when the workflow is served by the application.
+We need to do this because our GUI construction ultimately happens in two steps.  When we initially integrate the workflow into CNAP using the `ingest_workflow.py` script, we use the developer-supplied `gui.json` file to fill-in those client-independent portions such as `{{label}}`; that user-independent content will be shown to all clients and will never change.  In that first templating pass, the portions wrapped in `{% raw %}...{% endraw %}` will be ignored, except that the "raw" tag wrappers themselves will be removed.  This "first pass template" is saved as the workflow's template, and is ready to display dynamic, user-dependent content (file information, in this case) when the workflow is served by the application.
 
-We also note the inclusion of the javascript in the `<script>...</script>` tags.  As mentioned above, the javascript contained in the HTML template is used to control behavior.  Here, it is used to provide a "check/uncheck all" option at the top of the table.  You may use jQuery syntax, as the library is imported earlier in the HTML file.  
+We also note the inclusion of the javascript in the `<script>...</script>` tags.  As mentioned above, the javascript contained in the HTML template is used to control interactive/dynamic behavior.  Here, it is used to provide a "check/uncheck all" option at the top of the table.  You may use jQuery syntax, as the library is imported earlier in the HTML file.  
 
 **Adding user-dependent content**
 In the HTML above, after the first pass of templating, we end up with an HTML file that contains only templates related to content that is served in realtime, and dependent on the particular client.  Extracting that portion from the snippet above, we have:
@@ -436,9 +436,9 @@ In the HTML above, after the first pass of templating, we end up with an HTML fi
 </tr>
 {% endfor %}
 ```
-Thus, when a user accesses this workflow, the table will ideally be populated with their files (`user_resources`).  This template expects that `user_resources` is iterable; each item (`resource`) should have `name`, `id`, and `human_readable_size` attributes.  *How* the able is populated is determined by a "handler" file.  In the section titled "Backend mapping", we described a different type of handler, which mapped the front-end inputs to the WDL inputs.  The handler in question here handles the population of the GUI.  
+Thus, when a user accesses this workflow, the table will ideally be populated with their files (`user_resources`).  This template expects that `user_resources` is iterable; each item (`resource`) should have `name`, `id`, and `human_readable_size` attributes.  *How* the able is populated is determined by a "handler" file.  In the section titled "Backend mapping", we described a different type of handler, which mapped the front-end inputs to the WDL inputs just prior to launching the workflow.  The handler in question here handles the population of the GUI in the first place.  
 
-For the file chooser discussed here, the `gui_schema.json` file provides a default handler at `<repository directory>/workflow_ingestion/default_handlers/file_chooser_handler.py` (see the `handler` parameter inside the `file_chooser` element).  If you choose to provide a different handler, you may specify that in your `gui.json`:
+For the file chooser element discussed in this section, the `gui_schema.json` file provides a default handler at `<repository directory>/workflow_ingestion/default_handlers/file_chooser_handler.py` (see the `handler` parameter inside the `file_chooser` element).  If you choose to provide a different handler, you may specify that in your `gui.json`:
 ```
 {
     "input_elements": [
@@ -466,7 +466,7 @@ For the file chooser discussed here, the `gui_schema.json` file provides a defau
 def add_to_context(request, context_dict, context_args):
     ... code here...
 ```
-The `request` is a Django request instance, which allows you to access the `request.user` field to identify the client (among other things).  The `context_dict` is a Python dictionary which provides the content for the HTML template.  The keys in that dictionary map directly to the template.  The final argument, `context_args` is another dictionary, which contains additional information to customize the displayed data.  A concrete example will make this clearer: 
+The `request` argument is a Django request instance, which allows you to access the `request.user` field to identify the client (among other things).  The `context_dict` argument is a Python dictionary which provides the content for the HTML template.  The keys in that dictionary map directly to the template.  The final argument, `context_args` is another dictionary, which contains additional information used to customize the display.  A concrete example will make this clearer: 
 
 ```
 import re
@@ -489,11 +489,11 @@ def add_to_context(request, context_dict, context_args):
     context_dict['user_resources'] = display_resources
 
 ```
-Here, we see that we first use the `request` argument to find out which user made the request.  We then query for that user's files.  We then iterate through each of their files, performing the following checks:
+Here, we see that we first use the `request` argument to find out which user made the request and query the database for that user's files.  We then iterate through each of their files, performing the following checks:
 - Ensure the file is "active"
-- Check that the filename matches the expected regex pattern (`filter`)
+- Check that the filename matches the expected regex pattern given by `filter`
 
-If the file passes both of these checks, it is added to a list (`display_resources`).  Finally, that list is added to the `context_dict`, addressed by the `user_resources` key we declared in the HTML template.  Note that we also declared a basic class `ResourceDisplay`, which acts as a simple "container" for sending content to the front-end.  As we saw in the HTML template, we require that the class has the `name`, `id`, and `human_readable_size` attributes to display properly.  For the full implementation, see `<repository dir>/workflow_ingestion/default_handlers/file_chooser_handler.py`.
+If the file passes both of these checks, a `ResourceDisplay` object is added to a list (`display_resources`).  Finally, that list is added to the `context_dict`, addressed by the `user_resources` key, which we had declared in the HTML template.  `ResourceDisplay` is a simple "container" class defined in the same file and is helpful for sending content to the front-end.  It also has a method for taking the file's size (in bytes) and creating a "human-readable" string (e.g. 10.2MB).  As we saw in the HTML template, we require that the class has the `name`, `id`, and `human_readable_size` attributes to display properly.  For the full implementation, see `<repository dir>/workflow_ingestion/default_handlers/file_chooser_handler.py`.
 
 Note that the `context_args` dictionary (which contained the key `filter` above) is declared in the `gui_schema.json` (obviously inside the portion describing the file chooser element):
 ```
@@ -509,8 +509,9 @@ Note that the `context_args` dictionary (which contained the key `filter` above)
 ...
 ```
 
-As above, when we were discussing the population of the dropdown menu, the `"type": "mapping"` line is simply a cue, and does not enforce any particular data structure.  Here, the default prescribes mapping containing a single key (`filter`) that is a greedy regular expression.  Therefore, the file chooser will, by default, show all the user's files.  We can override this default by explicitly declaring the `context_args` key in our `gui.json`:
+As mentioned when discussing the population of the dropdown menu, the `"type": "mapping"` line is simply a cue, and does not enforce any particular data structure.  The default value prescribes mapping containing a single key (`filter`) which references a greedy regular expression.  Therefore, the file chooser will, by default, show all the user's files.  We can override this default by explicitly declaring the `context_args` key in our `gui.json`:
 ```
+...
 {
     "target": {
         "target_ids": ["ExomeWorkflow.normalSamples", "ExomeWorkflow.tumorSamples"],
@@ -519,12 +520,15 @@ As above, when we were discussing the population of the dropdown menu, the `"typ
     },
     "display_element": {
         "type": "file_chooser",
-        "context_args": {"filter":".*fastq.gz"},
+        "context_args": {
+            "filter":".*fastq.gz"
+        },
         "label": "Input files:",
         "choose_multiple": true,
         "description": "Choose both tumor and normal samples for the analysis"
     }	
-}
+},
+...
 ```
 Here, the filter will only match filenames ending with "fastq.gz", and will thus only show Fastq-format sequencing files named accordingly.
 
@@ -538,7 +542,7 @@ One can include any number of additional keys in the `context_args` dictionary, 
 and use that `max_file_size` in the `add_to_context` function to limit the displayed files to those smaller than 5Gb. 
 
 **In summary**
-When creating a new input element, we advise that you start from a HTML interface that meets your needs and work backwards.  Decide the content that is 1) user-independent and 2) user-dependent, and then "templatize" the HTML in the manner similar to above (using the "raw" tags to "hide" the user-dependent template code).  Once that is complete, then you can begin to edit the `gui_schema.json` file to formally include this new element.  
+When creating a new input element, we advise that you start from a HTML interface that meets your needs and work backwards.  Decide the content that is 1) user-independent and 2) user-dependent, and then "templatize" the HTML in the manner similar to above.  Use the "raw" tags to "hide" the user-dependent template code on the first pass through templating.  Once that is complete, then you can begin to edit the `gui_schema.json` file to formally include this new element.  
 
 To use the file-chooser example, we started with HTML which would display a table populated by file information (filename, file size).  We decided that the following parts of the table were user independent:
 - label (string)
@@ -546,21 +550,25 @@ To use the file-chooser example, we started with HTML which would display a tabl
 - choose_multiple (boolean, allowing selection of >1 files)
 Therefore, we immediately included those in the `parameters` list for the file chooser.
 
-Next, to properly display the user-dependent content (the files), we knew that we needed to have some "handler" code which provided the data to the front-end in the expected format.  Thus, we included "handler" as a parameter and wrote a handler function that conformed to the proper specification (the required signature for `add_to_context` above).  Regardless of the logic contained therein, the handler needs to conform to that specification for the CNAP to understand it.
+Next, to properly display the user-dependent content (the files), we knew that we needed to have some "handler" code which provides data to the front-end in the expected format.  Thus, we included "handler" as a parameter and wrote a handler function that conformed to the defined specification (the required signature for `add_to_context` above).  Regardless of the logic contained therein, the handler needs to conform to that specification for the CNAP to understand and use it.  We also include the `context_args` to allow for additional customization.  Note that the key/value pairs inside `context_args` are closely tied to the handler code, and the handler code is tied to the HTML, so all the pieces of this new element are coupled.
 
-Finally, we decided that a general-purpose table like this warranted some additional parameters to "tune" the display.  Thus, we decided to include the `context_args` parameter.  Of course, the key/value pairs inside `context_args` are closely tied to the handler code, so they are indeed coupled.
-
-Once you have the necessary parameters for your element, you can add that to your `gui_schema.json` file, perhaps using the file-chooser as a prototype.  
+Finally, we note that the file-chooser element defines an additional javascript file referenced by `js_handler`.  The javascript contained in that file performs the task of "preparing" the data to be sent to the backend in a POST request.  In the HTML at the beginning of this section, we had a checkbox given by:
+```
+ <input class="download-selector" type="checkbox" target="{{resource.id}}"/>
+ ```
+ When the user clicks "analyze" in the UI, the javascript referenced by `js_handler` looks through the file-chooser, parses out that `target` attribute (which is ultimately a primary key for a `Resource`), and constructs a list of primary keys which are sent to the backend.  Again, the `js_handler` javascript is *only* executed upon submission of the analysis, and is not used to add interactivity to the custom HTML.      
 
 
 #### Styling
 
-
-TODO
+Much of the HTML elements provided with CNAP use CSS classes from the Bootstrap 4 framework.  If you wish to change the appearance, you may edit the HTML and/or the CSS file at `<repository dir>/workflow_ingestion/css/analysis_form.css`.
 
 #### Hidden params
 
+There are situations where a WDL developer might include inputs to the workflow that *should not* be arbitrarily customized, at least not without specialized knowledge.  An example might be setting a k-mer length (an integer) for an alignment algorithm.  When this WDL is integrated with the CNAP, it might be desired to fix that parameter and only allow specification of the remaining inputs.  
 
+To ensure that we specify all the required inputs to the workflow, the `ingest_workflow.py` script checks the set of WDL inputs versus the set of inputs described in `gui.json`.  If the sets are not equivalent, an error is raised.  Thus, to fix a parameter (e.g. the k-mer length), we need a way to set an input element that "hides" the parameter from the client.  We use the standard HTML hidden element for this.  
+At the time of writing, the hidden element only accepts a single value that maps to a single WDL input.  More complex hidden inputs can be constructed, but are not included by default.
 
 
 
