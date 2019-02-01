@@ -80,7 +80,8 @@ class AnalysisProject(models.Model):
     analysis_uuid = models.UUIDField(unique=True, default = uuid.uuid4, editable=True)
 
     # an analysis needs a location where the files are stored.  Filled in the save method
-    analysis_bucketname = models.CharField(max_length=63, blank=True)
+    # technically a bucket and a folder inside that bucket
+    analysis_bucketname = models.CharField(max_length=2000, blank=True)
 
     # foreign key to the Workflow
     workflow = models.ForeignKey('Workflow', on_delete=models.CASCADE)
