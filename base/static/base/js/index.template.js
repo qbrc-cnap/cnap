@@ -161,7 +161,7 @@ function showTransferDetail(pk){
 function showAnalysisHistoryDetail(pk){
     var item = analysis_history[pk];
     console.log(item);
-    var workflow_name = item['workflow']['workflow_name'];
+    var workflow_title = item['workflow']['workflow_title'];
     var workflow_version = item['workflow']['version_id'];
     var workflow_description = item['workflow']['workflow_long_description'];
 
@@ -185,7 +185,7 @@ function showAnalysisHistoryDetail(pk){
 
     // compose the table content:
     var markup = ""
-    markup += `<tr><td>Workflow name</td><td>${workflow_name}</td></tr>`;
+    markup += `<tr><td>Workflow</td><td>${workflow_title}</td></tr>`;
     markup += `<tr><td>Workflow version</td><td>${workflow_version}</td></tr>`;
     markup += `<tr><td>Workflow description</td><td>${workflow_description}</td></tr>`;
     markup += `<tr><td>Status</td><td>${status}</td></tr>`;
@@ -256,7 +256,7 @@ get_history = function(){
                     var uuid = item['analysis_uuid'];
                     var pk = item['id'];
                     analysis_history[pk] = item;
-                    var analysis_name = item['workflow']['workflow_name'];
+                    var analysis_name = item['workflow']['workflow_title'];
                     markup += `<tr>
                       <td>${analysis_name}</td>
                       <td><span class="detail-loader" detail-key="${pk}">View</span></td>
