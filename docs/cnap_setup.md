@@ -415,6 +415,13 @@ User files are kept in "folders" underneath that root, identified by their user 
 
 Uploads are placed in a special uploads folder, e.g. `gs://<root bucket name>/<user UUID>/uploads/`
 
+**Docker containers**
+
+Note that for the transfer process, we launch container-optimized VMs that in turn start containers automatically.  These are provider (e.g. Dropbox) and environment (e.g. GCP) specific, and are located under `<repository>/transfer_app/docker_containers/`.  For example, the Dockerfile for an upfrom *from* Dropbox to our GCP storage is located in `<repository>/transfer_app/docker_containers/google/uploads/dropbox/`. 
+
+If you make any changes to the containers, ensure that you rebuild and commit the container to a container registry/repository.  The remote location of the containers is referenced in the configuration files.  For example, the container that performs an upload *from* Dropbox *to* Google has a configuration variable `docker_image` located in `config/uploads.cfg` in the `[dropbox_in_google]` section.  Similar for downloads.
+
+
 **Asynchronous code**
 
 Note that we use supervisor to manage processes such as redis and celery, which enable the asynchronous features of the web application.  If you make changes to any source code that will run asynchronously, you need to stop/restart those processes to "register" your changes.  Otherwise, any changes will be ignored.
