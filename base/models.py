@@ -48,6 +48,10 @@ class Resource(models.Model):
     # be set to inactive.  Can be null, which would allow it to be permanent
     expiration_date = models.DateTimeField(null=True)
 
+    # track the number of times this Resource has been downloaded.  The total
+    # number of downloads can be set in the config file:
+    total_downloads = models.PositiveSmallIntegerField(null=False, default=0)
+
     objects = ResourceManager()
     
     def __str__(self):
