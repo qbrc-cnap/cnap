@@ -161,6 +161,16 @@
                     "default": false
                 }
             ]
+        },
+        "hidden": {
+            "html_source": "html_elements/hidden_input.html",
+            "js_handler": null,
+            "parameters": [
+                {
+                    "name": "value",
+                    "required": true
+                }
+            ]
         }
     }
 }
