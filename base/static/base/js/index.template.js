@@ -247,7 +247,6 @@ get_history = function(){
         type:"GET",
         headers:{"X-CSRFToken": csrfToken},
         success:function(response){
-            console.log(response);
             var tableBody = $("#analysis-history-table tbody");
             var markup = "";
             if (response.length > 0 ){
