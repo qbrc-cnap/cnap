@@ -221,7 +221,10 @@ class AnalysisView(View):
                     if analysis_project.success:
                         # return a success page
                         context = {}
-                        context['finish_time'] = analysis_project.finish_time
+                        if analysis_project.finish_time is not None:
+                            context['finish_time'] = analysis_project.finish_time
+                        else:
+                            context['finish_time'] = '-'
                         return render(request, 'analysis/complete_success.html', context)
                     elif analysis_project.error:
                         # return a page indicating error
