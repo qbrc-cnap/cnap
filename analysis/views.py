@@ -208,7 +208,14 @@ class AnalysisView(View):
                     # in progress, return status page
                     context = {}
                     context['job_status'] = analysis_project.status
-                    context['start_time'] = analysis_project.start_time
+                    if analysis_project.start_time is not None:
+                        context['start_time'] = analysis_project.start_time
+                    else:
+                        context['start_time'] = '-'
+                    if analysis_project.error:
+                        context['error'] = True
+                    else:
+                        context['error'] = False
                     return render(request, 'analysis/in_progress.html', context)
                 else: # started AND complete
                     if analysis_project.success:

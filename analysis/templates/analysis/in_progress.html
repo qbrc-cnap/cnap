@@ -21,7 +21,13 @@ Analysis is in progress.
 </h3>
 </div>
 <div>
-<p>
+<p
+    {% if error %}
+        class="alert alert-danger"
+    {% else %}
+        class="alert alert-success"
+    {% endif %}
+>
 Status: {{job_status}}
 </p>
 <p>

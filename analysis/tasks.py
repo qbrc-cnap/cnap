@@ -232,7 +232,10 @@ def start_workflow(data):
             message = 'An exception occurred when trying to submit a job to Cromwell. \n'
             message += 'Project ID was: %s' % data['analysis_uuid']
             message += str(ex)
-            analysis_project.status = 'Error on job submission'
+            analysis_project.status = '''
+                Error on job submission.  An administrator has been automatically notified of this error.
+                Thank you for your patience.
+                '''
             analysis_project.error = True
             analysis_project.save()
             handle_exception(ex, message=message)
@@ -260,7 +263,10 @@ def start_workflow(data):
                 handle_exception(None, message=message)
         else:
             message = 'Did not submit job-- status code was %d, and response text was: %s' % (response.status_code, response.text)
-            analysis_project.status = 'Error on job submission'
+            analysis_project.status = '''
+                Error on job submission.  An administrator has been automatically notified of this error.
+                Thank you for your patience.
+                '''
             analysis_project.error = True
             analysis_project.save()
             handle_exception(None, message=message)
