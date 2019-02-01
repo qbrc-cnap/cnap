@@ -15,6 +15,7 @@ class ResourceSerializer(serializers.ModelSerializer):
                   'owner', \
                   'is_active', \
                   'originated_from_upload', \
+                  'total_downloads', \
                   'date_added', \
                   'expiration_date' \
         )
