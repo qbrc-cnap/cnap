@@ -129,6 +129,9 @@ class AnalysisProject(models.Model):
                 )
         super().save(*args, **kwargs)
 
+    def __str__(self):
+        return '%s (client: %s)' % (self.workflow.workflow_name, self.owner)
+
 
 class OrganizationWorkflow(models.Model):
     '''
@@ -155,6 +158,9 @@ class SubmittedJob(models.Model):
     # where the staging directory is-- for debug purposes.
     # This is an absolute path
     job_staging_dir = models.CharField(max_length=1000, blank=False)
+
+    def __str__(self):
+        return '%s' % (self.job_id)
 
 
 class Warning(models.Model):
