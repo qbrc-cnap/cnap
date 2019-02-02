@@ -3,11 +3,100 @@
 
 
 {% block page_specific_css %}
+<style>
+#dashboard-wrapper{
+    display:flex;
+    flex-direction: column;
+    width: 90%;
+    margin: 20px;
+}
+
+#dashboard-content{
+    display:flex;
+    flex-direction:column;
+    margin-top:20px;
+}
+
+</style>
 {% endblock %}
 
 
 
 {% block content%}
-<h1>Dashboard home</h1>
+<div id="dashboard-wrapper">
+
+  <h2>Admin dashboard</h2>
+
+  <div id="dashboard-content">
+      <div class="">
+      <h3>Current projects</h3>
+      <table class="custom-table">
+        <thead>
+          <tr>
+            <th>Workflow</th>
+            <th>Client</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in projects %}
+          <tr> 
+            <td>{{p.workflow}}</td>
+            <td>{{p.owner}}</td>
+            <td>{{p.status}}</td>
+          <tr> 
+          {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      <div class="">
+      <h3>Warnings</h3>
+      <table class="custom-table">
+        <thead>
+          <tr>
+            <th>Message</th>
+            <th>Cromwell Job ID</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for w in warnings %}
+          <tr> 
+            <td>{{w.message}}</td>
+            <td>{{w.job}}</td>
+          <tr> 
+          {% empty %}
+            <tr> 
+              <td colspan="2" align="center">No warnings.</td>
+            <tr> 
+          {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      <div class="">
+      <h3>Issues</h3>      
+      <table class="custom-table">
+        <thead>
+          <tr>
+            <th>Message</th>
+            <th>Time</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for issue in issues %}
+          <tr> 
+            <td>{{issue.message}}</td>
+            <td>{{issue.time}}</td>
+          <tr> 
+          {% empty %}
+            <tr> 
+              <td colspan="2" align="center">No issues.</td>
+            <tr> 
+          {% endfor %}
+        </tbody>
+      </table>
+      </div>
+  </div>
+</div>
 {% endblock %}
+
 

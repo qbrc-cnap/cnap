@@ -9,7 +9,7 @@ def dashboard_index(request):
     if user.is_staff:
 
         # get the current analyses that have been created.  We would like to view their status
-        analysis_projects = AnalysisProject.objects.all()
+        analysis_projects = AnalysisProject.objects.filter(completed=False)
 
         # show any errors in submitted jobs
         job_query_warnings = Warning.objects.all()
@@ -19,6 +19,11 @@ def dashboard_index(request):
 
         # allow us to check the status of the cromwell server
 
-        return render(request, 'dashboard/dashboard_home.html', {})
+        context = {}
+        context['projects'] = analysis_projects
+        context['warnings'] = job_query_warnings
+        context['issues'] = other_issues
+
+        return render(request, 'dashboard/dashboard_home.html', context)
     else:
         return HttpResponseForbidden()
