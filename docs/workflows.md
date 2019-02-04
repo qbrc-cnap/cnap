@@ -10,17 +10,24 @@ In this document there are three primary "roles" described-- the CNAP admin, the
 #### Contents:
 
 [Quickstart](#quickstart)
+
 [Getting started](#before-starting)
+
 [Creating new workflows](#create-new-workflows)
+
 [Specifying the GUI](#specify-gui)
+
 [The GUI schema](#gui-schema)
+
 [Mapping the GUI to the WDL](#backend-mapping)
+
 [(Advanced) Creating custom GUI elements](#creating-new-elements)
+
 [Viewing the final GUI](#final-view)
 
 
 <a id="quickstart"></a>
-####Quickstart
+#### Quickstart
 If you have a working WDL and access to the Docker container running the CNAP, then the following quickstart will serve as a more streamlined reference for integrating new workflows.  This assumes you have admin level access, as you need to be able to connect to the host VM and CNAP Docker container.
 
 1. Log into the Docker container hosting the CNAP.  The container is most likely running, so from the host VM simply run `docker exec -it <container ID> /bin/bash` to enter a shell.
