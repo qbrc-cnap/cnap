@@ -2,15 +2,42 @@
 
 The CNAP is designed to ingest WDL-based workflows and run on the Cromwell execution engine.  This guide assists in the creation and ingestion of workflows, including the specification of the custom UI elements that accompany each workflow.
 
-In this document there are three primary "roles" described-- the CNAP admin, the developer, and the client.  Reference to these roles is made in a consistent manner below.  
-- The **admin** has superuser privileges, including logging into the application server, running the application Docker container, etc.  They can do anything.
+In this document there are three primary "roles" described-- the CNAP admin, the developer, and the client.  We attempt to reference to these roles in a consistent manner below.  
+- The **admin** has superuser privileges, including logging into the application server, running the application Docker container, etc.  They can essentially do anything.
 - A **developer** is someone who might write a WDL-based workflow that performs some analysis.  They *could* have admin privileges, but might not.  For instance, the CNAP admins might work with an academic group who has developed an analysis workflow they would like to "publish" using the CNAP.  Rather than learning how to work with the platform, they might just simply create a WDL script and send that to the CNAP admin.
 - A **client** is the end-user of the application.  Typically this would be someone who has no particular knowledge of bioinformatics and/or programming.  This might be a bench-scientist running a simple differential gene expression.  They have accounts on the CNAP and are able to execute analyses through the web-based interfaces provided by the CNAP. 
 
-#### Before starting-- about your WDL
-Before attempting to integrate any WDL-based workflows into CNAP, the developer should ensure that the workflow is stable and robust.  CNAP simply provides the ability to wrap workflows with a simple GUI (and file transfer utilities) so that analyses can be made accessible and distributable through a web-based platform.  CNAP is not responsible for debugging WDL.  Thus, at the point of integrating with CNAP, your workflow should be "production-ready".
+####Contents:
+[Quickstart](#quickstart)
+[Getting started](#before-starting)
+[Creating new workflows](#create-new-workflows)
+[Specifying the GUI](#specify-gui)
+[The GUI schema](#gui-schema)
+[Mapping the GUI to the WDL](#backend-mapping)
+[(Advanced) Creating custom GUI elements](#creating-new-elements)
+[Viewing the final GUI](#final-view)
 
-The only additional "requirement" for the WDL (which is not enforced), is that you include a `meta` section inside the main workflow directive.  This aids with the organization and display of workflows within CNAP.  There are three keys we look for:
+
+<a id="quickstart"></a>
+####Quickstart
+If you have a working WDL and access to the Docker container running the CNAP, then the following quickstart will serve as a more streamlined reference for integrating new workflows.  This assumes you have admin level access, as you need to be able to connect to the host VM and CNAP Docker container.
+
+1. Log into the Docker container hosting the CNAP.  The container is most likely running, so from the host VM simply run `docker exec -it <container ID> /bin/bash` to enter a shell.
+1. Copy your WDL (and associated files) into a folder `<WORKFLOW_DIR>` *anywhere* in that container.
+1. Create your GUI using our `gui.json` [specification](#specify-gui).
+1. Run the ingestion script from the `/www/` directory: `python3 workflow_ingestion/ingest_workflow.py -d <WORKFLOW_DIR>`
+1. View the [final GUI](#final-view), debug as necessary
+1. If it looks good, activate the workflow via the Django admin.
+1. Create analysis projects for users using this workflow.
+
+Given a functional WDL, step 3 is the typically most significant, but it is straightforward to copy from other workflows, assuming no specialized input elements are needed. 
+
+
+<a id="before-starting"></a>
+#### Before starting-- about your WDL
+Before attempting to integrate any WDL-based workflows into CNAP, the developer should ensure that the workflow is stable and robust.  CNAP simply provides the ability to wrap workflows with a simple GUI (and file transfer utilities) so that analyses can be made accessible and distributable through a web-based platform.  CNAP is not responsible for debugging WDL.  Thus, at the point of integrating with CNAP, your workflow should be "production-ready".  This includes graceful error handling, unit tests, etc.
+
+The only additional "requirement" for the WDL (which is not officially enforced), is that you include a `meta` section inside the main workflow directive.  This aids with the organization and display of workflows within CNAP.  There are three keys we look for:
 ```
 meta {
     workflow_title : "Exome tumor-normal analysis"
@@ -20,7 +47,7 @@ meta {
 ```
 These fields provide more detail about the analysis, which can help both admins and users with selections.  If they are not specified, they are left empty.
 
-
+<a id="create-new-workflows"></a>
 #### Creating a new workflow
 
 Provided a working WDL file (or set of WDL files), someone with admin privileges should create a new directory somewhere *inside* the Docker container running the CNAP application.  Alternatively, they may create a directory on the host VM assuming it is mounted to your Docker container (and thus readable by the container).  All workflow files will be placed there.
@@ -37,16 +64,18 @@ There may also be python files, which assist in mapping the GUI inputs to the WD
 
 Note that the `gui.json` file can be created by either the developer *or* the admin (or a combination of effort).  Since creation of a proper GUI might require some debugging/iterations to get correct, this task would likely fall more into the realm of the CNAP admin.  Additionally, the CNAP admin might be more familiar with creating the `gui.json` file whereas a developers effort would be focused on a robust WDL workflow. 
 
+<a id="ingest-workflow"></a>
 **Ingesting the workflow**
 After all the files are located in the same directory, the admin runs the ingestion script (from inside the Docker container), passing the path to the directory with the `-d` argument:
-```python3 <repository dir>/workflow_ingestion/ingest_workflow.py -d <workflow dir>```
+```python3 /www/workflow_ingestion/ingest_workflow.py -d <workflow dir>```
 
-If successful, this script will create a series of directories under `<repository dir>/workflow_library/`, which will be identified by the name of the workflow and a unique identifier (e.g. `<repository dir>/workflow_library/<workflow name>/<string>/`).  The workflow will be added to the database.
+Note that it can only be run from the `/www/` directory.  If successful, this script will create a series of directories under `/www/workflow_library/`, which will be identified by the name of the workflow and a unique identifier (e.g. `/www/workflow_library/<workflow name>/<string>/`).  The workflow will be added to the database.
 
 Multiple workflows with the same name will be "versioned" so that there are no conflicts and older workflows may be recalled/re-run for reproducible analyses.  *Note that by default, newly ingested workflows are **not** live-- they must be activated by logging into the admin console and editing the database to set the workflow to the `active=True` status*.  Additionally, one can edit the database to set a particular version of a workflow as the default.  Thus, requests to run a workflow that do not require a specific version will use the version marked as "default".   
 
-If there is a problem during workflow ingestion, an error message should help guide you; preliminary files end up being "staged" in a subdirectory inside `<repository dir>/workflow_ingestion/staging/`, which can help with debugging. 
+If there is a problem during workflow ingestion, an error message should help guide you; preliminary files end up being "staged" in a subdirectory inside `/www/workflow_ingestion/staging/`, which can help with debugging. 
 
+<a id="specify-gui"></a>
 #### Specifying the GUI
 
 A WDL workflow typically has a number of inputs, such as file paths, strings, numbers, etc.  With CNAP, we allow developers to create basic user-interfaces that allow application users (clients) to specify those inputs.  For example, a CNAP user might have some fastq-format sequence files that have been uploaded.  The GUI would allow them to select files for downstream analysis.  There may also be inputs for items like reference genome selection.  The `gui.json` file allows the workflow developer to specify the GUI elements and how they behave.  
@@ -181,9 +210,10 @@ The `target_ids` list dictates the >=1 WDL inputs that this element will map to.
 
 Discussion of the `display_element` for the file-chooser is reserved for the section concerning the creation of custom input elements.  However, we briefly note that the `context_args` parameter specifies that the file-chooser we created should filter to *only* show gzipped fastq-format files.
 
+<a id="gui-schema"></a>
 #### The GUI schema
 
-As described above, we compose the user-interface from a set of pre-defined elements, using our `gui.json` file to dictate how those elements are shown (e.g. labels, dropdown choices, etc).  The full set of these elements is given in `<repository dir>/workflow_ingestion/gui_schema.json`.  In that file, we see the `gui_elements` key, which points at a JSON object.  Each key in this object gives the "name" of an available element.  Recall that in our `gui.json` file, we declared "types" for each element in our GUI; you *must* select an element that is among the keys of the `gui_elements` object.  For instance, in our GUI above we created a dropdown by declaring `"type": "select"`, which is one of the keys in the `gui_elements` object.
+As described above, we compose the user-interface from a set of pre-defined elements, using our `gui.json` file to dictate how those elements are shown (e.g. labels, dropdown choices, etc).  The full set of these elements is given in `/www/workflow_ingestion/gui_schema.json`.  In that file, we see the `gui_elements` key, which points at a JSON object.  Each key in this object gives the "name" of an available element.  Recall that in our `gui.json` file, we declared "types" for each element in our GUI; you *must* select an element that is among the keys of the `gui_elements` object.  For instance, in our GUI above we created a dropdown by declaring `"type": "select"`, which is one of the keys in the `gui_elements` object.
 
 Each of these GUI elements has several keys:
 - `html_source` gives the location (relative to the `workflow_ingestion` directory) of an HTML snippet which declares how it is displayed in the browser.  These HTML snippets often include "template" code for the python-based jinja templating language.  As a concrete example, consider the snippet for the dropdown element used above:
@@ -211,7 +241,7 @@ Each of these GUI elements has several keys:
 
   If you wish to create your own element and need some dynamic behavior (e.g. via javascript), you should include it in the HTML snippet inside `<script></script>` tags.  The javascript contained there should *only* be related to display and/or dynamic UI behavior.  Javascript used to "prepare" data to be POST'd to the backend is declared in the `js_handler` file.
 
-- `js_hander` points at another file which contains javascript dictating how the data captured from the input element is transformed before being sent to the backend.  Often optional.  An example is the file at `<repository dir>/workflow_ingestion/js/file_chooser.js` which is a handler for our custom file chooser interface.  This code is executed when the client clicks "analyze"; the javascript (using jQuery) goes through the file chooser interface to determine which files were selected for analysis.  It then extracts unique identifiers for those resources (e.g. primary keys) which are subsequently included in the data that is sent to the backend.  As briefly mentioned above, the javascript contained in the `js_handler` is only executed just prior to POSTing content to the backend; it does *not* control any dynamic behavior of the interface itself.
+- `js_hander` points at another file which contains javascript dictating how the data captured from the input element is transformed before being sent to the backend.  Often optional.  An example is the file at `/www/workflow_ingestion/js/file_chooser.js` which is a handler for our custom file chooser interface.  This code is executed when the client clicks "analyze"; the javascript (using jQuery) goes through the file chooser interface to determine which files were selected for analysis.  It then extracts unique identifiers for those resources (e.g. primary keys) which are subsequently included in the data that is sent to the backend.  As briefly mentioned above, the javascript contained in the `js_handler` is only executed just prior to POSTing content to the backend; it does *not* control any dynamic behavior of the interface itself.
 
     Many of the "simple" input elements (e.g. text boxes, dropdowns) directly transmit their data and do *not* need to define a `js_handler`, so it is often set to `null`.  For example, in the dropdown, the selected option is sent to the backend referenced by the `name` attribute in the `<select>` element.  As a concrete example, consider the following HTML specifying a dropdown: 
     ```
@@ -296,6 +326,7 @@ In this loop we iterate over `choices`, which requires that `choices` is some it
 
 The data structure referenced by `choices` indeed meets the requirements of the HTML template (it is a list where each item contains keys `value`, `display`).  In this manner one can define new input elements that will accept essentially arbitrary data.
 
+<a id="backend-mapping"></a>
 #### Backend mapping
 
 In our earlier dummy example where we were describing the `gui.json` for a hypothetical exome pipeline, the file-input section looked like:
@@ -351,7 +382,7 @@ def map_inputs(user, unmapped_data, id_list):
 
 In this example, we iterate through the integer primary keys (PK) supplied by the front end.  For each PK we lookup the file `Resource`, check that it "belongs to" the client, and decide if it's a tumor or normal sample based on the filename.  In this way, we populate lists containing paths to the files we will analyze.  Of course, the logic here is completely arbitrary and dependent on your application.  A more robust example might include logic to ensure that all the files are properly paired.   
 
-
+<a id="creating-new-elements"></a>
 #### Creation of custom elements (advanced, optional)
 
 The CNAP provides a set of native HTML input elements with reasonable defaults "out of the box".  We also include custom a file-chooser element, as selection of files is a common input to many analysis pipelines.  The file-chooser also provides a complete and instructive example of how to create new, complex input elements for the CNAP GUI, if desired.
@@ -504,7 +535,7 @@ Here, we see that we first use the `request` argument to find out which user mad
 - Ensure the file is "active"
 - Check that the filename matches the expected regex pattern given by `filter`
 
-If the file passes both of these checks, a `ResourceDisplay` object is added to a list (`display_resources`).  Finally, that list is added to the `context_dict`, addressed by the `user_resources` key, which we had declared in the HTML template.  `ResourceDisplay` is a simple "container" class defined in the same file and is helpful for sending content to the front-end.  It also has a method for taking the file's size (in bytes) and creating a "human-readable" string (e.g. 10.2MB).  As we saw in the HTML template, we require that the class has the `name`, `id`, and `human_readable_size` attributes to display properly.  For the full implementation, see `<repository dir>/workflow_ingestion/default_handlers/file_chooser_handler.py`.
+If the file passes both of these checks, a `ResourceDisplay` object is added to a list (`display_resources`).  Finally, that list is added to the `context_dict`, addressed by the `user_resources` key, which we had declared in the HTML template.  `ResourceDisplay` is a simple "container" class defined in the same file and is helpful for sending content to the front-end.  It also has a method for taking the file's size (in bytes) and creating a "human-readable" string (e.g. 10.2MB).  As we saw in the HTML template, we require that the class has the `name`, `id`, and `human_readable_size` attributes to display properly.  For the full implementation, see `/www/workflow_ingestion/default_handlers/file_chooser_handler.py`.
 
 Note that the `context_args` dictionary (which contained the key `filter` above) is declared in the `gui_schema.json` (obviously inside the portion describing the file chooser element):
 ```
@@ -572,7 +603,7 @@ Finally, we note that the file-chooser element defines an additional javascript 
 
 #### Styling
 
-Much of the HTML elements provided with CNAP use CSS classes from the Bootstrap 4 framework.  If you wish to change the appearance, you may edit the HTML and/or the CSS file at `<repository dir>/workflow_ingestion/css/analysis_form.css`.
+Much of the HTML elements provided with CNAP use CSS classes from the Bootstrap 4 framework.  If you wish to change the appearance, you may edit the HTML and/or the CSS file at `/www/workflow_ingestion/css/analysis_form.css`.
 
 #### Hidden params
 
@@ -580,6 +611,16 @@ There are situations where a WDL developer might include inputs to the workflow 
 
 To ensure that we specify all the required inputs to the workflow, the `ingest_workflow.py` script checks the set of WDL inputs versus the set of inputs described in `gui.json`.  If the sets are not equivalent, an error is raised.  Thus, to fix a parameter (e.g. the k-mer length), we need a way to set an input element that "hides" the parameter from the client.  We use the standard HTML hidden element for this.  
 At the time of writing, the hidden element only accepts a single value that maps to a single WDL input.  More complex hidden inputs can be constructed, but are not included by default.
+
+
+<a id="final-view"></a>
+### Viewing the final output
+
+After creating your GUI (and with your WDL), run the workflow ingestion script as [described above](#ingest-workflow).  Assuming the ingestion is successful, the script will report where the final workflow was saved (in the Docker container, under the `workflow_library` directory).  Note that the ingestion also saved the workflow in the database.
+
+Of course you will want to view the output produced by the the `gui.json` you write, which will often have small bugs to fix, etc.  To view the created GUI, you first need to get the workflow ID and version from the database.  The easiest way to get those numbers is to visit the Django admin at `https://<domain>/admin/`) and navigate to the Workflows table.  Once you have the workflow/version IDs, type them into this "viewer" URL: `https://<domain>/analysis/workflow-view/<workflow ID>/<version ID>/`.
+
+If you need to make changes, head to the folder where the final workflow was saved (this is also available from the Workflow database table) and edit the `template.final.html` page to your liking. 
 
 
 
