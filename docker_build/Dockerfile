@@ -45,8 +45,7 @@ RUN pip3 install --no-cache-dir -r "${appdir}"/requirements.txt
 ENV APP_ROOT="${appdir}"
 
 # Create the etc directory and download the necessary JAR files
-RUN mkdir "${appdir}"/etc \
-  && wget -P "${appdir}"/etc https://github.com/broadinstitute/cromwell/releases/download/36/cromwell-36.jar \
+RUN wget -P "${appdir}"/etc https://github.com/broadinstitute/cromwell/releases/download/36/cromwell-36.jar \
   && wget -P "${appdir}"/etc https://github.com/broadinstitute/cromwell/releases/download/36/womtool-36.jar
 
 # Copy the startup script
