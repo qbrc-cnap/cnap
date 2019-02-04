@@ -7,7 +7,8 @@ In this document there are three primary "roles" described-- the CNAP admin, the
 - A **developer** is someone who might write a WDL-based workflow that performs some analysis.  They *could* have admin privileges, but might not.  For instance, the CNAP admins might work with an academic group who has developed an analysis workflow they would like to "publish" using the CNAP.  Rather than learning how to work with the platform, they might just simply create a WDL script and send that to the CNAP admin.
 - A **client** is the end-user of the application.  Typically this would be someone who has no particular knowledge of bioinformatics and/or programming.  This might be a bench-scientist running a simple differential gene expression.  They have accounts on the CNAP and are able to execute analyses through the web-based interfaces provided by the CNAP. 
 
-####Contents:
+#### Contents:
+
 [Quickstart](#quickstart)
 [Getting started](#before-starting)
 [Creating new workflows](#create-new-workflows)
