@@ -15,7 +15,8 @@ from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import generics, permissions, status
 from django_filters.rest_framework import DjangoFilterBackend
 
-from .models import Workflow, AnalysisProject, OrganizationWorkflow
+from helpers.email_utils import notify_admins
+from .models import Workflow, AnalysisProject, OrganizationWorkflow, Issue
 from .serializers import WorkflowSerializer, \
     AnalysisProjectSerializer, \
     OrganizationWorkflowSerializer
@@ -311,6 +312,14 @@ class AnalysisView(View):
             Your analysis has been submitted.  You may return to this page to check on the status of the job.  
             If it has been enabled, an email will be sent upon completion'''})
         except Exception as ex:
+            message = 'There was a problem instantiating an analysis.  Project was %s.\n' % str(analysis_project.analysis_uuid)
+            message += 'Payload sent to backend was: %s' % json.dumps(j)
+            subject = 'Error instantiating workflow'
+            notify_admins(message, subject)
+
+            issue = Issue(message=message)
+            issue.save()
+
             return HttpResponseBadRequest('Error when instantiating workflow.')
 
 

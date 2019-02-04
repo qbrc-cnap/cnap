@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'custom_auth.apps.CustomAuthConfig',
     'analysis.apps.AnalysisConfig',
     'base.apps.BaseConfig',
+    'dashboard.apps.DashboardConfig',
 ]
 
 MIDDLEWARE = [

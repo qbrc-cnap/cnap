@@ -129,6 +129,9 @@ class AnalysisProject(models.Model):
                 )
         super().save(*args, **kwargs)
 
+    def __str__(self):
+        return '%s (client: %s)' % (self.workflow.workflow_name, self.owner)
+
 
 class OrganizationWorkflow(models.Model):
     '''
@@ -156,6 +159,9 @@ class SubmittedJob(models.Model):
     # This is an absolute path
     job_staging_dir = models.CharField(max_length=1000, blank=False)
 
+    def __str__(self):
+        return '%s' % (self.job_id)
+
 
 class Warning(models.Model):
     '''
@@ -167,3 +173,12 @@ class Warning(models.Model):
     '''
     message = models.CharField(max_length=2000)
     job = models.ForeignKey('SubmittedJob', on_delete=models.CASCADE)
+
+
+class Issue(models.Model):
+    '''
+    This class is used when analyses have errors, etc.  Anytime an email is sent to an admin, a
+    row will be added to log that entry.  This way, we can see all the errors in one place.
+    '''
+    message = models.CharField(max_length=5000)
+    time = models.DateTimeField(auto_now=True)

@@ -15,5 +15,6 @@ urlpatterns = [
     re_path(r'^api/$', base_views.api_root),
     re_path(r'^api-auth/', include('rest_framework.urls')),
     path(r'transfers/', include('transfer_app.urls')),
+    path(r'dashboard/', include('dashboard.urls')),
     re_path(r'^$', base_views.index),
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
