@@ -346,9 +346,10 @@ At the time of writing, application is placed in default "development" status.  
 
  Using the menu on the top left, navigate to "APIs & Services" as shown below.
 
+ First, you will need to enable access to both the Google Drive and Google Picker APIs, which you do via the "API & Services --> Dashboard" page.  Search for "Drive" and "Picker" and approve activation of each API. 
+
 ![alt text](google_dashboard_1.png)
-  
- First, you will need to enable access to the Google Drive API, which you do via the "API & Services --> Dashboard" page.  Search for "Drive" and approve activation of the API.  
+   
  
  Following that, you will need to create OAuth credentials for your application.  We note that the ability to read/write to a user's Google Drive requires an application review by Google.  Typically, an attempt to create new OAuth credentials with the read/write "scope" will result in Google asking you to fill-in the "OAuth consent" screen.  Since it is challenging to anticipate changes in procedure and steps, we advise searching for some phrase like, "obtain OAuth credentials Google Drive API".  
 
@@ -358,6 +359,8 @@ At the time of writing, application is placed in default "development" status.  
  and for live-testing:
  - `https://<YOUR DOMAIN>/transfers/test/drive-callback/` (for testing OAuth2 token exchange)
  - `https://<YOUR DOMAIN>/transfers/test/transfer-test/drive-callback/` (for live-testing an actual transfer)
+
+ Note that you should also add your domain to the list of "Authorized JavaScript origins".
 
  With these steps successfully completed, you will need to obtain the ID (typically `<random characters>.apps.googleusercontent.com`) and secret for the credentials.  You will eventually enter those at the prompt when starting the application container.
  

@@ -7,8 +7,19 @@ In this document there are three primary "roles" described-- the CNAP admin, the
 - A **developer** is someone who might write a WDL-based workflow that performs some analysis.  They *could* have admin privileges, but might not.  For instance, the CNAP admins might work with an academic group who has developed an analysis workflow they would like to "publish" using the CNAP.  Rather than learning how to work with the platform, they might just simply create a WDL script and send that to the CNAP admin.
 - A **client** is the end-user of the application.  Typically this would be someone who has no particular knowledge of bioinformatics and/or programming.  This might be a bench-scientist running a simple differential gene expression.  They have accounts on the CNAP and are able to execute analyses through the web-based interfaces provided by the CNAP. 
 
-#### Before starting
+#### Before starting-- about your WDL
 Before attempting to integrate any WDL-based workflows into CNAP, the developer should ensure that the workflow is stable and robust.  CNAP simply provides the ability to wrap workflows with a simple GUI (and file transfer utilities) so that analyses can be made accessible and distributable through a web-based platform.  CNAP is not responsible for debugging WDL.  Thus, at the point of integrating with CNAP, your workflow should be "production-ready".
+
+The only additional "requirement" for the WDL (which is not enforced), is that you include a `meta` section inside the main workflow directive.  This aids with the organization and display of workflows within CNAP.  There are three keys we look for:
+```
+meta {
+    workflow_title : "Exome tumor-normal analysis"
+    workflow_short_description : "For exomes variant analysis"
+    workflow_long_description : "Use this workflow for analyzing matched tumor normal pairs that were sequenced using whole-exome sequencing technology.  The analysis starts from fastq-format input files and creates a VCF file of high-quality variants at the end"
+}
+```
+These fields provide more detail about the analysis, which can help both admins and users with selections.  If they are not specified, they are left empty.
+
 
 #### Creating a new workflow
 
