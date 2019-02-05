@@ -1,15 +1,14 @@
-{% for key, value in options.items %}
 <div class="form-check">
     <input 
         class="form-check-input" 
         type="checkbox" 
-        value="{{key}}" 
+        value="foo" 
         id="{{id}}"
         name="{{name}}"
         dataTarget="{{name}}"
+        boolean_checkbox
     >
     <label class="form-check-label" for="{{id}}">
-        {{value}}
+        {{label}}
     </label>
 </div>
-{% endfor %}
