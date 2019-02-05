@@ -17,7 +17,12 @@ from googleapiclient.discovery import build as google_api_build
 from helpers import utils
 from helpers.utils import get_jinja_template
 from helpers.email_utils import notify_admins, send_email
-from analysis.models import Workflow, AnalysisProject, SubmittedJob, Warning, Issue
+from analysis.models import Workflow, \
+    AnalysisProject, \
+    SubmittedJob, \
+    Warning, \
+    Issue, \
+    CompletedJob
 from base.models import Resource
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -38,6 +43,9 @@ class MissingMappingHandlerException(Exception):
 class MissingDataException(Exception):
     pass
 
+
+class JobOutputsException(Exception):
+    pass
 
 class MockAnalysisProject(object):
     '''
@@ -393,65 +401,106 @@ def register_outputs(job):
         message += 'Job ID was: %s' % job.job_id
         message += 'Project ID was: %s' % job.project.analysis_uuid
         message += str(ex)
-        job.project.status = 'Analysis completed.  Error encountered when collecting final outputs.'
-        job.project.error = True
-        job.project.save()
-        handle_exception(ex, message=message)
-        raise ex
+        raise JobOutputsException(message)
 
 def handle_success(job):
     '''
     This is executed when a WDL job has completed and Cromwell has indicated success
     `job` is an instance of SubmittedJob
     '''
-    # update the AnalysisProject instance to reflect the success:
-    project = job.project
-    project.completed = True
-    project.success = True
-    project.error = False
-    project.status = 'Successful completion'
-    project.finish_time = datetime.datetime.now()
-    project.save()
 
-    # register the output files:
-    register_outputs(job)
+    try:
+        # if everything goes well, we set the AnalysisProject to a completed state,
+        # notify the client, and delete the SubmittedJob.  Since there is a 1:1
+        # between AnalysisProject and a complete job, that's enough to track history
+    
+        register_outputs(job)
 
-    # inform client:
-    email_address = project.owner.email
-    current_site = Site.objects.get_current()
-    domain = current_site.domain
-    url = 'https://%s' % domain
-    context = {'site': url, 'user_email': email_address}
-    email_template = get_jinja_template('email_templates/analysis_success.html')
-    email_html = email_template.render(context)
-    email_plaintxt_template = get_jinja_template('email_templates/analysis_success.txt')
-    email_plaintxt = email_plaintxt_template.render(context)
-    email_subject = open('email_templates/analysis_success_subject.txt').readline().strip()
-    send_email(email_plaintxt, email_html, email_address, email_subject)
+        # update the AnalysisProject instance to reflect the success:
+        project = job.project
+        project.completed = True
+        project.success = True
+        project.error = False
+        project.status = 'Successful completion'
+        project.finish_time = datetime.datetime.now()
+        project.save()
 
-    # delete the staging dir where the files were:
-    staging_dir = job.job_staging_dir
-    shutil.rmtree(staging_dir)
+        # inform client:
+        email_address = project.owner.email
+        current_site = Site.objects.get_current()
+        domain = current_site.domain
+        url = 'https://%s' % domain
+        context = {'site': url, 'user_email': email_address}
+        email_template = get_jinja_template('email_templates/analysis_success.html')
+        email_html = email_template.render(context)
+        email_plaintxt_template = get_jinja_template('email_templates/analysis_success.txt')
+        email_plaintxt = email_plaintxt_template.render(context)
+        email_subject = open('email_templates/analysis_success_subject.txt').readline().strip()
+        send_email(email_plaintxt, email_html, email_address, email_subject)
+
+        # delete the staging dir where the files were:
+        staging_dir = job.job_staging_dir
+        shutil.rmtree(staging_dir)
+
+        # finally delete the SubmittedJob instance.  We do not need it anymore.
+        job.delete()
+
+    except Exception as ex:
+        # an exception was raised, so we create a CompletedJob to perform a post-mortem
+        project = job.project
+        cj = CompletedJob(project=project, 
+            job_id = job.job_id, 
+            job_status=job.job_status, 
+            job_staging_dir=job.job_staging_dir)
+        cj.save()
+        job.delete()
+
+        # Set the project parameters so that clients will know what is going on:
+        project.status = 'Analysis completed.  Error encountered when preparing final output.  An administrator has been notified'
+        project.error = True
+        project.success = False
+        project.completed = False
+        project.save()
+
+        if type(ex) == JobOutputsException:
+            message = str(ex)
+        else:
+            message = 'Some other exception was raised following wrap-up from a completed job.'
+
+        handle_exception(ex, message=message)
+
 
 def handle_failure(job):
     '''
     This is executed when a WDL job has completed and Cromwell has indicated a failure has occurred
     `job` is an instance of SubmittedJob
     '''
-    # update the AnalysisProject instance to reflect the failure:
     project = job.project
+    cj = CompletedJob(project=project, 
+        job_id = job.job_id, 
+        job_status=job.job_status, 
+        job_staging_dir=job.job_staging_dir)
+    cj.save()
+    job.delete()
+
+    # update the AnalysisProject instance to reflect the failure:
     project.completed = True
     project.success = False
     project.error = True
+    project.status = 'The job submission has failed.  An administrator has been notified.'
     project.finish_time = datetime.datetime.now()
     project.save()
 
     # inform client (if desired):
     if not settings.SILENT_CLIENTSIDE_FAILURE:
-        send_email(plaintext_msg, message_html, recipient, subject)
+        recipient = project.owner.email
+        email_html = open('email_templates/analysis_fail.html').read()
+        email_plaintext = open('email_templates/analysis_fail.txt').read()
+        email_subject = open('email_templates/analysis_fail_subject.txt').readline().strip()
+        send_email(email_plaintext, email_html, recipient, email_subject)
 
     # notify admins:
-    message = 'Job (%s) experienced failure.' % job.job_id
+    message = 'Job (%s) experienced failure.' % cj.job_id
     subject = 'Cromwell job failure'
     notify_admins(message, subject)
 
@@ -490,10 +539,6 @@ def check_job():
                 # if the job was in one of the finished states, execute some specific logic
                 if status in terminal_actions.keys():
                     terminal_actions[status](job) # call the function to execute the logic for this end-state
-
-                    # remove job since complete:
-                    job.delete()
-
                 elif status in other_states:
                     # any custom behavior for unfinished tasks
                     # can be handled here if desired

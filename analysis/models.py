@@ -163,6 +163,30 @@ class SubmittedJob(models.Model):
         return '%s' % (self.job_id)
 
 
+class CompletedJob(models.Model):
+    '''
+    This model is used for tracking jobs that have completed.  In the instance that something
+    goes awry following completion of a SubmittedJob and marking an AnalysisProject "complete", we 
+    log that here.  
+    '''
+
+    # the project that is being run
+    project = models.ForeignKey('AnalysisProject', on_delete=models.CASCADE)
+
+    # the job ID returned by Cromwell on the job submission
+    job_id = models.CharField(max_length=64, blank=False)
+
+    # status
+    job_status = models.CharField(max_length=200, blank=False)
+
+    # where the staging directory is-- for debug purposes.
+    # This is an absolute path
+    job_staging_dir = models.CharField(max_length=1000, blank=False)
+
+    def __str__(self):
+        return '%s' % (self.job_id)
+
+
 class Warning(models.Model):
     '''
     This class is used to track when periodic tasks generate errors.
