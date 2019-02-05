@@ -240,6 +240,12 @@ We will also create a non-root user to run execute Cromwell:
 $ adduser cromwell-runner
 ```
 
+In addition, we need to create a folder for Cromwell to write logs.  By default it tries to write to `/cromwell-workflow-logs`.  Since the `cromwell-runner` user would not have permission to write there, we must create a folder there and give ownership to that user.  As root (which you should be):
+```
+$ mkdir /cromwell-workflow-logs
+$ chown cromwell-runner:cromwell-runner /cromwell-workflow-logs
+```
+
 Create a conf file for supervisor at `/etc/supervisor/conf.d/cromwell.conf`: 
 
 ```
@@ -299,6 +305,12 @@ command=/usr/bin/java -Dconfig.file=/opt/cromwell/google.conf -jar /opt/cromwell
 
 **AWS configuration**
 TODO
+
+---
+### Platform-specific items
+
+#### GCP
+When running on GCP, Cromwell uses the Google Genomics API, which must be enabled.  Head to the "APIs and Services" console section and enable it.
 
 ---
 
