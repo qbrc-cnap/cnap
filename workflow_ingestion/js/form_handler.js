@@ -13,19 +13,6 @@ var prepareFormData = function(){
         {{handler_code}}
     {% endfor %}
 
-    // select native input elements that are part of the form
-    var elements = $(analysisForm).find("input, select");
-    for(var i=0; i<elements.length; i++){
-        var el = $(elements[i]);
-        var dataTarget = el.attr("dataTarget");
-        if (typeof dataTarget !== typeof undefined && dataTarget !== false) {
-            // Element has this attribute
-            var val = el.val();
-            payload[dataTarget] = val;
-        } else{
-            console.log('Does not have dataTarget attr');
-        }
-    }
     return payload;
 }
 

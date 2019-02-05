@@ -9,6 +9,7 @@
             {% if choose_multiple %}
                 multiple
             {% endif %}
+            input_select
         >
         {% for d in choices %}
           <option value="{{d.value}}">{{d.display}}</option>
