@@ -23,6 +23,13 @@ def post_completion(transfer_coordinator, originator_emails):
       the transfers
     '''
 
+    all_transfers = Transfer.objects.filter(coordinator = transfer_coordinator)
+    failed_transfers = []
+    for t in all_transfers:
+        if not t.success:
+            resource = t.resource
+            failed_transfers.append(resource.name)
+
     if settings.EMAIL_ENABLED:
         current_site = Site.objects.get_current()
         domain = current_site.domain
@@ -38,7 +45,7 @@ def post_completion(transfer_coordinator, originator_emails):
         plaintext_template = env.get_template('transfer_complete_message.txt')
         html_template = env.get_template('transfer_complete_message.html')
 
-        params = {'domain': domain}
+        params = {'domain': domain, 'failed_transfers': failed_transfers}
         plaintext_msg = plaintext_template.render(params)
         html_msg = html_template.render(params)
     

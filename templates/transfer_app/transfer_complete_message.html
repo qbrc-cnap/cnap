@@ -3,6 +3,19 @@
 
     </head>
     <body>
-        Your file transfer at {{domain}} has completed!  Do not reply to this message.
+        <p>Your file transfer at {{domain}} has completed!  </p>
+        {% if failed_transfers|length > 0 %}
+        <p>
+  Unfortunately, the following transfers failed.  Sometimes the connection
+  is lost and the transfer fails.  If this happens multiple times, please
+  let us know, as it may be another issue.</p>
+  <ul>
+  {% for f in failed_transfers %}
+    <li>{{f}}</li>
+  {% endfor %}
+  </ul>
+{% endif %}
+        
+        <p>Please do not reply to this message.</p>
     </body>
 </html>

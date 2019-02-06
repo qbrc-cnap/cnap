@@ -1,1 +1,10 @@
-Your file transfer at {{domain}} has completed!  Do not reply to this message.
+Your file transfer at {{domain}} has completed!  
+{% if failed_transfers|length > 0 %}
+  Unfortunately, the following transfers failed.  Sometimes the connection
+  is lost and the transfer fails.  If this happens multiple times, please
+  let us know, as it may be another issue.
+  {% for f in failed_transfers %}
+    {{f}}
+  {% endfor %}
+{% endif %}
+Please do not reply to this message.
