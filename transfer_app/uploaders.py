@@ -315,6 +315,10 @@ class GoogleEnvironmentUploader(EnvironmentSpecificUploader, GoogleBase):
                 UPLOADS_FOLDER_NAME
                 )
             item_name = item_dict['name']
+
+            # for ease of dealing with spaces, reassign to a name that replaces spaces with underscores:
+            item_name = item_name.replace(' ', '_')
+            item_dict['name'] = item_name
             full_item_name = os.path.join(bucket_name, item_name)
         
             # check the validity.  GoogleStorage requires that objects are 1-1024 bytes when UTF-8 encoded
