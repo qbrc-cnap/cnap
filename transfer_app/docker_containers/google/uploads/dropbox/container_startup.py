@@ -1,17 +1,15 @@
 #! /usr/bin/python3
 
 import os
-import sys
 import io
 import subprocess
 import argparse
 import datetime
-import logging
 from Crypto.Cipher import DES
 import base64
 import requests
 import google
-from google.cloud import storage
+from google.cloud import storage, logging
 from apiclient.discovery import build
 
 
@@ -21,19 +19,19 @@ GOOGLE_BUCKET_PREFIX = 'gs://'
 
 def create_logger():
 	"""
-	Creates a logfile
+	Creates a log in Stackdriver
 	"""
-	timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M")
-	logfile = os.path.join(WORKING_DIR, str(timestamp)+".dropbox_transfer.log")
-	print('Create logfile at %s' % logfile)
-	logging.basicConfig(filename=logfile, level=logging.INFO, format="%(asctime)s:%(levelname)s:%(message)s")
-	return logfile
+	instance_name = get_hostname()
+	logname = '%s.log' % instance_name
+	logging_client = logging.Client()
+	logger = logging_client.logger(logname)
+	return logger
 
-def notify_master(params, error=False):
+def notify_master(params, logger, error=False):
 	'''
 	This calls back to the head machine to let it know the work is finished.
 	'''
-	logging.info('Notifying the master that this job has completed')
+	logger.log_text('Notifying the master that this job has completed')
 
 	# the payload dictinary:
 	d = {}
@@ -50,11 +48,11 @@ def notify_master(params, error=False):
 	d['success'] = 0 if error else 1
 	base_url = params['callback_url']
 	response = requests.post(base_url, data=d)
-	logging.info('Status code: %s' % response.status_code)
-	logging.info('Response text: %s' % response.text)
+	logger.log_text('Status code: %s' % response.status_code)
+	logger.log_text('Response text: %s' % response.text)
 
 
-def send_to_bucket(local_filepath, params):
+def send_to_bucket(local_filepath, params, logger):
 	'''
 	Uploads the local file to the bucket
 	'''
@@ -67,22 +65,27 @@ def send_to_bucket(local_filepath, params):
 	storage_client = storage.Client()
 	# trying to get an existing bucket.  If raises exception, means bucket did not exist (or similar)
 	try:
+		logger.log_text('See if bucket at %s exists' % bucket_name)
 		destination_bucket = storage_client.get_bucket(bucket_name)
 	except (google.api_core.exceptions.NotFound, google.api_core.exceptions.BadRequest) as ex:
-
+		logger.log_text('Bucket did not exist.  Creating now...')
 		# try to create the bucket:
 		try:
 			destination_bucket = storage_client.create_bucket(bucket_name)
 		except google.api_core.exceptions.BadRequest as ex2:
+			logger.log_text('Still could not create the bucket.  Error was %s' % ex2)
 			raise Exception('Could not find or create bucket.  Error was ' % ex2)
 	try:
+		logger.log_text('Upload %s to %s' % (local_filepath, object_name))
 		destination_blob = destination_bucket.blob(object_name)
 		destination_blob.upload_from_filename(local_filepath)
+		logger.log_text('Successful upload to bucket')
 	except Exception as ex:
+		logger.log_text('Error with upload process.')
 		raise Exception('Could not create or upload the blob with name %s' % object_name)
 
 
-def download_to_disk(params):
+def download_to_disk(params, logger):
 	'''
 	local_filepath is the path on the VM/container of the file that
 	will be downloaded.
@@ -90,29 +93,38 @@ def download_to_disk(params):
 	source_link = params['resource_path']
 	local_path = os.path.join(WORKING_DIR, 'download')
 	cmd = 'wget -q -O %s "%s"' % (local_path, source_link)
+	logger.log_text('Download from Dropbox with %s' % cmd)
 	p = subprocess.Popen(cmd, shell=True, stderr=subprocess.STDOUT, stdout=subprocess.PIPE)
 	stdout, stderr = p.communicate()
 	if p.returncode != 0:
-		print('Failed on transfering %s' % source_link.split('/')[-1])
-		print(stdout)
-		print('--'*10)
-		print(stderr)
+		logger.log_text('Failed on transfering %s' % source_link.split('/')[-1])
+		logger.log_text(stdout)
+		logger.log_text('--'*10)
+		logger.log_text(stderr)
 	else:
+		logger.log_text('Success in download to local disk.')
 		return local_path
+
+
+def get_hostname():
+	headers = {'Metadata-Flavor':'Google'}
+	response = requests.get(HOSTNAME_REQUEST_URL, headers=headers)
+	content = response.content.decode('utf-8')
+	instance_name = content.split('.')[0]
+	return instance_name
 
 
 def kill_instance(params):
 	'''
 	Removes the virtual machine
 	'''
-	headers = {'Metadata-Flavor':'Google'}
-	response = requests.get(HOSTNAME_REQUEST_URL, headers=headers)
-	content = response.content.decode('utf-8')
-	instance_name = content.split('.')[0]
+	instance_name = get_hostname()
 	compute = build('compute', 'v1')
 	compute.instances().delete(project=params['google_project_id'],
 		zone=params['google_zone'], 
 	instance=instance_name).execute()
+
+
 
 
 def parse_args():
@@ -142,14 +154,13 @@ if __name__ == '__main__':
 	try:
 		params = parse_args()
 		os.mkdir(WORKING_DIR)
-		logfile = create_logger()
-		params['logfile'] = logfile
-		local_filepath = download_to_disk(params)
-		send_to_bucket(local_filepath, params)
-		notify_master(params)
+		logger = create_logger()
+		local_filepath = download_to_disk(params, logger)
+		send_to_bucket(local_filepath, params, logger)
+		notify_master(params, logger)
 		kill_instance(params)
 	except Exception as ex:
-		logging.error('Caught some unexpected exception.')
-		logging.error(str(type(ex)))
-		logging.error(ex)
-		notify_master(params, error=True)
+		logger.log_text('Caught some unexpected exception.')
+		logger.log_text(str(type(ex)))
+		logger.log_text(ex)
+		notify_master(params, logger, error=True)

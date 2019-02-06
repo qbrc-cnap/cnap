@@ -1,7 +1,6 @@
 #! /usr/bin/python3
 
 import os
-import sys
 import argparse
 import time
 import random
@@ -37,7 +36,7 @@ def fuse_mount(bucketname, logger):
 		logger.log_text('There was a problem with running the following: %s' % cmd)
 		logger.log_text('stdout: %s' % stdout)
 		logger.log_text('stderr: %s' % stderr)
-		sys.exit(1)
+		raise Exception('gcsfuse mount failed.')
 	else:
 		logger.log_text('Successfully mounted bucket.')
 
@@ -54,7 +53,7 @@ def unmount_fuse(logger):
 		logger.log_text('There was a problem with running the following: %s' % cmd)
 		logger.log_text('stdout: %s' % stdout)
 		logger.log_text('stderr: %s' % stderr)
-		sys.exit(1)
+		raise Exception('gcsfuse unmount failed.')
 	else:
 		logger.log_text('Successfully unmounted the temporary bucket.')
 
