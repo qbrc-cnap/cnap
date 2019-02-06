@@ -38,7 +38,9 @@ from .tasks import fill_wdl_input, \
     MissingDataException, \
     InputMappingException, \
     WORKFLOW_LOCATION, \
-    USER_PK
+    USER_PK, \
+    JobOutputsException
+
 
 class TasksTestCase(TestCase):
     '''
@@ -161,9 +163,8 @@ class TasksTestCase(TestCase):
         register_outputs(job)
         self.assertTrue(mock_handle_ex.called)
 
-    @mock.patch('analysis.tasks.handle_exception')
     @mock.patch('analysis.tasks.requests')
-    def test_inform_staff_if_cromwell_unreachable_during_output_registration(self, mock_requests, mock_handle_ex):
+    def test_raise_ex_if_cromwell_unreachable_during_output_registration(self, mock_requests):
         '''
         This test covers the case when the job has finished.  After it has finished, 
         we check for outputs, which will be added to the downloads
@@ -171,10 +172,11 @@ class TasksTestCase(TestCase):
         myex = Exception('Some ex')
         mock_requests.get.side_effect = myex
         job = self._create_submission()
-        with self.assertRaises(Exception):
+        with self.assertRaises(JobOutputsException):
             register_outputs(job)
-        self.assertTrue(mock_handle_ex.called)
 
+
+    @mock.patch('analysis.tasks.google_api_build')
     @mock.patch('analysis.tasks.parse_outputs')
     @mock.patch('analysis.tasks.get_resource_size')
     @mock.patch('analysis.tasks.handle_exception')
@@ -183,7 +185,8 @@ class TasksTestCase(TestCase):
         mock_requests, 
         mock_handle_ex, 
         mock_resource_size,
-        mock_output_parser
+        mock_output_parser,
+        mock_api_build
     ):
         '''
         This test covers the case when the job has finished.  After it has finished, 
@@ -198,6 +201,7 @@ class TasksTestCase(TestCase):
 
         mock_job = mock.MagicMock()
         mock_job.project = self.analysis_project
+        mock_job.job_id = 'abcd'
 
         mock_output_parser.return_value = [path,]
 
@@ -205,8 +209,11 @@ class TasksTestCase(TestCase):
 
         mock_requests.get.return_value = mock_response
         
+        mock_storage_client = mock.MagicMock()
+        mock_api_build.return_value = mock_storage_client
+
         register_outputs(mock_job)
-        expected_resource = Resource.objects.get(path=path, name='foo.txt')
+        expected_resource = Resource.objects.get(name='foo.txt')
 
     def test_output_parser_case1(self):
         '''
