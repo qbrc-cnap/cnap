@@ -166,5 +166,5 @@ if __name__ == '__main__':
 	except Exception as ex:
 		logger.log_text('Caught some unexpected exception.')
 		logger.log_text(str(type(ex)))
-		logger.log_text(ex)
+		logger.log_text(str(ex))
 		notify_master(params, logger, error=True)

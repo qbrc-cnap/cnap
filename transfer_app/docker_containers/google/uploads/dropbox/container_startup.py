@@ -98,9 +98,7 @@ def download_to_disk(params, logger):
 	stdout, stderr = p.communicate()
 	if p.returncode != 0:
 		logger.log_text('Failed on transfering %s' % source_link.split('/')[-1])
-		logger.log_text(stdout)
-		logger.log_text('--'*10)
-		logger.log_text(stderr)
+		raise Exception('Download from Dropbox has failed.  Is it possible that this file is restricted?')
 	else:
 		logger.log_text('Success in download to local disk.')
 		return local_path
@@ -162,5 +160,5 @@ if __name__ == '__main__':
 	except Exception as ex:
 		logger.log_text('Caught some unexpected exception.')
 		logger.log_text(str(type(ex)))
-		logger.log_text(ex)
+		logger.log_text(str(ex))
 		notify_master(params, logger, error=True)
