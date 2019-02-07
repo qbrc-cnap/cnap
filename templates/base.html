@@ -34,9 +34,15 @@
                 {% endblock %}
             </div>
         </div>
+        <div id="general-dialog">
+            <div id="dialog-content" class="dialog-content alert alert-success"></div>
+            <div id="close-general-dialog">
+                <div>Close</div>
+            </div>
+        </div>
         <div id="error-dialog">
-            <p>There was a problem!  Please correct or address the following:</p>
-            <div id="error-dialog-list"></div>
+            <p class="alert alert-danger">There was a problem!  Please correct or address the following:</p>
+            <div id="error-dialog-list" class="dialog-content"></div>
             <div id="close-error-dialog">
                 <div>Close</div>
             </div>

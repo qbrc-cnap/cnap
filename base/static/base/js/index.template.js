@@ -314,6 +314,7 @@ var dbxOptions = {
             headers:{"X-CSRFToken": csrfToken},
             success:function(response){
                 console.log('Upload started.');
+                showGeneralDialog('Your upload from Dropbox has started.');
             },
             error:function(){
                 console.log('Error.');
@@ -438,6 +439,7 @@ function pickerCallback(data) {
             headers:{"X-CSRFToken": csrfToken},
             success:function(response){
                 console.log('Upload started.');
+                showGeneralDialog('Your upload from Google Drive has started.');
             },
             error:function(){
                 console.log('Error.');
@@ -493,8 +495,19 @@ $("#back-to-history").click(function(){
 });
 
 
-// Below is code related to javascript for downloads.  When the user clicks on the button
-// JS needs to collect the info about what to send. 
+showGeneralDialog = function(message){
+     var dialog = $("#general-dialog");
+     var subdiv = $("#dialog-content")
+     var markup = "<div>"+ message +"</div>"
+     subdiv.empty().append(markup);
+     $("#wrapper").toggleClass("blur");
+     dialog.toggle();
+}
+ 
+$("#close-general-dialog").click(function(){
+     $("#wrapper").toggleClass("blur");
+     $("#general-dialog").toggle();
+});
 
 showErrorDialog = function(obj_array){
      console.log('show dialog');
@@ -514,6 +527,11 @@ $("#close-error-dialog").click(function(){
      $("#wrapper").toggleClass("blur");
      $("#error-dialog").toggle();
 });
+
+
+
+// Below is code related to javascript for downloads.  When the user clicks on the button
+// JS needs to collect the info about what to send. 
 
 $(".init-download-btn").click(function(){
     var selectedPks = [];

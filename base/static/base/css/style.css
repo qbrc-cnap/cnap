@@ -48,14 +48,20 @@ a{
         filter: blur(3px);
 }
 
-#close-error-dialog{
+#close-error-dialog, #close-general-dialog{
     display:flex;
     justify-content:center;
     text-decoration: underline;
     cursor:pointer;
 }
 
-#error-dialog{
+.dialog-content{
+   display: flex;
+   justify-content:center;
+   margin-bottom:30px;
+}
+
+#error-dialog, #general-dialog{
     display:none;
     width: 500px;
     height: 200px;
