@@ -64,7 +64,6 @@ a{
 #error-dialog, #general-dialog{
     display:none;
     width: 500px;
-    height: 200px;
     background: #fff;
     padding: 25px;
     -webkit-border-radius: 3px;
