@@ -43,7 +43,7 @@ def handle_exception(ex, message = ''):
     subject = 'Unexpected error encountered with download'
 
     # save this problem in the database:
-    issue = Issue(message = message)
+    issue = Issue(message = str(ex))
     issue.save()
 
     notify_admins(message, subject)
