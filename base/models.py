@@ -67,3 +67,12 @@ class Organization(models.Model):
     Thus, access to different analyses can be controlled from an organization standpoint.
     '''
     org_name = models.CharField(max_length=200, default='DEFAULT', blank=True)
+
+
+class Issue(models.Model):
+    '''
+    This class is used when analyses have errors, etc.  Anytime an email is sent to an admin, a
+    row will be added to log that entry.  This way, we can see all the errors in one place.
+    '''
+    message = models.CharField(max_length=5000)
+    time = models.DateTimeField(auto_now=True)

@@ -1,7 +1,8 @@
 from django.shortcuts import render
 from django.http import HttpResponseForbidden
 
-from analysis.models import Issue, AnalysisProject, Warning
+from base.models import Issue
+from analysis.models import AnalysisProject, Warning
 
 
 def dashboard_index(request):

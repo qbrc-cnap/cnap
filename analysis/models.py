@@ -197,12 +197,3 @@ class Warning(models.Model):
     '''
     message = models.CharField(max_length=2000)
     job = models.ForeignKey('SubmittedJob', on_delete=models.CASCADE)
-
-
-class Issue(models.Model):
-    '''
-    This class is used when analyses have errors, etc.  Anytime an email is sent to an admin, a
-    row will be added to log that entry.  This way, we can see all the errors in one place.
-    '''
-    message = models.CharField(max_length=5000)
-    time = models.DateTimeField(auto_now=True)

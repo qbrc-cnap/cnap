@@ -26,11 +26,26 @@ import google.oauth2.credentials as google_credentials_module
 from googleapiclient.discovery import build
 
 import helpers.utils as utils
+from helpers.email_utils import notify_admins
 from transfer_app.base import GoogleBase, AWSBase
 from transfer_app import tasks as transfer_tasks
 import base.exceptions as exceptions
 from base.models import Resource
 from transfer_app.models import Transfer, TransferCoordinator
+
+
+def handle_exception(ex, message = ''):
+    '''
+    This function handles situations where there an error when submitting
+    to the cromwell server (submission or execution)
+    '''
+    subject = 'Unexpected error encountered with download'
+
+    # save this problem in the database:
+    issue = Issue(message = message)
+    issue.save()
+
+    notify_admins(message, subject)
 
 
 class Downloader(object):
@@ -530,7 +545,14 @@ class GoogleEnvironmentDownloader(EnvironmentSpecificDownloader, GoogleBase):
         # query the bucket for the full size:
         total_bucket_contents_in_bytes = 0
         storage_client = build('storage', 'v1') 
-        response = storage_client.objects().list(bucket=bucketname).execute()
+        try:
+            response = storage_client.objects().list(bucket=bucketname).execute()
+        except Exception as ex:
+            print('Problem when querying the containing bucket.')
+            message = '''When querying storage bucket for size, prior
+                to starting new VM, the API returned the following: %s
+            ''' % str(ex)
+            handle_exception(ex, message)
         for x in response['items']:
             total_bucket_contents_in_bytes += int(x['size'])
         size_in_gb = total_bucket_contents_in_bytes/(1024**3)

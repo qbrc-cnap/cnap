@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Workflow, AnalysisProject, SubmittedJob, Warning, Issue
+from .models import Workflow, AnalysisProject, SubmittedJob, Warning
 
 class WorkflowAdmin(admin.ModelAdmin):
     list_display = ('workflow_name', 'workflow_id', 'version_id', 'is_default', 'is_active', 'workflow_title', 'workflow_short_description', 'workflow_long_description')
@@ -24,12 +24,7 @@ class WarningAdmin(admin.ModelAdmin):
     list_display = ('message',)
 
 
-class IssueAdmin(admin.ModelAdmin):
-    list_display = ('message', 'time')
-
-
 admin.site.register(Workflow, WorkflowAdmin)
 admin.site.register(AnalysisProject, AnalysisProjectAdmin)
 admin.site.register(SubmittedJob, SubmittedJobAdmin)
 admin.site.register(Warning, WarningAdmin)
-admin.site.register(Issue, IssueAdmin)

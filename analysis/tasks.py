@@ -21,9 +21,8 @@ from analysis.models import Workflow, \
     AnalysisProject, \
     SubmittedJob, \
     Warning, \
-    Issue, \
     CompletedJob
-from base.models import Resource
+from base.models import Resource, Issue
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 ZIPNAME = 'depenencies.zip'

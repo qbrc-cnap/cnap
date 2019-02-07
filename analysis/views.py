@@ -16,7 +16,8 @@ from rest_framework import generics, permissions, status
 from django_filters.rest_framework import DjangoFilterBackend
 
 from helpers.email_utils import notify_admins
-from .models import Workflow, AnalysisProject, OrganizationWorkflow, Issue
+from .models import Workflow, AnalysisProject, OrganizationWorkflow
+from base.models import Issue
 from .serializers import WorkflowSerializer, \
     AnalysisProjectSerializer, \
     OrganizationWorkflowSerializer
