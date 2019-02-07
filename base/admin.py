@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Resource
+from .models import Resource, Issue
 
 class ResourceAdmin(admin.ModelAdmin):
     list_display = ('name', 'path', 'source')
