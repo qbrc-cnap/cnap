@@ -26,11 +26,12 @@ import google.oauth2.credentials as google_credentials_module
 from googleapiclient.discovery import build
 
 import helpers.utils as utils
+import transfer_app.utils as transfer_utils
 from helpers.email_utils import notify_admins
 from transfer_app.base import GoogleBase, AWSBase
 from transfer_app import tasks as transfer_tasks
 import base.exceptions as exceptions
-from base.models import Resource
+from base.models import Resource, Issue
 from transfer_app.models import Transfer, TransferCoordinator
 
 
@@ -550,9 +551,11 @@ class GoogleEnvironmentDownloader(EnvironmentSpecificDownloader, GoogleBase):
         except Exception as ex:
             print('Problem when querying the containing bucket.')
             message = '''When querying storage bucket for size, prior
-                to starting new VM, the API returned the following: %s
-            ''' % str(ex)
+                to starting new VM, the API call experienced a problem.
+                Often this indicates the bucket was not accessible.  Check that
+                the resource is in a bucket accessible by this application.'''
             handle_exception(ex, message)
+            return None
         for x in response['items']:
             total_bucket_contents_in_bytes += int(x['size'])
         size_in_gb = total_bucket_contents_in_bytes/(1024**3)
@@ -599,11 +602,16 @@ class GoogleDropboxDownloader(GoogleEnvironmentDownloader):
 
         custom_config = copy.deepcopy(self.config_params)
 
+        launch_count = 0
         for i, item in enumerate(self.downloader.download_data):
             cmd = self._prep_single_download(custom_config, i, item)
-            cmd += ' --container-arg="-dropbox" --container-arg="%s"' % item['access_token']
-            cmd += ' --container-arg="-d" --container-arg="%s"' % custom_config['dropbox_destination_folderpath']
-            self.launcher.go(cmd)
+            if cmd is not None:
+                cmd += ' --container-arg="-dropbox" --container-arg="%s"' % item['access_token']
+                cmd += ' --container-arg="-d" --container-arg="%s"' % custom_config['dropbox_destination_folderpath']
+                self.launcher.go(cmd)
+                launch_count += 1
+        if launch_count == 0: # no downloads were started, for whatever reason
+            # 
 
 
 class GoogleDriveDownloader(GoogleEnvironmentDownloader):
@@ -617,11 +625,38 @@ class GoogleDriveDownloader(GoogleEnvironmentDownloader):
 
     def config_and_start_downloads(self):
         custom_config = copy.deepcopy(self.config_params)
+        launch_count = 0
+        failed_pks = []
         for i, item in enumerate(self.downloader.download_data):
-
             cmd = self._prep_single_download(custom_config, i, item)
-            cmd += ' --container-arg="-access_token" --container-arg="%s"' % item['access_token'] # the oauth2 access token
-            self.launcher.go(cmd)
+            if cmd is not None:
+                cmd += ' --container-arg="-access_token" --container-arg="%s"' % item['access_token'] # the oauth2 access token
+                self.launcher.go(cmd)
+                launch_count += 1
+            else:
+                failed_pks.append(item['transfer_pk'])
+
+        # for those that instantly failed, mark them complete:
+        tc_set = []
+        for transfer_pk in failed_pks:
+            transfer_obj = Transfer.objects.get(pk=transfer_pk)
+            tc_set.append(transfer_obj.coordinator) # all the Transfers should have the same coordinator, but let's keep it general
+            transfer_obj.completed = True
+            transfer_obj.success = False
+            tz = transfer_obj.start_time.tzinfo
+            now = datetime.datetime.now(tz)
+            duration = now - transfer_obj.start_time
+            transfer_obj.duration = duration
+            transfer_obj.finish_time = now
+            transfer_obj.save()
+    
+        tc_set_pks = set([x.pk for x in tc_set])
+        if launch_count == 0: # no downloads were started, for whatever reason
+            for tc_pk in tc_set_pks:
+                tc = TransferCoordinator.objects.get(pk=tc_pk)
+                all_transfers = Transfer.objects.filter(coordinator = tc)
+                all_originators = list(set([x.originator.email for x in all_transfers]))
+                transfer_utils.post_completion(tc, all_originators)
 
 
 class AWSDropboxDownloader(AWSEnvironmentDownloader):
