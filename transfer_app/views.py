@@ -202,7 +202,7 @@ class TransferComplete(APIView):
                 # we can trust the content since it contained the proper token
                 try:
                     transfer_pk = data['transfer_pk']
-                    success = data['success']
+                    success = bool(int(data['success']))
                 except KeyError as ex:
                     raise exceptions.RequestError('The request did not have the correct formatting.')  
                 try:
