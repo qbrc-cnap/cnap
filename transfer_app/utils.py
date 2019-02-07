@@ -1,6 +1,7 @@
 import configparser
 import os
 import sys
+import datetime
 
 from jinja2 import Environment, FileSystemLoader
 
@@ -14,6 +15,34 @@ import transfer_app.launchers as _launchers
 
 sys.path.append(os.path.realpath('helpers'))
 from helpers.email_utils import send_email
+
+
+def handle_launch_problems(failed_pks, launch_count):
+    '''
+    This function wraps common behavior for actions to take if one of the transfers did not launch 
+    properly.
+    '''
+    # for those that instantly failed, mark them complete:
+    tc_set = []
+    for transfer_pk in failed_pks:
+        transfer_obj = Transfer.objects.get(pk=transfer_pk)
+        tc_set.append(transfer_obj.coordinator) # all the Transfers should have the same coordinator, but let's keep it general
+        transfer_obj.completed = True
+        transfer_obj.success = False
+        tz = transfer_obj.start_time.tzinfo
+        now = datetime.datetime.now(tz)
+        duration = now - transfer_obj.start_time
+        transfer_obj.duration = duration
+        transfer_obj.finish_time = now
+        transfer_obj.save()
+
+    tc_set_pks = set([x.pk for x in tc_set])
+    if launch_count == 0:
+        for tc_pk in tc_set_pks:
+            tc = TransferCoordinator.objects.get(pk=tc_pk)
+            all_transfers = Transfer.objects.filter(coordinator = tc)
+            all_originators = list(set([x.originator.email for x in all_transfers]))
+            post_completion(tc, all_originators)
 
 
 def post_completion(transfer_coordinator, originator_emails):
