@@ -24,7 +24,7 @@ def fuse_mount(bucketname, logger):
 	'''
 	Mounts the bucket to MOUNT_DIR
 	'''
-	cmd = 'gcsfuse %s %s' % (bucketname, MOUNT_DIR)
+	cmd = 'gcsfuse --implicit-dirs %s %s' % (bucketname, MOUNT_DIR)
 	logger.log_text('Mount bucket with: %s' % cmd) 
 	p = sp.Popen(cmd, shell=True, stdout=sp.PIPE, stderr=sp.STDOUT)
 	stdout, stderr = p.communicate()
