@@ -64,13 +64,16 @@ Provided a working WDL file (or set of WDL files), someone with admin privileges
 
 At minimum, you need two files to be placed into this directory- 
 - `main.wdl`: Your "main" WDL file.  **Must** be named "main.wdl" and contain a `workflow` directive.
+- `inputs.template.json`: The "inputs" JSON file for the workflow.
 - `gui.json`: A JSON-format file which dictates how to construct the HTML GUI.  See section below.
 
 In addition to these files, there may be *other* WDL files, supporting use-cases where one might save WDL tasks in separate files, or cases where workflows execute sub-workflows (in the WDL/Cromwell nomenclature).  They are located by the `.wdl` extension, so *only* files ending with that prefix will be found.  
 
 There may also be python files, which assist in mapping the GUI inputs to the WDL inputs.  We show an example of this below.
 
-Note that the `gui.json` file can be created by either the developer *or* the admin (or a combination of effort).  Since creation of a proper GUI might require some debugging/iterations to get correct, this task would likely fall more into the realm of the CNAP admin.  Additionally, the CNAP admin might be more familiar with creating the `gui.json` file whereas a developers effort would be focused on a robust WDL workflow. 
+Note that the `gui.json` file can be created by either the developer *or* the admin (or a combination of effort).  Since creation of a proper GUI might require some debugging/iterations to get correct, this task would likely fall more into the realm of the CNAP admin.  Additionally, the CNAP admin might be more familiar with creating the `gui.json` file whereas a developers effort would be focused on a robust WDL workflow.
+
+Since optional inputs inside the WDL are challenging to programatically handle in a consistent manner, we opted to have the developer specify exactly what they need as inputs.  The WDL should have been tested prior to integration to CNAP, and there should already be an adequate and valid inputs JSON file available.
 
 <a id="ingest-workflow"></a>
 **Ingesting the workflow**

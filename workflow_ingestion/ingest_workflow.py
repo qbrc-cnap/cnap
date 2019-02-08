@@ -95,6 +95,13 @@ class HandlerConfigException(Exception):
     '''
     pass
 
+class MissingWdlInputTemplateException(Exception):
+    '''
+    This is raised if the inputs template for the WDL
+    is missing.
+    '''
+    pass
+
 
 def parse_commandline():
     '''
@@ -235,41 +242,6 @@ def call_external(cmd):
         print('stdout: %s' % stdout)
         print('stderr: %s' % stderr)
         sys.exit(1)
-
-
-def create_input_template(file_dict, staging_dir, inputs_template_filename):
-    '''
-    The input arg is a path to a directory containing staged files
-    There is a single WDL file giving the definition
-
-    Note that to run the WOM tool, we might need to unzip the archive
-    of task (or subworkflow) WDL files if such an archive exists.
-
-    This function calls out to the WOMtool which creates the input template
-    required to run the WDL
-    '''
-    main_wdl_file = [x for x in file_dict[WDL] if os.path.basename(x) == MAIN_WDL][0]
-    try:
-        zip_file = file_dict[ZIP][0]
-        unzip_cmd = 'unzip %s -d %s' % (
-            os.path.join(staging_dir, zip_file), 
-            staging_dir
-        )
-        call_external(unzip_cmd) 
-    except IndexError:
-        # there was no zip file (so the key was pointing at an empty list).
-        # Nothing to do and not an error, so simply pass 
-        pass
-
-    # try to run the WOMtool:
-    inputs_template_path = os.path.join(staging_dir, inputs_template_filename)
-    cmd = 'java -jar %s inputs %s > %s' % (WOMTOOL_JAR, 
-            main_wdl_file, 
-            inputs_template_path
-        )
-    call_external(cmd)
-
-    return inputs_template_path
 
 
 def copy_to_staging_directory(*files):
@@ -684,10 +656,11 @@ if __name__ == '__main__':
     for filetype, filepaths in file_dict.items():
         file_dict[filetype] = [os.path.join(staging_dir, os.path.basename(x)) for x in filepaths] 
 
-    # Need to create an input template based on the WDL workflow:
-    inputs_template_path = create_input_template(file_dict, staging_dir, 
-        settings.WDL_INPUTS_TEMPLATE_NAME)
-    file_dict[JSON].append(inputs_template_path)
+    # Need to check that there is an input template based on the WDL workflow:
+    inputs_template_path = os.path.join(staging_dir, settings.WDL_INPUTS_TEMPLATE_NAME)
+    if not os.path.isfile(inputs_template_path):
+        raise MissingWdlInputTemplateException('Need a file %s to be included in '
+        'the original workflow directory' % settings.WDL_INPUTS_TEMPLATE_NAME)
 
     # At this point, we have a staging directory with all the required files
     # To create the GUI template, we need the GUI spec, the staging dir, and the inputs
