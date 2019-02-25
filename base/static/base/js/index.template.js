@@ -20,6 +20,7 @@ START Loading of dynamic resources:
 */
 
 var csrfToken = getCookie('csrftoken');
+var all_resources = [];
 
 // Get the active resources for the download tab:
 $.ajax({
@@ -36,7 +37,7 @@ $.ajax({
                 var filename = item['name'];
                 markup += `<tr>
                       <td><input class="download-selector" type="checkbox" target="${item['id']}"/></td>
-                      <td>${filename}</td>
+                      <td class="download-filename">${filename}</td>
                       <td>${size}</td>
                     </tr>`;
             }
@@ -44,6 +45,7 @@ $.ajax({
             markup = `<tr><td colspan="2" align="center">No resources to download</td></tr>`
         }
         tableBody.append(markup); 
+        all_resources = $("#download-table tbody .download-filename");
     },
     error:function(){
         console.log('error!');
@@ -533,12 +535,27 @@ $("#close-error-dialog").click(function(){
 // Below is code related to javascript for downloads.  When the user clicks on the button
 // JS needs to collect the info about what to send. 
 
+ $("#download-file-filter").keyup(function(e){
+     var target = e.target;
+     var filter_val = target.value;
+     for(var i=0; i  all_resources.length; i++){
+         var r = all_resources[i];
+         var filename = r.textContent;
+         var n = filename.search(filter_val);
+         if (n == -1){
+             $(r).parent("tr").hide();
+         } else {
+             $(r).parent("tr").show();
+         }
+     }
+ });
+
 $(".init-download-btn").click(function(){
     var selectedPks = [];
     var checkBoxes = $("#download-table tbody").find(".download-selector");
     for( var i=0; i<checkBoxes.length; i++ ){
         var cbx = checkBoxes[i];
-        if($(cbx).prop("checked") == true){
+        if(($(cbx).prop("checked") == true) && ($(cbx).parents("tr").is(":visible"))){
             selectedPks.push($(cbx).attr("target"));
         }
     }

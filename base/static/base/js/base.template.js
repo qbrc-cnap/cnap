@@ -60,7 +60,9 @@ $(".select-all-checkbox").click(function(){
 
     if ($(this).prop("checked") == true){
         $(inputs).each(function(number, el){
-            $(el).prop("checked", true);
+             if ($(el).is(":visible")){
+                 $(el).prop("checked", true);
+             }
         });
     }else{
         $(inputs).each(function(number, el){
