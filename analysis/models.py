@@ -27,6 +27,9 @@ class Workflow(models.Model):
     # this keeps track of potential sub-versions of a workflow
     version_id = models.PositiveSmallIntegerField()
 
+    # the git commit ID of the workflow repository:
+    git_commit_hash = models.CharField(max_length=1000, blank=False)
+
     # this keeps track of the workflow name. 
     workflow_name = models.CharField(max_length=500)
 
@@ -64,6 +67,37 @@ class Workflow(models.Model):
 
     def __str__(self):
         return '%s (version ID: %s)' % (self.workflow_name, self.version_id)
+
+
+class PendingWorkflow(models.Model):
+    '''
+    This class is used with the workflow ingestion process.  Typically, a user
+    with admin privileges will submit a git repository URL to the dashboard interface
+    which will kickoff the process of ingesting and creating a new workflow.  Since
+    that process can take a while (and/or have an error), we save the clone URL here
+    so that they can check on the progress
+    '''
+    # The time it was submitted and finished:
+    start_time = models.DateTimeField(null=False, auto_now_add=True)
+    finish_time = models.DateTimeField(blank=True, null=True)
+
+    # the url submitted for the clone:
+    clone_url = models.CharField(max_length=1000, blank=False)
+
+    # we track the version by the git commit hash 
+    commit_hash = models.CharField(max_length=100, blank=False)
+
+    # A status message for tracking progress
+    status = models.CharField(max_length=1000, blank=True, default='')
+
+    # Did it experience an error?
+    error = models.BooleanField(default=False)
+
+    # Has the ingestion completed?
+    complete = models.BooleanField(default=False)
+
+    # The directory where the repo was cloned and staged:
+    staging_directory = models.CharField(max_length=1000, blank=False)
 
 
 class AnalysisProject(models.Model):

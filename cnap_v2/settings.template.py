@@ -291,6 +291,9 @@ CONTEXT_ARGS = 'context_args'
 # The ingestion scripts place files in particular locations, and
 # we can parse the config file there to get those parameters
 
+# This is where we clone the git repositories prior to ingestion
+CLONE_STAGING = os.path.join(BASE_DIR, 'clone_staging')
+
 # read the config file and extract the parameters we need:
 ingestion_dir = os.path.join(BASE_DIR, 'workflow_ingestion')
 ingestion_config_path = os.path.join(ingestion_dir, 'config.cfg')

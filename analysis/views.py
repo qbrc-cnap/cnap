@@ -16,11 +16,12 @@ from rest_framework import generics, permissions, status
 from django_filters.rest_framework import DjangoFilterBackend
 
 from helpers.email_utils import notify_admins
-from .models import Workflow, AnalysisProject, OrganizationWorkflow
+from .models import Workflow, AnalysisProject, OrganizationWorkflow, PendingWorkflow
 from base.models import Issue
 from .serializers import WorkflowSerializer, \
     AnalysisProjectSerializer, \
-    OrganizationWorkflowSerializer
+    OrganizationWorkflowSerializer, \
+    PendingWorkflowSerializer
 from .view_utils import query_workflow, \
     validate_workflow_dir, \
     fill_context, \
@@ -57,10 +58,32 @@ class WorkflowList(generics.ListAPIView):
 
 
 class WorkflowDetail(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Workflow.objects.all()
     serializer_class = WorkflowSerializer
     permission_classes = (permissions.IsAdminUser,)
     filter_backends = (DjangoFilterBackend,)
     filter_fields = ('is_active', 'is_default')
+
+
+class PendingWorkflowList(generics.ListAPIView):
+    '''
+    This lists the PendingWorkflow instances.  Only available to admins
+    '''
+    serializer_class = PendingWorkflowSerializer
+    permission_classes = (permissions.IsAdminUser,)
+    filter_backends = (DjangoFilterBackend,)
+    filter_fields = ('complete', 'error')
+
+    def get_queryset(self):
+        return PendingWorkflow.objects.all()
+
+
+class PendingWorkflowDetail(generics.RetrieveUpdateDestroyAPIView):
+    queryset = PendingWorkflow.objects.all()
+    serializer_class = PendingWorkflowSerializer
+    permission_classes = (permissions.IsAdminUser,)
+    filter_backends = (DjangoFilterBackend,)
+    filter_fields = ('complete', 'error')
 
 
 class AnalysisProjectListAndCreate(generics.ListCreateAPIView):

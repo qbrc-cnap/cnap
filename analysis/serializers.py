@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from analysis.models import Workflow, AnalysisProject, OrganizationWorkflow
+from analysis.models import Workflow, AnalysisProject, OrganizationWorkflow, PendingWorkflow
 
 class WorkflowSerializer(serializers.ModelSerializer):
 
@@ -8,12 +8,27 @@ class WorkflowSerializer(serializers.ModelSerializer):
         model = Workflow
         fields = ('workflow_id', \
                   'version_id', \
+                  'git_commit_hash', \
                   'workflow_name', \
                   'workflow_title', \
                   'workflow_short_description', \
                   'workflow_long_description', \
                   'is_default', \
                   'is_active' \
+        )
+
+
+class PendingWorkflowSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PendingWorkflow
+        fields = ( 'clone_url', \
+                   'commit_hash', \
+                   'status', \
+                   'error', \
+                   'complete', \
+                   'staging_directory', \
+                   'start_time', \
+                   'finish_time', \
         )
 
 

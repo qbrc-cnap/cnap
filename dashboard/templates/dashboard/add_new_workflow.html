@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+
+
+
+{% block page_specific_css %}
+<style>
+#dashboard-wrapper{
+    display:flex;
+    flex-direction: column;
+    width: 90%;
+    margin: 20px;
+}
+
+#dashboard-content{
+    display:flex;
+    flex-direction:column;
+    margin-top:20px;
+}
+
+input[type="text"] {
+    width:100%;
+    margin-bottom:20px;
+}
+
+#message-div {
+    margin-top:20px;
+    background-color: rgb(220,220,220);
+    border-radius: 5px;
+    padding:10px;
+}
+
+</style>{% endblock %}
+
+
+
+{% block content%}
+<div id="dashboard-wrapper">
+  <h3>Add new workflow:</h3>
+  <div id="dashboard-content">
+    <form method="post">
+      {% csrf_token %}
+      <div>
+      <input type="text" name="clone_url" placeholder="Enter github repository URL for cloning..."/>
+      </div>
+      <div>
+      <input type="submit" value="Add workflow">
+      </div>
+    </form>
+    {% if message %}
+    <div id="message-div">
+      {{message}}
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+

@@ -24,7 +24,7 @@ import subprocess as sp
 from importlib import import_module
 from inspect import signature
 
-import gui_utils
+import workflow_ingestion.gui_utils as gui_utils
 
 # for easy reference, determine the directory we are currently in, and
 # also the base directory for the entire project (one level up)
@@ -287,10 +287,12 @@ def get_workflow_name(wdl_path):
     decide to name their workflows with ridiculous names or use 
     bizarre whitespace chars that don't work with python's regex: "\s" (don't do that!)
     '''
+    print('using %s' % wdl_path)
     pattern = r'workflow\s+([a-zA-Z][a-zA-Z0-9_]+)\s*\{.*\}'
     f = open(wdl_path).read()
     m=re.search(pattern, f, flags=re.DOTALL)
     if m:
+        print('TITLE: %s' % m.group(1))
         return m.group(1)
 
 def get_workflow_title_and_description(wdl_path):
@@ -306,7 +308,7 @@ def get_workflow_title_and_description(wdl_path):
     If there is a meta section but either of the keys are missing, return
     suitable defaults (workflow name and empty string for title and description, respectively)
     '''
-
+    print('Using %s for get_workflow_title_and_description' % wdl_path)
     # we are looking in the meta section, so grab that
     meta_pattern = r'meta\s+\{.*?\}'
     f = open(wdl_path).read()
@@ -516,14 +518,12 @@ def add_workflow_to_db(workflow_name, destination_dir):
         max_version_id = max([x.version_id for x in existing_wf])
         version_id = max_version_id + 1
 
-    # get the WDL file:
-    wildcard_path = os.path.join(destination_dir, '*' + WDL)
-    matches = glob.glob(wildcard_path)
-    if len(matches) > 0:
-        wdl_path = matches[0]
-        workflow_title, workflow_short_description, workflow_long_description = get_workflow_title_and_description(wdl_path)
+    # get the main WDL file:
+    main_wdl = os.path.join(destination_dir, MAIN_WDL)
+    if os.path.isfile(main_wdl):
+        workflow_title, workflow_short_description, workflow_long_description = get_workflow_title_and_description(main_wdl)
     else:
-        raise Exception('Zero WDL files found.  This should not happen.')
+        raise Exception('Zero main WDL files found.  This should not happen.  The main WDL must have been lost somehow??')
 
     # now have a valid workflow and version ID.  Create the object
     workflow_location = os.path.relpath(destination_dir, APP_ROOT_DIR)
@@ -622,23 +622,16 @@ def link_form_css(workflow_libdir_name, workflow_dir, css_filename):
     os.symlink(css_path, linkpath)
 
 
-if __name__ == '__main__':
+def ingest_main(clone_dir):
     '''
-    This script is always called from the commandline
+    clone_dir is the path to a local directory which has the workflow content
     '''
-
-    if os.getcwd() != APP_ROOT_DIR:
-        print('Please execute this script from %s.  Exiting.' % APP_ROOT_DIR)
-        sys.exit(1)
-
-    # First parse any commandline args and configuration params:
-    arg_dict = parse_commandline()
 
     # Get the files we need to ingest: 
-    file_dict = get_files(arg_dict[NEW_WDL_DIR])
+    file_dict = get_files(clone_dir)
 
     # Get the file specifying the GUI
-    gui_spec_path = get_gui_spec(arg_dict[NEW_WDL_DIR])
+    gui_spec_path = get_gui_spec(clone_dir)
 
     # We expect that the WDL files are correct and have been tested, as we are
     # not in the business of double-checking and writing additional parsers.
@@ -688,8 +681,10 @@ if __name__ == '__main__':
     # This dir will be at <workflow_name>/<stamp> relative to the workflows_dir.
     # <stamp> is a string used to identify unique subversions of the workflow
     # with a name of <workflow_name>
-    wdl_path = file_dict[WDL][0]
-    workflow_name = get_workflow_name(wdl_path)
+    main_wdl_paths = [x for x in file_dict[WDL] if os.path.basename(x) == MAIN_WDL]
+    if len(main_wdl_paths) != 1:
+        raise WdlImportException('Could not locate %s, or there were > 1.  Result was: %s ' % (MAIN_WDL,main_wdl_paths))
+    workflow_name = get_workflow_name(main_wdl_paths[0])
     destination_dir = create_workflow_destination(workflow_name)
 
     # copy the files over.  Rather than copying everything, only copy over the
@@ -711,3 +706,19 @@ if __name__ == '__main__':
 
     # let the user know where the final files are:
     print('Success!  Your new workflow has been added to the database and the files are located at %s' % destination_dir)
+
+
+if __name__ == '__main__':
+    '''
+    If this script is called from the commandline
+    '''
+
+    if os.getcwd() != APP_ROOT_DIR:
+        print('Please execute this script from %s.  Exiting.' % APP_ROOT_DIR)
+        sys.exit(1)
+
+    # First parse any commandline args and configuration params:
+    arg_dict = parse_commandline()
+
+    # call the main worker function
+    ingest_main(arg_dict[NEW_WDL_DIR])

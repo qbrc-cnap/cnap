@@ -19,6 +19,10 @@ urlpatterns = [
     path('workflows/', views.WorkflowList.as_view(), name='workflow-list'),
     path('workflows/<int:pk>/', views.WorkflowDetail.as_view(), name='workflow-detail'),
 
+    # endpoints for PEndingWorkflows
+    path('pending-workflows/', views.PendingWorkflowList.as_view(), name='pending-workflow-list'),
+    path('pending-workflows/<int:pk>/', views.PendingWorkflowDetail.as_view(), name='pending-workflow-detail'),
+
     # endpoints for OrganizationWorkflows
     path('org-workflows/', views.OrganizationWorkflowList.as_view(), 
         name='org-workflow-list'
