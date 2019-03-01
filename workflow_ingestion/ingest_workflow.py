@@ -509,8 +509,31 @@ def check_handlers(staging_dir):
         json.dump(workflow_gui_spec, fout)
     return handler_module_list
 
+def parse_docker_runtime_declaration(docker_str):
+    '''
+    This function parses the docker string that is parsed out of 
+    the WDL file.  Returns a tuple of strings giving the image name and tag,
+    e.g. ('docker.io/user/img', 'v1.0') 
+    Raises an exception if there is no tag
+    '''
+    # now if we split on ':', we get something like: (note the quotes)
+    # ['docker', ' "docker.io/foo/bar', 'tag"']
+    # if a tag is not specified, this list will have length 2.  We enforce that images are tagged, so raise excpetion
+    contents = [x.strip() for x in docker_str.split(':')] # now looks like ['docker', '"docker.io/foo/bar', 'tag"']
+    if len(contents) != 3:
+        raise RuntimeDockerException('The docker spec (%s) did not match our expectations. '
+            'Perhaps a tag was missing?  See WDL file %s' % (docker_str, wdl_path))
+    image_name = contents[1][1:] # strip off the leading double-quote, leaving 'docker.io/foo/bar'
+    tag = contents[-1][:-1] # strip off the trailing double-quote, leaving 'tag'
 
-def check_runtime(wdl_path):
+    if tag == 'latest':
+        raise RuntimeDockerException('We do not allow the use of the "latest" tag for the Docker images. '
+            'Please specify another tag.  Check WDL file %s' % wdl_path)
+
+    return (image_name, tag)
+
+
+def check_runtime(wdl_text):
     '''
     This function does the actual checking in the WDL file
 
@@ -521,9 +544,6 @@ def check_runtime(wdl_path):
     task_pattern = 'task\s+\w+\s?\{' # only finds the task definition line- does not extract the entire block of the task
     runtime_pattern = 'runtime\s?\{.*?\}' # extracts the entire runtime section, including the braces
     docker_pattern = 'docker\s?:\s?".*?"' # extracts the docker specification, e.g. docker: `"repo/user/image:tag"`
-
-    # read in the entire WDL file:
-    wdl_text = open(wdl_path).read()
 
     # prepare a list to return:
     docker_runtimes = []
@@ -538,26 +558,13 @@ def check_runtime(wdl_path):
     if len(runtime_sections) != num_tasks:
         raise RuntimeDockerException('There were %d tasks defined, '
             'but only %d runtime sections found.  Check your WDL file %s' % (num_tasks, len(runtime_sections), wdl_path))
-    else: # number of runtime sections are consistent with tasks
+    elif num_tasks > 0: # tasks are defined and the number of runtime sections are consistent with tasks
         for runtime_section in runtime_sections:
             docker_match = re.search(docker_pattern, runtime_section, re.DOTALL)
             if docker_match:
                 # the docker line was found.  Now parse it.
                 docker_str = docker_match.group()  # something like 'docker: "docker.io/foo/bar:tag"'
-
-                # now if we split on ':', we get something like: (note the quotes)
-                # ['docker', ' "docker.io/foo/bar', 'tag"']
-                # if a tag is not specified, this list will have length 2.  We enforce that images are tagged, so raise excpetion
-                contents = [x.strip() for x in docker_str.split(':')] # now looks like ['docker', '"docker.io/foo/bar', 'tag"']
-                if len(contents) != 3:
-                    raise RuntimeDockerException('The docker spec (%s) did not match our expectations. '
-                        'Perhaps a tag was missing?  See WDL file %s' % (docker_str, wdl_path))
-                image_name = contents[1][1:] # strip off the leading double-quote, leaving 'docker.io/foo/bar'
-                tag = contents[-1][:-1] # strip off the trailing double-quote, leaving 'tag'
-                if tag == 'latest':
-                    raise RuntimeDockerException('We do not allow the use of the "latest" tag for the Docker images. '
-                        'Please specify another tag.  Check WDL file %s' % wdl_path)
-
+                image_name, tag = parse_docker_runtime_declaration(docker_str)
                 # "add" them back together, so we end up with 'docker.io/foo/bar:tag'
                 docker_runtimes.append('%s:%s' % (image_name, tag))
             else: # docker spec not found in this runtime.  That's a problem
@@ -640,7 +647,9 @@ def check_runtime_docker_containers(staging_dir):
     wdl_files = [x for x in os.listdir(staging_dir) if os.path.basename(x).split('.')[-1].lower().endswith(WDL)]
     for w in wdl_files:
         w = os.path.join(staging_dir, w)
-        image_set = image_set.union(check_runtime(w))
+        # read in the entire WDL file:
+        wdl_text = open(wdl_path).read()
+        image_set = image_set.union(check_runtime(wdl_text))
 
     # now we have a set of the images we will be using, such as {'docker.io/user/imageA:tag1', 'docker.io/user/imageB:tag2'}
     # Check that they exist

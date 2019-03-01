@@ -9,10 +9,12 @@ import unittest.mock as mock
 THIS_DIR = os.path.realpath(os.path.abspath(os.path.dirname(__file__)))
 TEST_UTILS_DIR = os.path.join(THIS_DIR, 'test_utils')
 
-from .ingest_workflow import locate_handler, copy_handler_if_necessary, \
-    inspect_handler_module, get_files, \
+from .ingest_workflow import locate_handler, \
+    copy_handler_if_necessary, inspect_handler_module, \
+    get_files, query_for_tag, parse_docker_runtime_declaration, \
+    check_runtime, \
     MissingHandlerException, HandlerConfigException, WdlImportException, \
-    WDL, PYFILE, ZIP, JSON
+    RuntimeDockerException, WDL, PYFILE, ZIP, JSON
 
 from .gui_utils import check_input_mapping, fill_html_template, \
     check_known_input_element, TARGET, TARGET_IDS, DISPLAY_ELEMENT, GUI_ELEMENTS, \
@@ -265,4 +267,155 @@ class TestWorkflowIngestion(TestCase):
         with self.assertRaises(SyntaxError):
             inspect_handler_module('/some/path/bar.py', 'myfunc', 1)
 
+
+    @mock.patch('workflow_ingestion.ingest_workflow.perform_query')
+    def test_reject_ingestion_if_no_docker_tag(self, mock_perform_query):
+        '''
+        This tests that an exception is raised if there is no docker
+        image with the tag
+        '''
+        mock_perform_query.return_value = {
+            'count':3,
+            'next': None
+            'results':[
+                {'name': 'v1.0'},
+                {'name': 'v1.1'},
+                {'name': 'v1.2'}
+            ]
+        }
+        self.assertTrue(query_for_tag('url', 'v1.1'))
+
+    @mock.patch('workflow_ingestion.ingest_workflow.perform_query')
+    def test_reject_ingestion_if_no_docker_tag(self, mock_perform_query):
+        '''
+        This tests that an exception is raised if there is no docker
+        image with the tag
+        '''
+        mock_perform_query.return_value = {
+            'count':3,
+            'next': None
+            'results':[
+                {'name': 'v1.0'},
+                {'name': 'v1.1'},
+                {'name': 'v1.2'}
+            ]
+        }
+        self.assertFalse(query_for_tag('url', 'v1.3'))
+
+
+    def test_docker_image_without_tag_raises_exception(self):
+        '''
+        If the WDL runtime section has a declaration like:
+          docker: "docker.io/someUser/someImage"
+          then it does not have a tag ("latest" if inferred)
+        reject that since we wish to keep all the docker containers
+        specifically versioned.
+        '''
+        with self.assertRaises(RuntimeDockerException):
+            parse_docker_runtime_declaration('docker: "docker.io/someUser/foo"')
+
+
+    def test_docker_image_with_latest_tag_raises_exception(self):
+        '''
+        If the WDL runtime section has a declaration like:
+          docker: "docker.io/someUser/someImage"
+          then it does not have a tag ("latest" if inferred)
+        reject that since we wish to keep all the docker containers
+        specifically versioned.
+        '''
+        with self.assertRaises(RuntimeDockerException):
+            parse_docker_runtime_declaration('docker: "docker.io/someUser/foo:latest"')
+
+
+    def test_missing_runtime_section_raises_exception(self):
+        '''
+        If one writes a task that does not have a runtime section an exception
+        should be raised
+        '''
+
+        # Some mock WDL text.  Note that taskA is missing the runtime section
+        wdl_text = '''
+        workflow {
+            File x
+            call taskA {
+                input:
+                y=x
+            }
+            call task B {
+                input:
+                z=x
+            }
+        }
+        task taskA{
+            File y
+            command {
+                echo ${y}
+            }
+        }
+
+        task taskB{
+            File z
+            command {
+                echo ${z}
+            }
+            runtime {
+                docker: "docker.io/userA/imgA:v1.0"
+            }
+        }
+        '''
+        with self.assertRaises(RuntimeDockerException):
+            check_runtime(wdl_text)
+
+    def test_missing_docker_spec_raises_exception(self):
+        '''
+        If the runtime section does not have a docker declaration, raise
+        an exception
+        '''
+
+        # Some mock WDL text.  Note that taskA has a runtime, but is missing
+        # the docker key-value:
+        wdl_text = '''
+        workflow {
+            File x
+            call taskA {
+                input:
+                y=x
+            }
+        }
+        task taskA{
+            File y
+            command {
+                echo ${y}
+            }
+            runtime {
+               cpu: 8
+               memory: "16G" 
+            }
+        }
+
+        '''
+        with self.assertRaises(RuntimeDockerException):
+            check_runtime(wdl_text)
+
+
+    def test_wdl_without_task_returns_empty_set(self):
+        '''
+        If the WDL file does not define any tasks (e.g. only workflow)
+        then the check_runtime function should return an empty set
+        '''
+
+        # Some mock WDL text.  Note that taskA has a runtime, but is missing
+        # the docker key-value:
+        wdl_text = '''
+        import "foo.wdl" as foo
+        workflow {
+            File x
+            call foo.taskA {
+                input:
+                y=x
+            }
+        }
+        '''
+        result = check_runtime(wdl_text)
+        self.assertTrue(len(result) == 0)
 
