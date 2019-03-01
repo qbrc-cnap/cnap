@@ -2,18 +2,19 @@ import os
 import shutil
 import json
 
-from unittest import TestCase
+#from unittest import TestCase
+from django.test import TestCase
 import unittest.mock as mock
 
 THIS_DIR = os.path.realpath(os.path.abspath(os.path.dirname(__file__)))
 TEST_UTILS_DIR = os.path.join(THIS_DIR, 'test_utils')
 
-from ingest_workflow import locate_handler, copy_handler_if_necessary, \
+from .ingest_workflow import locate_handler, copy_handler_if_necessary, \
     inspect_handler_module, get_files, \
     MissingHandlerException, HandlerConfigException, WdlImportException, \
     WDL, PYFILE, ZIP, JSON
 
-from gui_utils import check_input_mapping, fill_html_template, \
+from .gui_utils import check_input_mapping, fill_html_template, \
     check_known_input_element, TARGET, TARGET_IDS, DISPLAY_ELEMENT, GUI_ELEMENTS, \
     InvalidGuiMappingException, \
     ConfigurationException, UnknownGuiElementException
@@ -34,16 +35,16 @@ class TestWorkflowIngestion(TestCase):
     the workflow
     '''
 
-    @mock.patch('ingest_workflow.os')
+    @mock.patch('workflow_ingestion.ingest_workflow.os')
     def test_missing_main_wdl_file_raises_ex(self, mock_os):
         mock_os.listdir.return_value = ['foo.wdl', 'bar.py', 'gui.json']
         with self.assertRaises(WdlImportException):
            get_files('/www/mydir')
 
 
-    @mock.patch('ingest_workflow.os.listdir', new=mock_listdir)
-    @mock.patch('ingest_workflow.os.path.abspath', new=mock_abspath)
-    @mock.patch('ingest_workflow.os.path.realpath', new=mock_realpath)
+    @mock.patch('workflow_ingestion.ingest_workflow.os.listdir', new=mock_listdir)
+    @mock.patch('workflow_ingestion.ingest_workflow.os.path.abspath', new=mock_abspath)
+    @mock.patch('workflow_ingestion.ingest_workflow.os.path.realpath', new=mock_realpath)
     def test_multiple_wdl_file_correctly_configured_returns_expected(self):
         file_dict = get_files('/www/mydir')
         expected_dict = {
@@ -59,7 +60,7 @@ class TestWorkflowIngestion(TestCase):
         This tests that the function responsible for finding the 
         handler returns None if it is not found
         '''
-        with mock.patch('ingest_workflow.os.path.isfile', side_effect=[False, False]):
+        with mock.patch('workflow_ingestion.ingest_workflow.os.path.isfile', side_effect=[False, False]):
             locations = ['/foo/bar', 'foo/baz']
             returnval = locate_handler('modname', locations)
             self.assertEqual(None, returnval)
@@ -69,13 +70,13 @@ class TestWorkflowIngestion(TestCase):
         This tests that the function responsible for finding the 
         handler returns the proper path if it is found
         '''
-        with mock.patch('ingest_workflow.os.path.isfile', side_effect=[False, True]):
+        with mock.patch('workflow_ingestion.ingest_workflow.os.path.isfile', side_effect=[False, True]):
             locations = ['/foo/bar', '/foo/baz']
             returnval = locate_handler('modname', locations)
             self.assertEqual('/foo/baz/modname', returnval)
 
-    @mock.patch('ingest_workflow.shutil.copy2')
-    @mock.patch('ingest_workflow.locate_handler')
+    @mock.patch('workflow_ingestion.ingest_workflow.shutil.copy2')
+    @mock.patch('workflow_ingestion.ingest_workflow.locate_handler')
     def test_handler_in_staging_dir_and_no_copy_called(self, mock_locator, mock_copy2):
         '''
         This tests the case where a gui element (e.g. a file chooser)
@@ -95,8 +96,8 @@ class TestWorkflowIngestion(TestCase):
         mock_copy2.assert_not_called()
 
 
-    @mock.patch('ingest_workflow.shutil.copy2')
-    @mock.patch('ingest_workflow.locate_handler')
+    @mock.patch('workflow_ingestion.ingest_workflow.shutil.copy2')
+    @mock.patch('workflow_ingestion.ingest_workflow.locate_handler')
     def test_copy_default_handler_called(self, mock_locator, mock_copy2):
         '''
         This tests the case where a gui element (e.g. a file chooser)
@@ -167,12 +168,12 @@ class TestWorkflowIngestion(TestCase):
             "choose_multiple": True, \
             "description": "Choose files to concatenate" \
 		}	
-        gui_schema = json.load(open('gui_schema.json'))
+        gui_schema = json.load(open(os.path.join(THIS_DIR, 'gui_schema.json')))
         element_schema = gui_schema['gui_elements']['file_chooser']
         with self.assertRaises(ConfigurationException):
             fill_html_template(input_element, element_schema, 'file_chooser', 0)
 
-    @mock.patch('ingest_workflow.locate_handler')
+    @mock.patch('workflow_ingestion.ingest_workflow.locate_handler')
     def test_missing_handler_raises_exception_case1(self, mock_locator):
         '''
         If the GUI spec gives a handler that does not exist,
@@ -202,12 +203,13 @@ class TestWorkflowIngestion(TestCase):
             "choose_multiple": True, \
             "description": "Choose files to concatenate" \
 		}	
-        gui_schema = json.load(open('gui_schema.json'))
+        gui_schema = json.load(open(os.path.join(THIS_DIR, 'gui_schema.json')))
         gui_schema_element_names = gui_schema[GUI_ELEMENTS].keys()
         with self.assertRaises(UnknownGuiElementException):
             check_known_input_element(display_element, gui_schema_element_names)
 
-    @mock.patch('ingest_workflow.import_module')
+    @mock.patch('workflow_ingestion.ingest_workflow.os.listdir', new=mock_listdir)
+    @mock.patch('workflow_ingestion.ingest_workflow.import_module')
     def test_input_mapping_handler_missing_entry_method_raises_ex(self, mock_import_mod):
         '''
         The input mapping python code requires a function named
@@ -219,10 +221,12 @@ class TestWorkflowIngestion(TestCase):
         del mock_mod.myfunc
         mock_import_mod.return_value = mock_mod
         with self.assertRaises(HandlerConfigException):
-            inspect_handler_module('/some/path/foo.py', 'myfunc', 1)
+            inspect_handler_module('/some/path/bar.py', 'myfunc', 1)
 
-    @mock.patch('ingest_workflow.import_module')
-    @mock.patch('ingest_workflow.signature')
+
+    @mock.patch('workflow_ingestion.ingest_workflow.os.listdir', new=mock_listdir)
+    @mock.patch('workflow_ingestion.ingest_workflow.import_module')
+    @mock.patch('workflow_ingestion.ingest_workflow.signature')
     def test_input_mapping_handler_incorrect_signature_raises_ex(self, \
         mock_signature,
         mock_import_mod
@@ -245,10 +249,11 @@ class TestWorkflowIngestion(TestCase):
         # ensure we throw an exception if the number of expected args is
         # different (i.e. any number other than 2 below)
         with self.assertRaises(HandlerConfigException):
-            inspect_handler_module('/some/path/foo.py', 'myfunc', 1)
+            inspect_handler_module('/some/path/bar.py', 'myfunc', 1)
 
 
-    @mock.patch('ingest_workflow.import_module', side_effect=SyntaxError)
+    @mock.patch('workflow_ingestion.ingest_workflow.os.listdir', new=mock_listdir)
+    @mock.patch('workflow_ingestion.ingest_workflow.import_module', side_effect=SyntaxError)
     def test_handler_syntax_error_raises_exception(self, mock_import_mod):
         '''
         The gui spec was more complex than a string, so it is a dict.
@@ -258,6 +263,6 @@ class TestWorkflowIngestion(TestCase):
         if the code for the handler has a syntax error (import fails)     
         '''
         with self.assertRaises(SyntaxError):
-            inspect_handler_module('/some/path/foo.py', 'myfunc', 1)
+            inspect_handler_module('/some/path/bar.py', 'myfunc', 1)
 
 

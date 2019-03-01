@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     'analysis.apps.AnalysisConfig',
     'base.apps.BaseConfig',
     'dashboard.apps.DashboardConfig',
+    'workflow_ingestion.apps.WorkflowIngestionConfig',
 ]
 
 MIDDLEWARE = [
