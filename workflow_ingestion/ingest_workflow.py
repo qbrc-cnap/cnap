@@ -522,13 +522,13 @@ def parse_docker_runtime_declaration(docker_str):
     contents = [x.strip() for x in docker_str.split(':')] # now looks like ['docker', '"docker.io/foo/bar', 'tag"']
     if len(contents) != 3:
         raise RuntimeDockerException('The docker spec (%s) did not match our expectations. '
-            'Perhaps a tag was missing?  See WDL file %s' % (docker_str, wdl_path))
+            'Perhaps a tag was missing?  See WDL file.' % docker_str)
     image_name = contents[1][1:] # strip off the leading double-quote, leaving 'docker.io/foo/bar'
     tag = contents[-1][:-1] # strip off the trailing double-quote, leaving 'tag'
 
     if tag == 'latest':
         raise RuntimeDockerException('We do not allow the use of the "latest" tag for the Docker images. '
-            'Please specify another tag.  Check WDL file %s' % wdl_path)
+            'Please specify another tag.  Check WDL file.')
 
     return (image_name, tag)
 
@@ -557,7 +557,7 @@ def check_runtime(wdl_text):
     runtime_sections = re.findall(runtime_pattern, wdl_text, re.DOTALL)
     if len(runtime_sections) != num_tasks:
         raise RuntimeDockerException('There were %d tasks defined, '
-            'but only %d runtime sections found.  Check your WDL file %s' % (num_tasks, len(runtime_sections), wdl_path))
+            'but only %d runtime sections found.  Check your WDL file.' % (num_tasks, len(runtime_sections)))
     elif num_tasks > 0: # tasks are defined and the number of runtime sections are consistent with tasks
         for runtime_section in runtime_sections:
             docker_match = re.search(docker_pattern, runtime_section, re.DOTALL)
@@ -569,7 +569,7 @@ def check_runtime(wdl_text):
                 docker_runtimes.append('%s:%s' % (image_name, tag))
             else: # docker spec not found in this runtime.  That's a problem
                 raise RuntimeDockerException('Could not parse a docker image specification from your '
-                    'runtime section: %s.  Check file %s.' % (runtime_section, wdl_path))
+                    'runtime section: %s.  Check file' % runtime_section)
     # if we make it here, no exceptions were raised.  Return the docker images found:
     return set(docker_runtimes)
 

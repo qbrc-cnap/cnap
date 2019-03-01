@@ -276,7 +276,7 @@ class TestWorkflowIngestion(TestCase):
         '''
         mock_perform_query.return_value = {
             'count':3,
-            'next': None
+            'next': None,
             'results':[
                 {'name': 'v1.0'},
                 {'name': 'v1.1'},
@@ -293,7 +293,7 @@ class TestWorkflowIngestion(TestCase):
         '''
         mock_perform_query.return_value = {
             'count':3,
-            'next': None
+            'next': None,
             'results':[
                 {'name': 'v1.0'},
                 {'name': 'v1.1'},
