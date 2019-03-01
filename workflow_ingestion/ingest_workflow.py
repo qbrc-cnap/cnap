@@ -59,6 +59,7 @@ ACCEPTED_FILE_EXTENSIONS = [WDL, PYFILE, ZIP, JSON]
 # Other constants:
 MAIN_WDL = settings.MAIN_WDL
 NEW_WDL_DIR = 'wdl_dir' # a string used for common reference.  Value arbitrary.
+COMMIT_HASH = 'commit_hash' # a string used for common reference.  Value arbitrary.
 WOMTOOL_JAR = settings.WOMTOOL_JAR
 HTML = 'html'
 DISPLAY_ELEMENT = settings.DISPLAY_ELEMENT
@@ -117,6 +118,13 @@ def parse_commandline():
         dest=NEW_WDL_DIR,
         help='Path to a directory containing WDL '
              'files, GUI specs, and other files to be incorporated.'
+    )
+    parser.add_argument(
+        '-c',
+        '--commit',
+         required=True,
+         dest=COMMIT_HASH,
+         help='The git commit hash for this workflow.'
     )
     args = parser.parse_args()
     return vars(args)
@@ -485,7 +493,7 @@ def check_handlers(staging_dir):
         json.dump(workflow_gui_spec, fout)
     return handler_module_list
 
-def add_workflow_to_db(workflow_name, destination_dir):
+def add_workflow_to_db(workflow_name, destination_dir, commit_hash):
     '''
     Once everything is in the correct location, we need to add the new workflow
     to the database.  
@@ -536,7 +544,8 @@ def add_workflow_to_db(workflow_name, destination_dir):
         workflow_location=workflow_location,
         workflow_title = workflow_title, 
         workflow_short_description = workflow_short_description,
-        workflow_long_description = workflow_long_description
+        workflow_long_description = workflow_long_description,
+        git_commit_hash = commit_hash
     )
     wf.save()
 
@@ -622,9 +631,11 @@ def link_form_css(workflow_libdir_name, workflow_dir, css_filename):
     os.symlink(css_path, linkpath)
 
 
-def ingest_main(clone_dir):
+def ingest_main(clone_dir, commit_hash):
     '''
     clone_dir is the path to a local directory which has the workflow content
+    commit_hash is the hash of the git commit so we can track the versioning
+    in git.
     '''
 
     # Get the files we need to ingest: 
@@ -694,7 +705,7 @@ def ingest_main(clone_dir):
             shutil.copy2(fp, destination_dir)
 
     # add the workflow to the database
-    add_workflow_to_db(workflow_name, destination_dir)
+    add_workflow_to_db(workflow_name, destination_dir, commit_hash)
 
     # link the html template so Django can find it
     link_django_template(WORKFLOWS_DIR, destination_dir, settings.HTML_TEMPLATE_NAME)
@@ -721,4 +732,4 @@ if __name__ == '__main__':
     arg_dict = parse_commandline()
 
     # call the main worker function
-    ingest_main(arg_dict[NEW_WDL_DIR])
+    ingest_main(arg_dict[NEW_WDL_DIR], arg_dict[COMMIT_HASH])

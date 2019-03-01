@@ -24,6 +24,11 @@
             <th>Filename</th>
             <th>File size</th>
         </tr>
+        <tr>
+            <th></th>
+            <th><input id="file-choose-filter" class="filename-filter" placeholder="Filter files..."/></th>
+            <th></th>
+        </tr>
     </thead>
     <tbody>
         {% raw %}
@@ -32,7 +37,7 @@
             <td>
                 <input class="download-selector" type="checkbox" target="{{resource.id}}"/>
             </td>
-            <td>
+            <td class="filename-field">
                 {{resource.name}}
             </td>
             <td>
@@ -51,7 +56,9 @@ $(".select-all-cbx").click(function(){
 
     if ($(this).prop("checked") == true){
         $(inputs).each(function(number, el){
-            $(el).prop("checked", true);
+            if ($(el).is(":visible")){
+                $(el).prop("checked", true);
+            }
         });
     }else{
         $(inputs).each(function(number, el){
@@ -59,4 +66,21 @@ $(".select-all-cbx").click(function(){
         });                }
 
 });
+
+
+var all_resources = $(".filename-field");
+$("#file-choose-filter").keyup(function(e){
+     var target = e.target;
+     var filter_val = target.value;
+     for(var i=0; i < all_resources.length; i++){
+         var r = all_resources[i];
+         var filename = r.textContent;
+         var n = filename.search(filter_val);
+         if (n == -1){
+             $(r).parent("tr").hide();
+         } else {
+             $(r).parent("tr").show();
+         }
+     }
+ });
 </script>

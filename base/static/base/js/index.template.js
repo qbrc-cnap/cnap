@@ -535,10 +535,10 @@ $("#close-error-dialog").click(function(){
 // Below is code related to javascript for downloads.  When the user clicks on the button
 // JS needs to collect the info about what to send. 
 
- $("#download-file-filter").keyup(function(e){
+$("#download-file-filter").keyup(function(e){
      var target = e.target;
      var filter_val = target.value;
-     for(var i=0; i  all_resources.length; i++){
+     for(var i=0; i < all_resources.length; i++){
          var r = all_resources[i];
          var filename = r.textContent;
          var n = filename.search(filter_val);

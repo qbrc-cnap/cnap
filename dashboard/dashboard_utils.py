@@ -35,5 +35,5 @@ def clone_repository(url):
         print(stdout)
         return (None, None)
     else:
-        commit_hash = stdout.strip()
+        commit_hash = stdout.strip().decode('utf-8')
         return (dest, commit_hash)

@@ -28,7 +28,7 @@ class Workflow(models.Model):
     version_id = models.PositiveSmallIntegerField()
 
     # the git commit ID of the workflow repository:
-    git_commit_hash = models.CharField(max_length=1000, blank=False)
+    git_commit_hash = models.CharField(max_length=1000, blank=False, null=False)
 
     # this keeps track of the workflow name. 
     workflow_name = models.CharField(max_length=500)
