@@ -311,13 +311,12 @@ def get_workflow_name(wdl_path):
     decide to name their workflows with ridiculous names or use 
     bizarre whitespace chars that don't work with python's regex: "\s" (don't do that!)
     '''
-    print('using %s' % wdl_path)
     pattern = r'workflow\s+([a-zA-Z][a-zA-Z0-9_]+)\s*\{.*\}'
     f = open(wdl_path).read()
     m=re.search(pattern, f, flags=re.DOTALL)
     if m:
-        print('TITLE: %s' % m.group(1))
         return m.group(1)
+
 
 def get_workflow_title_and_description(wdl_path):
     '''
@@ -648,7 +647,7 @@ def check_runtime_docker_containers(staging_dir):
     for w in wdl_files:
         w = os.path.join(staging_dir, w)
         # read in the entire WDL file:
-        wdl_text = open(wdl_path).read()
+        wdl_text = open(w).read()
         image_set = image_set.union(check_runtime(wdl_text))
 
     # now we have a set of the images we will be using, such as {'docker.io/user/imageA:tag1', 'docker.io/user/imageB:tag2'}

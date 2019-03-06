@@ -7,7 +7,7 @@ import uuid
 from django.conf import settings
 from django.contrib.sites.models import Site
 
-from base.models import Organization
+from base.models import Organization, Resource
 from helpers.email_utils import send_email
 from helpers.utils import get_jinja_template
 
@@ -164,7 +164,18 @@ class AnalysisProject(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return '%s (client: %s)' % (self.workflow.workflow_name, self.owner)
+        return '%s (id: %s, client: %s)' % (self.workflow.workflow_name, str(self.analysis_uuid), self.owner)
+
+
+class AnalysisProjectResource(models.Model):
+    '''
+    This class is used to tie Resource instances to AnalysisProject instances so 
+    we can better display in the UI.  Some Resources will NOT be associated with 
+    AnalysisProjects (e.g. files they upload), but some files will be associated with 
+    projects, as they are the outputs of a particular project.
+    '''
+    analysis_project = models.ForeignKey(AnalysisProject, on_delete=models.CASCADE)
+    resource = models.ForeignKey(Resource, on_delete=models.CASCADE)
 
 
 class OrganizationWorkflow(models.Model):

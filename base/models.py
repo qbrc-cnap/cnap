@@ -1,3 +1,5 @@
+from jinja2.filters import do_filesizeformat
+
 from django.db import models
 
 from django.contrib.auth import get_user_model
@@ -59,6 +61,18 @@ class Resource(models.Model):
 
     def get_owner(self):
         return self.owner
+
+    def gui_representation(self):
+        '''
+        This returns a dictionary giving the representation in the UI.
+        The structure is dictated by the UI-- e.g. the `text` key is used
+        as the display shown.  `pk` is not shown, but is carried around with the
+        node such that it can be returned to the backend.
+        '''
+        d = {}
+        d['text'] = '%s (%s)'  % (self.name, do_filesizeformat(self.size, binary=True))
+        d['pk'] = self.pk
+        return d
 
 
 class Organization(models.Model):

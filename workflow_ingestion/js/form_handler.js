@@ -9,7 +9,7 @@ var prepareFormData = function(){
     var analysisForm = $("#analysis-creation-form");
 
     // javascript for customized input elements will go here:
-    {% for handler_code in js_handlers %}
+    {% for handler_code in submit_handlers %}
         {{handler_code}}
     {% endfor %}
 

@@ -1,18 +1,3 @@
-// function to print human-readable file size
-function humanFileSize(bytes) {
-    var thresh = 1024;
-    if(Math.abs(bytes) < thresh) {
-        return bytes + ' B';
-    }
-    var units = ['kB','MB','GB','TB','PB'];
-    var u = -1;
-    do {
-        bytes /= thresh;
-        ++u;
-    } while(Math.abs(bytes) >= thresh && u < units.length - 1);
-    return bytes.toFixed(1)+' '+units[u];
-}
-
 /* 
 ******************************************************
 START Loading of dynamic resources: 
@@ -20,37 +5,41 @@ START Loading of dynamic resources:
 */
 
 var csrfToken = getCookie('csrftoken');
-var all_resources = [];
 
 // Get the active resources for the download tab:
+function loadDownloads(){
 $.ajax({
-    url:"{{resource_endpoint}}?is_active=true&originated_from_upload=false",
+    url:"{{resource_tree_endpoint}}?include_uploads=false",
     type:"GET",
     headers:{"X-CSRFToken": csrfToken},
     success:function(response){
-        var tableBody = $("#download-table tbody");
-        var markup = "";
         if (response.length > 0){
-            for(var i=0; i<response.length; i++){
-                var item = response[i];
-                var size = humanFileSize(item['size']);
-                var filename = item['name'];
-                markup += `<tr>
-                      <td><input class="download-selector" type="checkbox" target="${item['id']}"/></td>
-                      <td class="download-filename">${filename}</td>
-                      <td>${size}</td>
-                    </tr>`;
-            }
+            $("#downloads-tree").treeview({
+                data: response,
+                multiSelect: true,
+                showCheckbox: true,
+                checkedIcon: "far fa-check-square",
+                uncheckedIcon: "far fa-square",
+                expandIcon: "far fa-plus-square",
+                collapseIcon: "far fa-minus-square",
+                showBorder: false,
+                highlightSelected: false,
+                levels: 1,
+                searchResultColor: "#155724",
+                searchResultBackColor:"#d4edda"
+            });
+            setupMethods("downloads-tree");
         } else {
-            markup = `<tr><td colspan="2" align="center">No resources to download</td></tr>`
+            console.log('No downloads to display');
+            //TODO: add html markup when table is empty
         }
-        tableBody.append(markup); 
-        all_resources = $("#download-table tbody .download-filename");
     },
     error:function(){
         console.log('error!');
     }
 });
+}
+loadDownloads();
 
 // get available analyses/workflows:
 $.ajax({
@@ -68,7 +57,7 @@ $.ajax({
 
                 var analysis_uuid = response[i]['analysis_uuid'];
                 markup += `<tr>
-                      <td><a target="_blank" class="analysisLink" href="{{analysis_project_endpoint}}${analysis_uuid}/">${title} <i style="font-size:16px" class="fa">&#xf08e;</i></a></td>
+                      <td><a target="_blank" class="analysisLink" href="{{analysis_project_endpoint}}${analysis_uuid}/">${title} <i style="font-size:16px" class="fa fa-external-link-alt"></i></a></td>
                       <td>${short_description}</td>
                     </tr>`;
             }
@@ -316,7 +305,7 @@ var dbxOptions = {
             headers:{"X-CSRFToken": csrfToken},
             success:function(response){
                 console.log('Upload started.');
-                showGeneralDialog('Your upload from Dropbox has started.');
+		showGeneralDialog('Your upload from Dropbox has started.');
             },
             error:function(){
                 console.log('Error.');
@@ -441,7 +430,7 @@ function pickerCallback(data) {
             headers:{"X-CSRFToken": csrfToken},
             success:function(response){
                 console.log('Upload started.');
-                showGeneralDialog('Your upload from Google Drive has started.');
+		showGeneralDialog('Your upload from Google Drive has started.');
             },
             error:function(){
                 console.log('Error.');
@@ -511,6 +500,7 @@ $("#close-general-dialog").click(function(){
      $("#general-dialog").toggle();
 });
 
+
 showErrorDialog = function(obj_array){
      console.log('show dialog');
      console.log(obj_array);
@@ -531,36 +521,21 @@ $("#close-error-dialog").click(function(){
 });
 
 
-
 // Below is code related to javascript for downloads.  When the user clicks on the button
 // JS needs to collect the info about what to send. 
 
-$("#download-file-filter").keyup(function(e){
-     var target = e.target;
-     var filter_val = target.value;
-     for(var i=0; i < all_resources.length; i++){
-         var r = all_resources[i];
-         var filename = r.textContent;
-         var n = filename.search(filter_val);
-         if (n == -1){
-             $(r).parent("tr").hide();
-         } else {
-             $(r).parent("tr").show();
-         }
-     }
- });
-
 $(".init-download-btn").click(function(){
-    var selectedPks = [];
-    var checkBoxes = $("#download-table tbody").find(".download-selector");
-    for( var i=0; i<checkBoxes.length; i++ ){
-        var cbx = checkBoxes[i];
-        if(($(cbx).prop("checked") == true) && ($(cbx).parents("tr").is(":visible"))){
-            selectedPks.push($(cbx).attr("target"));
-        }
-    }
-    if(selectedPks.length > 0){
+    // get the selections from the download tree:
+    var selected = $("#downloads-tree").treeview('getSelected');
+    console.log('selected: '  + JSON.stringify(selected));
+    
+    if(selected.length > 0){
         var destination = $(this).attr("destination");
+        var selectedPks = [];
+        for(var i in selected){
+            var pk = selected[i].pk;
+            selectedPks.push(pk);
+        }
         var data = {"resource_pks": selectedPks, "destination":destination};
         var payload = {"data":JSON.stringify(data)};
         $.ajax({
@@ -591,9 +566,9 @@ $(".init-download-btn").click(function(){
 
 $(".init-upload-btn").click(function(){
     var uploadSource = $(this).attr("upload-source");
-    if(uploadSource == '{{dropbox}}'){
+    if(uploadSource == 'Dropbox'){
         Dropbox.choose(dbxOptions);
-    } else if(uploadSource == '{{google_drive}}'){
+    } else if(uploadSource == 'Google Drive'){
         loadPicker();
     }
 });

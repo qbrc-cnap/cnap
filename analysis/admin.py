@@ -1,6 +1,10 @@
 from django.contrib import admin
 
-from .models import Workflow, AnalysisProject, SubmittedJob, Warning
+from .models import Workflow, \
+    AnalysisProject, \
+    SubmittedJob, \
+    AnalysisProjectResource, \
+    Warning
 
 class WorkflowAdmin(admin.ModelAdmin):
     list_display = ('workflow_name', 'workflow_id', 'version_id', 'is_default', 'is_active', 'workflow_title', 'workflow_short_description', 'workflow_long_description')
@@ -12,6 +16,10 @@ class AnalysisProjectAdmin(admin.ModelAdmin):
     list_display = ('analysis_uuid', 'owner', 'started', 'completed')
     list_editable = ()
     list_display_links = ('analysis_uuid',)
+
+
+class AnalysisProjectResourceAdmin(admin.ModelAdmin):
+    list_display = ('analysis_project','resource')
 
 
 class SubmittedJobAdmin(admin.ModelAdmin):
@@ -26,5 +34,6 @@ class WarningAdmin(admin.ModelAdmin):
 
 admin.site.register(Workflow, WorkflowAdmin)
 admin.site.register(AnalysisProject, AnalysisProjectAdmin)
+admin.site.register(AnalysisProjectResource, AnalysisProjectResourceAdmin)
 admin.site.register(SubmittedJob, SubmittedJobAdmin)
 admin.site.register(Warning, WarningAdmin)

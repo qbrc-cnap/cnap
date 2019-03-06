@@ -4,10 +4,97 @@ from rest_framework.response import Response
 from django.http import Http404
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ObjectDoesNotExist
+from rest_framework.decorators import api_view
 
 import base.utils as utils
 from base.models import Resource, Organization
-from base.serializers import ResourceSerializer, OrganizationSerializer
+from base.serializers import ResourceSerializer, OrganizationSerializer, TreeObjectSerializer
+from analysis.models import AnalysisProjectResource
+
+class TreeObject(object):
+    '''
+    This is used to structure data for the front-end when we display files/resources for selection.  
+    We organize the files by grouping them- they belong to analysis projects, uploads, 
+    or can be "unattached".  
+    They are displayed by providing a header (title) and some children nodes which are the files to select.  
+    Each of the children nodes hold information like the file name and the primary key of the resource
+    '''
+    def __init__(self, title, children):
+        '''
+        title is the title that would show up in the UI as a "header".  
+        For example, the name of the project that the Resource is associated with
+        children is a list of Resource instances
+        '''
+        self.title = title
+        self.children = children
+
+    def gui_representation(self):
+        '''
+        This returns an object that will be passed to the UI.  The serializer uses this method
+        to construct the serialized data.  They keys in this object depend on how we are displaying
+        the data on the front-end.  
+        '''
+        d = {}
+        d['text'] = self.title
+        # below, we use the gui_representation method defined in the Resource class
+        d['nodes'] = [x.gui_representation() for x in self.children]
+        return d
+
+
+@api_view(['GET'])
+def get_tree_ready_resources(request):
+    '''
+    This view gives a tree-ready representation of the data for the front-end.
+    '''
+
+    # a list of TreeObject instances:
+    all_sections = []
+
+    user = request.user
+
+    # Did the request ask for uploaded objects?  If we are showing downloads, we typically would NOT
+    # want to show the uploads (why would they download a file they previously uploaded?)
+    try:
+        include_uploads = request.query_params['include_uploads']
+    except KeyError:
+        include_uploads=False
+
+    if include_uploads:
+        # We want to denote Resource instances that were created via user uploads to be in their own section:
+        uploaded_resources = Resource.objects.user_resources(user).filter(originated_from_upload=True).filter(is_active=True)
+        upload_section = TreeObject('Uploads', uploaded_resources)
+        all_sections.append(upload_section)
+
+    # get the non-uploaded resources, if any.  These would be Resource instances created as part of an analysis project (or similar)
+    all_other_resources = Resource.objects.user_resources(user).filter(originated_from_upload=False).filter(is_active=True)
+
+    # get the the subset of non-uploaded Resources that have an association to an AnalysisProject
+    analysis_project_resources = AnalysisProjectResource.objects.filter(resource__in = all_other_resources)
+
+    # determine the resources that were NOT uploads, but also not associated with projects:
+    # typically these files would not exist, but we provide them for potential flexibility in the future
+    ap_resource_list = [x.resource for x in analysis_project_resources]
+    unassociated_resources = [x for x in all_other_resources if not x in ap_resource_list]
+    if len(unassociated_resources) > 0:
+        unassociated_section = TreeObject('Other', unassociated_resources)
+        all_sections.append(unassociated_section)
+
+    # for the Resource instances associated with analysis projects, we have to display some header/section title 
+    # in the tree.  TODO: change this from the UUID
+    d = {}
+    for apr in analysis_project_resources:
+        project = apr.analysis_project
+        ap_uuid = str(project.analysis_uuid)
+        if ap_uuid in d:
+            d[ap_uuid].append(apr.resource)
+        else:
+            d[ap_uuid] = [apr.resource,]
+    for key, resource_list in d.items():
+        all_sections.append(TreeObject(key, resource_list))
+
+    # we now have a list of TreeObject instances.  Serialize.
+    serializer = TreeObjectSerializer(all_sections, many=True)
+    return Response(serializer.data)
 
 
 class OrganizationList(generics.ListCreateAPIView):

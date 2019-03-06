@@ -1,4 +1,7 @@
 {% extends 'base.html' %}
+{% block page_specific_css %}
+    <link rel="stylesheet" href="/static/bootstrap-treeview.min.css" />
+{% endblock %}
 {% block content %}
 {% load static %}
 
@@ -68,30 +71,25 @@
                     <h3>Downloads</h3>
                                         
                     <p><b>1.</b> Select files.</p>
-
-                    <table id="download-table" class="custom-table">
-                        <thead>
-                            <tr>
-                                <th><input class="select-all-checkbox" table-target="download-table" type="checkbox"/></th>
-                                <th>Filename</th>
-                                <th>File size</th>
-                            </tr>
-                            <tr>
-                                <th></th>
-                                <th><input id="download-file-filter" class="filename-filter" placeholder="Filter files..."/></th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                        </tbody>
-                    </table>
+                    <div class="input-container">
+                        <div class="input-group mb-3">
+                            <input id="tree-search-box" type="text" class="form-control tree-search" treeTarget="downloads-tree" placeholder="Filter files...">
+                            <div class="input-group-append">
+                                <span class="input-group-text"><i class="fas fa-search tree-filter" filterTarget="tree-search-box"></i></span>
+                            </div>
+                        </div>
+                        <div class="select-highlighted-container">
+                            <span class="bold-text">Select highlighted:</span> <input class="select-highlighted-checkbox" type="checkbox" treeTarget="downloads-tree"/>
+                        </div>
+                    </div>
+                    <div class="cnap-tree" id="downloads-tree"></div>
                     <p><b>2.</b> Choose a storage service.</p>
                     <div class="providers-wrapper">                    
                         {% if dropbox_enabled %}
-                            <img class="provider-btn init-download-btn" destination="{{providers.dropbox}}" src="{% static "transfer_app/img/Dropbox.png" %}">
+                            <img class="provider-btn init-download-btn" destination="{{providers.dropbox}}" src="{% static "transfer_app/img/Dropbox.png" %}" treeTarget="downloads-tree">
                         {% endif %}
                         {% if drive_enabled %}
-                            <img class="provider-btn init-download-btn" destination="{{providers.google_drive}}" src="{% static "transfer_app/img/google-drive-logo-lockup.png" %}">
+                            <img class="provider-btn init-download-btn" destination="{{providers.google_drive}}" src="{% static "transfer_app/img/google-drive-logo-lockup.png" %}" treeTarget="downloads-tree">
                         {% endif %}
                     </div>
                 </div>
@@ -144,5 +142,7 @@
 {% endblock %}
 {% block page_specific_js %}
             <script type="text/javascript" src="https://www.dropbox.com/static/api/2/dropins.js" id="dropboxjs" data-app-key="434yn436p3z4rg0"></script>
+            <script type="text/javascript" src="{% static "base/js/custom_tree_behavior.js" %}"></script>
             <script type="text/javascript" src="{% static "base/js/index.js" %}"></script>
+            <script type="text/javascript" src="{% static "bootstrap-treeview.min.js" %}"></script>
 {% endblock %}

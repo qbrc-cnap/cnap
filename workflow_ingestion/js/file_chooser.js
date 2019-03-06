@@ -1,37 +1,153 @@
-// This javascript works with the file_chooser.html interface
-// This code will be placed inside a function where there exists
-// a jQuery object named `analysisForm` and a plain object
-// named `payload`, which is the data the form will send to the backend
+var csrfToken = getCookie('csrftoken');
 
-var fileChooserFunc = function (form){
 
-    // get all file chooser tables inside form 
-    var table_array = $(form).find(".custom-table");
+// for tracking which items are highlighted in the tree
+var highlighted_items_{{id}} = [];
 
-    // declare a regular object to hold the data
-    // we will send to backend
-    var obj = {};
+// jQuery object for the tree
+var tree_{{id}} = $("#file-choice-tree-{{id}}");
 
-    // loop through, collect the primary keys
-    for(var i=0; i<table_array.length; i++){
-        var tbl = $(table_array[i]); //now have a table
-        var dataTarget = $(tbl).attr("dataTarget");
-        var selectedPks = [];
-        var checkBoxes = $(tbl).find(".download-selector");
-        for( var i=0; i<checkBoxes.length; i++ ){
-            var cbx = checkBoxes[i];
-            if($(cbx).prop("checked") == true){
-                selectedPks.push($(cbx).attr("target"));
-            }
-        }
-        if(selectedPks.length > 0){
-            obj[dataTarget] = selectedPks;
-        }else{
-            console.log("Nothing to do- no resources selected.");
-        }
-
+function attach_functions(){
+// register method to run when the search is done
+tree_{{id}}.on('searchComplete', function(event, data) {
+    console.log("searchComplete!!!!!!!!!!!: " + JSON.stringify(data));
+    highlighted_items_{{id}} = [];
+    for(var item in data){
+        highlighted_items_{{id}}.push(data[item].nodeId);
     }
-    return obj;
-};
+    console.log('HLI: ' + JSON.stringify(highlighted_items_{{id}}));
+});
 
-payload = Object.assign({}, payload, fileChooserFunc(analysisForm));
+// This lets us know which items were "unhighlighted" following a new search
+tree_{{id}}.on('searchCleared', function(event, data){
+    console.log("searchCleared: " + JSON.stringify(data));
+    var allParents = new Set();
+    for(var item in data){
+            console.log('cleared:' + item);
+            var parent = data[item].parentId;
+                    console.log(parent);
+            if (parent !== undefined){
+                    allParents.add(parent);
+            }
+    }
+    console.log('parent set:' + allParents);
+    allParents.forEach(
+            function(values){
+                    console.log('val: ' + values);
+                    tree_{{id}}.treeview('collapseNode', values);
+            }
+    );
+});
+
+// This allows us to check children by checking the parent node
+tree_{{id}}.on('nodeChecked', function(event, node){
+    var children = node.nodes;
+    for(item in children){
+        console.log(item);
+        var nodeId = children[item].nodeId;
+        tree_{{id}}.treeview('checkNode', nodeId);
+        tree_{{id}}.treeview('selectNode', nodeId);
+    }
+    tree_{{id}}.treeview('expandNode', node.nodeId);
+    tree_{{id}}.treeview('selectNode', node.nodeId);
+});
+
+// This allows us to uncheck all the children by unclicking the parent
+tree_{{id}}.on('nodeUnchecked', function(event, node){
+    //get any children and uncheck them as well.  Note only goes down ONE layer.
+    var children = node.nodes;
+    for(item in children){
+        console.log(item);
+        var nodeId = children[item].nodeId;
+        tree_{{id}}.treeview('uncheckNode', nodeId);
+        tree_{{id}}.treeview('unselectNode', nodeId);
+    }
+    tree_{{id}}.treeview('collapseNode', node.nodeId);
+    tree_{{id}}.treeview('unselectNode', node.nodeId);
+});
+
+$("#select-highlighted-checkbox-{{id}}").change(function(e) {
+    console.log('clicked!');
+    console.log("CT: " +JSON.stringify(tree_{{id}}));
+    if(this.checked){
+            console.log('was checked');
+            for(var i=0; i < highlighted_items_{{id}}.length; i++){
+                tree_{{id}}.treeview('checkNode', highlighted_items_{{id}}[i]);
+                tree_{{id}}.treeview('selectNode', highlighted_items_{{id}}[i]);
+            }
+            var selectedNodes = tree_{{id}}.treeview('getSelected');
+            console.log(selectedNodes)
+    } else {
+            console.log('was unchecked');
+            for(var i=0; i < highlighted_items_{{id}}.length; i++){
+                tree_{{id}}.treeview('uncheckNode', highlighted_items_{{id}}[i]);
+                tree_{{id}}.treeview('unselectNode', highlighted_items_{{id}}[i]);
+            }
+    }
+});
+
+
+// a function for controlling the behavior of the search box
+// provided with the expandable tree:
+function initSearch_{{id}}(searchBox){
+
+    var value = searchBox.val();
+    tree_{{id}}.treeview('search', [ value, {
+        ignoreCase: true,     // case insensitive
+        exactMatch: false,    // like or equals
+        revealResults: true,  // reveal matching nodes
+    }])
+    $("#select-highlighted-checkbox-{{id}}").prop('checked', false);
+    tree_{{id}}.treeview('uncheckAll');
+    var selectedNodes = tree_{{id}}.treeview('getSelected');
+    for(item in selectedNodes){
+        console.log('unselect: ' + selectedNodes[item]);
+        tree_{{id}}.treeview('unselectNode', selectedNodes[item].nodeId);
+    }
+}
+
+$("#tree-filter-button-{{id}}").click(function(e){
+    var target = e.target; //the filter
+    var searchBoxId = $(target).attr("filterTarget");
+    console.log(searchBoxId);
+    var searchBox = $("#" + searchBoxId);
+    initSearch_{{id}}(searchBox);
+});
+
+
+}
+
+// load files dynamically:
+function loadFiles_{{id}}(){
+    $.ajax({
+        url:"/resources/tree/",
+        type:"GET",
+        headers:{"X-CSRFToken": csrfToken},
+        success:function(response){
+            if (response.length > 0){
+                $("#file-choice-tree-{{id}}").treeview({
+                    data: response,
+                    multiSelect: true,
+                    showCheckbox: true,
+                    checkedIcon: "far fa-check-square",
+                    uncheckedIcon: "far fa-square",
+                    expandIcon: "far fa-plus-square",
+                    collapseIcon: "far fa-minus-square",
+                    showBorder: false,
+                    highlightSelected: false,
+                    levels: 1,
+                    searchResultColor: "#155724",
+                    searchResultBackColor:"#d4edda"
+                });
+                attach_functions();
+            } else {
+                console.log('No downloads to display');
+                //TODO: add html markup when table is empty
+            }
+        },
+        error:function(){
+            console.log('error!');
+        }
+    });
+}
+loadFiles_{{id}}();

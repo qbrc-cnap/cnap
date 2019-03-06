@@ -16,7 +16,7 @@ from .ingest_workflow import locate_handler, \
     MissingHandlerException, HandlerConfigException, WdlImportException, \
     RuntimeDockerException, WDL, PYFILE, ZIP, JSON
 
-from .gui_utils import check_input_mapping, fill_html_template, \
+from .gui_utils import check_input_mapping, fill_html_and_js_template, \
     check_known_input_element, TARGET, TARGET_IDS, DISPLAY_ELEMENT, GUI_ELEMENTS, \
     InvalidGuiMappingException, \
     ConfigurationException, UnknownGuiElementException
@@ -173,7 +173,7 @@ class TestWorkflowIngestion(TestCase):
         gui_schema = json.load(open(os.path.join(THIS_DIR, 'gui_schema.json')))
         element_schema = gui_schema['gui_elements']['file_chooser']
         with self.assertRaises(ConfigurationException):
-            fill_html_template(input_element, element_schema, 'file_chooser', 0)
+            fill_html_and_js_template(input_element, element_schema, 'file_chooser', 0)
 
     @mock.patch('workflow_ingestion.ingest_workflow.locate_handler')
     def test_missing_handler_raises_exception_case1(self, mock_locator):

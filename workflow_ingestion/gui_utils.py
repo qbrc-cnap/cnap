@@ -23,7 +23,9 @@ GUI_ELEMENTS = 'gui_elements'
 MASTER_HTML_TEMPLATE = 'master_html_template'
 MASTER_JS_TEMPLATE = 'master_javascript_template'
 MASTER_CSS_TEMPLATE = 'master_css_template'
-JS_HANDLER = 'js_handler'
+SUBMIT_HANDLER = 'submit_handler'
+JS_SOURCE = 'js_source'
+HTML_SOURCE = 'html_source'
 
 # Other constants that are used in various locations
 # have been stored in the settings module
@@ -164,19 +166,25 @@ def get_jinja_template(template_path):
     )
 
 
-def fill_html_template(input_element, 
+def fill_html_and_js_template(input_element, 
     element_schema, 
     display_element_type, idx):
     '''
     Using the parameters specified, construct the "context" for
-    filling out the HTML template.  Return the template
-    as a string
+    filling out the HTML and javascript template.  Return the templates
+    as a tuple of strings
 
     idx is used for creating unique id's in the case of multiple
     elements having the same type
     '''
-    html_template_path = element_schema['html_source']
+    html_template_path = element_schema[HTML_SOURCE]
     html_template = get_jinja_template(html_template_path)
+
+    js_template_path = element_schema[JS_SOURCE]
+    js_template = get_jinja_template(js_template_path)
+
+    submission_js_template_path = element_schema[SUBMIT_HANDLER]
+    submission_js_template = get_jinja_template(submission_js_template_path)
 
     # we use the 'name' field for each form element in the UI
     # this way we can map the input elements to the CWL inputs
@@ -217,7 +225,7 @@ def fill_html_template(input_element,
             # add the default to the display_element object
             display_element[param_name] = param_dict['default']
             context[param_name] = param_dict['default']
-    return html_template.render(context)
+    return html_template.render(context), js_template.render(context), submission_js_template.render(context)
 
 
 def fill_final_template(master_template_path, 
@@ -251,40 +259,19 @@ def fill_css_template(css_template_path, final_css_path):
         fout.write(css_str)
 
 
-def fill_javascript_template(gui_schema, javascript_template_path,
-    final_javascript_path, 
-    element_type_list):
+def fill_javascript_submission_template(javascript_template_path,
+    submission_js_list):
     '''
-    `gui_schema` is the schema (a dict) of all the potential UI elements
-    and the params
     `javascript_template_path` gives the path to the template we have to fill-in
-    `final_javascript_path` gives the path of the file to which we write the completed
-    template
-    `element_type_list` is a list of the "types" of the input elements that are 
-    featured in the UI we are creating.
+    `submission_js_list` is a list of strings.  Each string in the list is a string
+     of javascript which is run when the form is submitted (i.e. pulls data from
+     the form fields to send to the backend).
     '''
-    js_handlers = []
-    for element_type in set(element_type_list):
-        element_spec = gui_schema[GUI_ELEMENTS][element_type]
-        js_handler = element_spec[JS_HANDLER]
-        if js_handler:
-            js_handler = os.path.join(THIS_DIR, js_handler)
-            if os.path.isfile(js_handler):
-                js_handlers.append(open(js_handler).read())
-            else:
-                raise Exception('Problem! Could not locate the javascript handler at %s' % js_handler)
-    # fill-in the overall template:
-    js_template = get_jinja_template(javascript_template_path)
-    context = {'js_handlers': js_handlers}
-    full_js_str = js_template.render(context)
 
-    # write to the final file:
-    with open(final_javascript_path, 'w') as fout:
-        # note that we have to wrap the template with django
-        # tags here, rather than in the original template.  
-        # Otherwise jinja does not recognize the tags and fails.
-        fout.write(full_js_str)
-    
+    js_template = get_jinja_template(javascript_template_path)
+    context = {'submit_handlers': submission_js_list}
+    return js_template.render(context)
+
 
 def construct_gui(staging_dir):
     '''
@@ -318,6 +305,16 @@ def construct_gui(staging_dir):
     # html strings to a list
     form_elements = []
 
+    # iterate through the input elements and add the completed
+    # javascript to a list.  This is javascript that controls
+    # the behavior of the elements, NOT the submission javascript
+    js_elements = [] 
+
+    # this list will hold completed strings created by filling
+    # in templates of javascript code.  This javascript is 
+    # related to submission of the form
+    submission_js = []
+
     # this list tracks the different types of input elements
     # These are the keys in the `gui_elements` object of the GUI
     # schema (e.g. 'file_chooser', 'text')
@@ -345,21 +342,33 @@ def construct_gui(staging_dir):
 
         # Now fill-in the portions of the GUI html template that do not require 
         # dynamic, database-given input.
-        element_html_str = fill_html_template(input_element, 
+        element_html_str, element_js_str, submission_js_str = fill_html_and_js_template(input_element, 
             gui_schema[GUI_ELEMENTS][display_element_type], display_element_type, i)
+
         form_elements.append(element_html_str)
+        js_elements.append(element_js_str)
+        submission_js.append(submission_js_str)
 
     # write an updated GUI spec (which includes the default params)
     with open(workflow_gui_spec_path, 'w') as fout:
         json.dump(workflow_gui_spec, fout)
 
     # using the list of the element types, collect the necessary javascript
+    # related to submission of the form
     javascript_template_path = gui_schema[MASTER_JS_TEMPLATE]
+    submission_js_str = fill_javascript_submission_template(javascript_template_path,
+        submission_js)
+
+    # we now have a LIST of strings for javascript controlling the dynamic behavior of 
+    # the elements, AND we have a string that has the code for submission of the form.
+    # now write that into a single javascript file.
     final_javascript_path = os.path.join(staging_dir, 
         settings.FORM_JAVASCRIPT_NAME)
-    fill_javascript_template(gui_schema, javascript_template_path,
-        final_javascript_path, 
-        element_type_list)
+    full_js_str = ''
+    full_js_str += '\n'.join(js_elements)
+    full_js_str += submission_js_str
+    with open(final_javascript_path, 'w') as fout:
+        fout.write(full_js_str)
 
     # collect the CSS for the form:
     css_template_path = gui_schema[MASTER_CSS_TEMPLATE]
@@ -379,9 +388,5 @@ def construct_gui(staging_dir):
     final_template_path = os.path.join(staging_dir, settings.HTML_TEMPLATE_NAME)
     fill_final_template(master_template_path, final_template_path, form_elements)
     return final_template_path, final_javascript_path, final_css_path
-
-
-
-        
 
 

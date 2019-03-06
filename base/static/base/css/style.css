@@ -280,6 +280,34 @@ a{
     background-color: #f8d7da;
 }
 
+/* For extra styling on the tree used to display resources */
+.search-result {
+    margin-top:5px;
+    margin-bottom:5px;
+    padding: 3px;
+    border-radius: 15px;
+}
+
+.select-highlighted-container{
+     display: flex;
+     flex-direction: row;
+     justify-content: flex-end;
+}
+.select-highlighted-checkbox{
+    margin-left: 5px;
+}
+
+.tree-filter{
+   cursor: pointer;
+}
+
+.treeview .list-group-item:last-child{
+    margin-bottom:5px;
+    border-radius:15px;
+}
+/* END for extra styling on the tree used to display resources */
+
+
 /* For large screens */
 @media (min-width: 767.98px) {
     #main-container{

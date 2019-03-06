@@ -16,12 +16,17 @@ from rest_framework import generics, permissions, status
 from django_filters.rest_framework import DjangoFilterBackend
 
 from helpers.email_utils import notify_admins
-from .models import Workflow, AnalysisProject, OrganizationWorkflow, PendingWorkflow
+from .models import Workflow, \
+    AnalysisProject, \
+    OrganizationWorkflow, \
+    PendingWorkflow, \
+    AnalysisProjectResource
 from base.models import Issue
 from .serializers import WorkflowSerializer, \
     AnalysisProjectSerializer, \
     OrganizationWorkflowSerializer, \
-    PendingWorkflowSerializer
+    PendingWorkflowSerializer, \
+    AnalysisProjectResourceSerializer
 from .view_utils import query_workflow, \
     validate_workflow_dir, \
     fill_context, \
@@ -42,6 +47,17 @@ class OrganizationWorkflowDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = OrganizationWorkflow.objects.all()
     serializer_class = OrganizationWorkflowSerializer
     permission_classes = (permissions.IsAdminUser,)
+
+
+class AnalysisProjectResourceListCreate(generics.ListCreateAPIView):
+    serializer_class = AnalysisProjectResourceSerializer
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get_queryset(self):
+        queryset = AnalysisProjectResource.objects.all()
+        if not self.request.user.is_staff: # a regular user- only give their own resources
+            queryset = AnalysisProjectResource.objects.filter(resource__owner=self.request.user)
+        return queryset
 
 
 class WorkflowList(generics.ListAPIView):

@@ -1,6 +1,10 @@
 from rest_framework import serializers
 
-from analysis.models import Workflow, AnalysisProject, OrganizationWorkflow, PendingWorkflow
+from analysis.models import Workflow, \
+    AnalysisProject, \
+    AnalysisProjectResource, \
+    OrganizationWorkflow, \
+    PendingWorkflow
 
 class WorkflowSerializer(serializers.ModelSerializer):
 
@@ -46,6 +50,13 @@ class AnalysisProjectSerializer(serializers.ModelSerializer):
             'success', \
             'error', \
         )
+
+class AnalysisProjectResourceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AnalysisProjectResource
+        fields = '__all__'
+        read_only_fields = ('analysis_project','resource')
+
 
 class OrganizationWorkflowSerializer(serializers.ModelSerializer):
     class Meta:
