@@ -55,7 +55,8 @@ def get_tree_ready_resources(request):
     # Did the request ask for uploaded objects?  If we are showing downloads, we typically would NOT
     # want to show the uploads (why would they download a file they previously uploaded?)
     try:
-        include_uploads = request.query_params['include_uploads']
+        include_uploads_str = request.query_params['include_uploads'] # true or false (strings)
+        include_uploads = include_uploads_str.lower() == 'true'
     except KeyError:
         include_uploads=False
 
