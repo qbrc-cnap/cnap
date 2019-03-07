@@ -124,8 +124,7 @@ function loadFiles_{{id}}(){
         type:"GET",
         headers:{"X-CSRFToken": csrfToken},
         success:function(response){
-            if (response.length > 0){
-                $("#file-choice-tree-{{id}}").treeview({
+            $("#file-choice-tree-{{id}}").treeview({
                     data: response,
                     multiSelect: true,
                     showCheckbox: true,
@@ -140,9 +139,8 @@ function loadFiles_{{id}}(){
                     searchResultBackColor:"#d4edda"
                 });
                 attach_functions();
-            } else {
-                console.log('No downloads to display');
-                //TODO: add html markup when table is empty
+            if (response.length === 0){
+                $("#file-choice-tree-{{id}}").html("<p class=\"alert alert-warning\">No files are available</p>");
             }
         },
         error:function(){

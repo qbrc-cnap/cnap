@@ -13,8 +13,7 @@ $.ajax({
     type:"GET",
     headers:{"X-CSRFToken": csrfToken},
     success:function(response){
-        if (response.length > 0){
-            $("#downloads-tree").treeview({
+        $("#downloads-tree").treeview({
                 data: response,
                 multiSelect: true,
                 showCheckbox: true,
@@ -29,9 +28,10 @@ $.ajax({
                 searchResultBackColor:"#d4edda"
             });
             setupMethods("downloads-tree");
-        } else {
+        if (response.length === 0)  {
             console.log('No downloads to display');
             //TODO: add html markup when table is empty
+            $("#downloads-tree").html("<p class=\"alert alert-warning\">No files are available for download</p>");
         }
     },
     error:function(){
