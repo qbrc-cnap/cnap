@@ -120,7 +120,7 @@ $("#tree-filter-button-{{id}}").click(function(e){
 // load files dynamically:
 function loadFiles_{{id}}(){
     $.ajax({
-        url:"/resources/tree/",
+        url:"/resources/tree/?include_uploads=true&regex_filter={{regex_filter}}",
         type:"GET",
         headers:{"X-CSRFToken": csrfToken},
         success:function(response){

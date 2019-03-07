@@ -1,3 +1,5 @@
+import re
+
 from rest_framework import generics, permissions, status
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.response import Response
@@ -60,9 +62,16 @@ def get_tree_ready_resources(request):
     except KeyError:
         include_uploads=False
 
+    try:
+        regex_filter = request.query_params['regex_filter']
+    except KeyError:
+        # just in case, if an exception was raised, make this a greedy regex
+        regex_filter = '.*'
+
     if include_uploads:
         # We want to denote Resource instances that were created via user uploads to be in their own section:
         uploaded_resources = Resource.objects.user_resources(user).filter(originated_from_upload=True).filter(is_active=True)
+        uploaded_resources = [x for x in uploaded_resources if re.fullmatch(regex_filter, x.name)]
         upload_section = TreeObject('Uploads', uploaded_resources)
         all_sections.append(upload_section)
 
@@ -76,6 +85,11 @@ def get_tree_ready_resources(request):
     # typically these files would not exist, but we provide them for potential flexibility in the future
     ap_resource_list = [x.resource for x in analysis_project_resources]
     unassociated_resources = [x for x in all_other_resources if not x in ap_resource_list]
+
+    # filter on the names:
+    ap_resource_list = [x for x in ap_resource_list if re.fullmatch(regex_filter, x.name)]
+    unassociated_resources = [x for x in unassociated_resources if re.fullmatch(regex_filter, x.name)]
+
     if len(unassociated_resources) > 0:
         unassociated_section = TreeObject('Other', unassociated_resources)
         all_sections.append(unassociated_section)
@@ -90,8 +104,11 @@ def get_tree_ready_resources(request):
             d[ap_uuid].append(apr.resource)
         else:
             d[ap_uuid] = [apr.resource,]
+
     for key, resource_list in d.items():
-        all_sections.append(TreeObject(key, resource_list))
+        resource_list = [x for x in resource_list if re.fullmatch(regex_filter, x.name)] 
+        if len(resource_list) > 0:
+            all_sections.append(TreeObject(key, resource_list))
 
     # we now have a list of TreeObject instances.  Serialize.
     serializer = TreeObjectSerializer(all_sections, many=True)

@@ -27,18 +27,10 @@
                     "default": false
                 },
                 {
-                    "name": "context_args",
-                    "type": "mapping",
-                    "required": false,
-                    "default": {
-                        "filter": ".*"
-                    }
-                },
-                {
-                    "name": "handler",
+                    "name": "regex_filter",
                     "type": "string",
-                    "required": false,
-                    "default": "default_handlers/file_chooser_handler.py"
+                    "required": false, 
+                    "default": ".*"
                 }
             ]
         },
