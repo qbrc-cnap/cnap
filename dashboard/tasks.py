@@ -19,7 +19,7 @@ def kickoff_ingestion(pending_workflow_pk):
     pending_workflow.save()
     dir = pending_workflow.staging_directory
     try:
-        ingest_main(dir, pending_workflow.commit_hash)
+        ingest_main(dir, pending_workflow.clone_url, pending_workflow.commit_hash)
         pending_workflow.status = 'Completed ingestion'
     except Exception as ex:
         pending_workflow.error = True

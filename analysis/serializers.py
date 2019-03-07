@@ -13,6 +13,7 @@ class WorkflowSerializer(serializers.ModelSerializer):
         fields = ('workflow_id', \
                   'version_id', \
                   'git_commit_hash', \
+                  'git_url', \
                   'workflow_name', \
                   'workflow_title', \
                   'workflow_short_description', \

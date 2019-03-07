@@ -27,6 +27,9 @@ class Workflow(models.Model):
     # this keeps track of potential sub-versions of a workflow
     version_id = models.PositiveSmallIntegerField()
 
+    # the url of the git repository (i.e. the link used in `git clone <url>`)
+    git_url = models.CharField(max_length=1000, blank=False, null=False)
+
     # the git commit ID of the workflow repository:
     git_commit_hash = models.CharField(max_length=1000, blank=False, null=False)
 

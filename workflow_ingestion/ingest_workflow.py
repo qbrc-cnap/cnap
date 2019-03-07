@@ -61,6 +61,7 @@ ACCEPTED_FILE_EXTENSIONS = [WDL, PYFILE, ZIP, JSON]
 MAIN_WDL = settings.MAIN_WDL
 NEW_WDL_DIR = 'wdl_dir' # a string used for common reference.  Value arbitrary.
 COMMIT_HASH = 'commit_hash' # a string used for common reference.  Value arbitrary.
+CLONE_URL = 'clone_url' # a string used for common reference.  Value arbitrary
 WOMTOOL_JAR = settings.WOMTOOL_JAR
 HTML = 'html'
 DISPLAY_ELEMENT = settings.DISPLAY_ELEMENT
@@ -135,6 +136,15 @@ def parse_commandline():
         help='Path to a directory containing WDL '
              'files, GUI specs, and other files to be incorporated.'
     )
+
+    parser.add_argument(
+        '-u',
+        '--url',
+         required=True,
+         dest=CLONE_URL,
+         help='The URL used for cloning the git repository.'
+    )
+
     parser.add_argument(
         '-c',
         '--commit',
@@ -663,7 +673,7 @@ def check_runtime_docker_containers(staging_dir):
             raise RuntimeDockerException('Could not locate the repository at %s.' % image_str)
 
 
-def add_workflow_to_db(workflow_name, destination_dir, commit_hash):
+def add_workflow_to_db(workflow_name, destination_dir, clone_url, commit_hash):
     '''
     Once everything is in the correct location, we need to add the new workflow
     to the database.  
@@ -715,6 +725,7 @@ def add_workflow_to_db(workflow_name, destination_dir, commit_hash):
         workflow_title = workflow_title, 
         workflow_short_description = workflow_short_description,
         workflow_long_description = workflow_long_description,
+        git_url = clone_url,
         git_commit_hash = commit_hash
     )
     wf.save()
@@ -801,9 +812,10 @@ def link_form_css(workflow_libdir_name, workflow_dir, css_filename):
     os.symlink(css_path, linkpath)
 
 
-def ingest_main(clone_dir, commit_hash):
+def ingest_main(clone_dir, clone_url, commit_hash):
     '''
     clone_dir is the path to a local directory which has the workflow content
+    clone_url is the path used to clone the repository
     commit_hash is the hash of the git commit so we can track the versioning
     in git.
     '''
@@ -879,7 +891,7 @@ def ingest_main(clone_dir, commit_hash):
             shutil.copy2(fp, destination_dir)
 
     # add the workflow to the database
-    add_workflow_to_db(workflow_name, destination_dir, commit_hash)
+    add_workflow_to_db(workflow_name, destination_dir, clone_url, commit_hash)
 
     # link the html template so Django can find it
     link_django_template(WORKFLOWS_DIR, destination_dir, settings.HTML_TEMPLATE_NAME)
@@ -906,4 +918,4 @@ if __name__ == '__main__':
     arg_dict = parse_commandline()
 
     # call the main worker function
-    ingest_main(arg_dict[NEW_WDL_DIR], arg_dict[COMMIT_HASH])
+    ingest_main(arg_dict[NEW_WDL_DIR], arg_dict[CLONE_URL], arg_dict[COMMIT_HASH])
