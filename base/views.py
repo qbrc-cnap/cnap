@@ -72,8 +72,9 @@ def get_tree_ready_resources(request):
         # We want to denote Resource instances that were created via user uploads to be in their own section:
         uploaded_resources = Resource.objects.user_resources(user).filter(originated_from_upload=True).filter(is_active=True)
         uploaded_resources = [x for x in uploaded_resources if re.fullmatch(regex_filter, x.name)]
-        upload_section = TreeObject('Uploads', uploaded_resources)
-        all_sections.append(upload_section)
+        if len(uploaded_resources) > 0:
+            upload_section = TreeObject('Uploads', uploaded_resources)
+            all_sections.append(upload_section)
 
     # get the non-uploaded resources, if any.  These would be Resource instances created as part of an analysis project (or similar)
     all_other_resources = Resource.objects.user_resources(user).filter(originated_from_upload=False).filter(is_active=True)
