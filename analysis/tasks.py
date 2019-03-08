@@ -384,6 +384,7 @@ def register_outputs(job):
                     sourceObject=source_objectname, \
                     destinationBucket=destination_bucket, \
                     destinationObject=destination_object, body={}).execute()
+                # add the Resource to the database:
                 r = Resource(
                     source = environment,
                     path = full_destination_with_prefix,
@@ -393,6 +394,11 @@ def register_outputs(job):
                     expiration_date = expiration_datetime
                 )
                 r.save()
+
+                # add a ProjectResource to the database, so we can tie the Resource created above with the analysis project:
+                apr = AnalysisProjectResource(analysis_project=job.project, resource=r)
+                apr.save()
+
     except Exception as ex:
         print('An exception was raised when requesting job outputs from cromwell server')
         print(ex)
@@ -441,19 +447,7 @@ def handle_success(job):
         staging_dir = job.job_staging_dir
         shutil.rmtree(staging_dir)
 
-        # finally delete the SubmittedJob instance.  We do not need it anymore.
-        job.delete()
-
     except Exception as ex:
-        # an exception was raised, so we create a CompletedJob to perform a post-mortem
-        project = job.project
-        cj = CompletedJob(project=project, 
-            job_id = job.job_id, 
-            job_status=job.job_status, 
-            job_staging_dir=job.job_staging_dir)
-        cj.save()
-        job.delete()
-
         # Set the project parameters so that clients will know what is going on:
         project.status = 'Analysis completed.  Error encountered when preparing final output.  An administrator has been notified'
         project.error = True
@@ -467,6 +461,16 @@ def handle_success(job):
             message = 'Some other exception was raised following wrap-up from a completed job.'
 
         handle_exception(ex, message=message)
+    finally:
+        # regardless of what happened, save a CompletedJob instance
+        project = job.project
+        cj = CompletedJob(project=project, 
+            job_id = job.job_id, 
+            job_status=job.job_status, 
+            job_staging_dir=job.job_staging_dir)
+        cj.save()
+        job.delete()
+
 
 
 def handle_failure(job):
