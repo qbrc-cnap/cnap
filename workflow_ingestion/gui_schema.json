@@ -161,6 +161,23 @@
                     "required": true
                 }
             ]
+        },
+        "dynamic_hidden": {
+            "html_source": "html_elements/hidden_input.html",
+            "js_source": "js/hidden_input.js",
+            "submit_handler": "js/hidden_input_submit.js",
+            "parameters": [
+                {
+                    "name": "context_args",
+                    "type": "mapping",
+                    "required": true
+                },
+                {
+                    "name": "handler",
+                    "type": "string",
+                    "required": true
+                }
+            ]
         }
     }
 }

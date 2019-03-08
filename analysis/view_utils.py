@@ -78,7 +78,7 @@ def fill_context(request, workflow_obj, context_dict):
                     context_args = display_element[CONTEXT_ARGS]
                 else:
                     context_args = {}
-                mod.add_to_context(request, context_dict, context_args)
+                mod.add_to_context(request, workflow_obj, context_dict, context_args)
     else:
         raise Exception('The GUI specification was not found in the correct '
             'location.  Something (or someone) has corrupted the '
