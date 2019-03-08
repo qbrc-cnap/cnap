@@ -3,6 +3,7 @@ from django.contrib import admin
 from .models import Workflow, \
     AnalysisProject, \
     SubmittedJob, \
+    CompletedJob, \
     AnalysisProjectResource, \
     Warning
 
@@ -32,8 +33,14 @@ class WarningAdmin(admin.ModelAdmin):
     list_display = ('message',)
 
 
+class CompletedJobAdmin(admin.ModelAdmin):
+    list_display = ('job_id','job_status')
+    list_display_links = ('project',)
+
+
 admin.site.register(Workflow, WorkflowAdmin)
 admin.site.register(AnalysisProject, AnalysisProjectAdmin)
 admin.site.register(AnalysisProjectResource, AnalysisProjectResourceAdmin)
 admin.site.register(SubmittedJob, SubmittedJobAdmin)
 admin.site.register(Warning, WarningAdmin)
+admin.site.register(CompletedJob, CompletedJobAdmin)
