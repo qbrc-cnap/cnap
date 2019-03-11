@@ -1,3 +1,4 @@
+import traceback
 import datetime
 from celery.decorators import task
 
@@ -23,7 +24,8 @@ def kickoff_ingestion(pending_workflow_pk):
         pending_workflow.status = 'Completed ingestion'
     except Exception as ex:
         pending_workflow.error = True
-        pending_workflow.status = 'Something is wrong. %s' % ex
+        reason = ''.join(traceback.format_exception(etype=type(ex), value=ex, tb=ex.__traceback__))
+        pending_workflow.status = reason[:1000] if len(reason)>1000 else reason
     
     pending_workflow.complete = True
     pending_workflow.finish_time = datetime.datetime.now()
