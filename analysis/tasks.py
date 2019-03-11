@@ -19,6 +19,7 @@ from helpers.utils import get_jinja_template
 from helpers.email_utils import notify_admins, send_email
 from analysis.models import Workflow, \
     AnalysisProject, \
+    AnalysisProjectResource, \
     SubmittedJob, \
     Warning, \
     CompletedJob
