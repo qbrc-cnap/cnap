@@ -622,7 +622,7 @@ def query_for_tag(query_url, tag):
     total_tags = response_json['count']
     running_index = 0
     tag_found = False
-    while (running_index < (total_tags-1)) and (not tag_found):
+    while (running_index < total_tags) and (not tag_found):
         for item in response_json['results']:
             tagname = item['name']
             if tagname == tag:
