@@ -7,7 +7,7 @@ var highlighted_items_{{id}} = [];
 // jQuery object for the tree
 var tree_{{id}} = $("#file-choice-tree-{{id}}");
 
-function attach_functions(){
+function attach_functions_tree_{{id}}(){
 // register method to run when the search is done
 tree_{{id}}.on('searchComplete', function(event, data) {
     console.log("searchComplete!!!!!!!!!!!: " + JSON.stringify(data));
@@ -138,7 +138,7 @@ function loadFiles_{{id}}(){
                     searchResultColor: "#155724",
                     searchResultBackColor:"#d4edda"
                 });
-                attach_functions();
+                attach_functions_tree_{{id}}();
             if (response.length === 0){
                 $("#file-choice-tree-{{id}}").html("<p class=\"alert alert-warning\">No files are available</p>");
             }

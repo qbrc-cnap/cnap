@@ -1,3 +1,26 @@
+var form_problems = [];
+
+// code for showing errors on form:
+showErrorDialog = function(obj_array){
+     console.log('show dialog');
+     console.log(obj_array);
+     var dialog = $("#error-dialog");
+     var subdiv = $("#error-dialog-list")
+     var markup = "";
+     for(var i=0; i<obj_array.length; i++){
+         markup += "<p>"+ obj_array[i] +"</p>"
+     }
+     subdiv.empty().append(markup);
+     $("#wrapper").toggleClass("blur");
+     dialog.toggle();
+}
+ 
+$("#close-error-dialog").click(function(){
+     $("#wrapper").toggleClass("blur");
+     $("#error-dialog").toggle();
+});
+
+
 var prepareFormData = function(){
 
     // We declare two variables-- 
@@ -39,6 +62,12 @@ function create_post(payload){
 
 $("#submit-form").click(function(e){
     e.preventDefault();
+    form_problems = [];
     var data = prepareFormData();
-    create_post(data);
+    if(data===undefined){
+        console.log('Problem with form');
+        showErrorDialog(form_problems);
+    } else {
+        create_post(data);
+    }
 });
