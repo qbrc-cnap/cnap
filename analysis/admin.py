@@ -4,6 +4,7 @@ from .models import Workflow, \
     AnalysisProject, \
     SubmittedJob, \
     CompletedJob, \
+    PendingWorkflow, \
     AnalysisProjectResource, \
     Warning
 
@@ -34,11 +35,14 @@ class WarningAdmin(admin.ModelAdmin):
 
 
 class CompletedJobAdmin(admin.ModelAdmin):
-    list_display = ('job_id','job_status')
+    list_display = ('job_id','job_status', 'project')
     list_display_links = ('project',)
 
+class PendingWorkflowAdmin(admin.ModelAdmin):
+    list_display = ('start_time','status','error','complete')
 
 admin.site.register(Workflow, WorkflowAdmin)
+admin.site.register(PendingWorkflow, PendingWorkflowAdmin)
 admin.site.register(AnalysisProject, AnalysisProjectAdmin)
 admin.site.register(AnalysisProjectResource, AnalysisProjectResourceAdmin)
 admin.site.register(SubmittedJob, SubmittedJobAdmin)
