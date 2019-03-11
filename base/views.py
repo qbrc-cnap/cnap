@@ -100,11 +100,13 @@ def get_tree_ready_resources(request):
     d = {}
     for apr in analysis_project_resources:
         project = apr.analysis_project
-        ap_uuid = str(project.analysis_uuid)
-        if ap_uuid in d:
-            d[ap_uuid].append(apr.resource)
+        wf_title = project.workflow.workflow_title
+        project_date = project.finish_time.strftime('%B %d, %Y (%H:%M:%S)')
+        section_title = '%s (Completed %s)' % (wf_title, project_date)
+        if section_title in d:
+            d[section_title].append(apr.resource)
         else:
-            d[ap_uuid] = [apr.resource,]
+            d[section_title] = [apr.resource,]
 
     for key, resource_list in d.items():
         resource_list = [x for x in resource_list if re.fullmatch(regex_filter, x.name)] 
