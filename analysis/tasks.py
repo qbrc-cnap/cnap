@@ -50,7 +50,7 @@ class MissingDataException(Exception):
 
 class JobOutputCopyException(Exception):
     pass
-    
+
 
 class JobOutputsException(Exception):
     pass
@@ -345,6 +345,49 @@ def get_resource_size(path):
     else:
         raise Exception('Have not implemented for this cloud provider yet')
 
+
+def move_resource_to_user_bucket(storage_client, job, resource_path):
+    '''
+    Copies the final job output from the cromwell bucket to the user's bucket/folder
+    '''
+    # move the resource into the user's bucket:
+    destination_bucket = settings.CONFIG_PARAMS[ \
+        'storage_bucket_prefix' \
+        ][len(settings.CONFIG_PARAMS['google_storage_gs_prefix']):]
+    destination_object = os.path.join( str(job.project.owner.user_uuid), \
+        str(job.project.analysis_uuid), \
+        job.job_id, \
+        os.path.basename(resource_path)
+    )
+    full_destination_with_prefix = '%s%s/%s' % (settings.CONFIG_PARAMS['google_storage_gs_prefix'], 
+        destination_bucket, \
+        destination_object \
+    )
+    full_source_location_without_prefix = resource_path[len(settings.CONFIG_PARAMS['google_storage_gs_prefix']):]
+    source_bucketname = full_source_location_without_prefix.split('/')[0]
+    source_objectname = '/'.join(full_source_location_without_prefix.split('/')[1:])
+
+    copied = False
+    attempts = 0
+    while ((not copied) and (attempts < MAX_COPY_ATTEMPTS)):
+        try:
+            response = storage_client.objects().copy(sourceBucket=source_bucketname, \
+                sourceObject=source_objectname, \
+                destinationBucket=destination_bucket, \
+                destinationObject=destination_object, body={}).execute()
+            copied = True
+        except Exception as ex:
+            print('Copy failed.  Sleep and try again.')
+            time.sleep(SLEEP_PERIOD)
+            attempts += 1
+
+    # if still not copied, raise an issue:
+    if not copied:
+        raise JobOutputCopyException('Still could not copy after %d attempts.' % MAX_COPY_ATTEMPTS)
+    else:
+        return full_destination_with_prefix
+
+
 def register_outputs(job):
     '''
     This adds outputs from the workflow to the list of Resources owned by the client
@@ -370,50 +413,22 @@ def register_outputs(job):
             outputs = response_json['outputs']
             output_filepath_list = parse_outputs(outputs)
             environment = settings.CONFIG_PARAMS['cloud_environment']
-            owner = job.project.owner
             expiration_datetime = datetime.datetime.now() + settings.EXPIRATION_PERIOD
             storage_client = google_api_build('storage', 'v1')
             for p in output_filepath_list:
                 size_in_bytes = get_resource_size(p)
-
-                # move the resource into the user's bucket:
-                destination_bucket = settings.CONFIG_PARAMS['storage_bucket_prefix'][len(settings.CONFIG_PARAMS['google_storage_gs_prefix']):]
-                destination_object = os.path.join( str(owner.user_uuid), \
-                    str(job.project.analysis_uuid), \
-                    job.job_id, \
-                    os.path.basename(p)
+                full_destination_with_prefix = move_resource_to_user_bucket(
+                    storage_client, 
+                    job,  
+                    p
                 )
-                full_destination_with_prefix = '%s%s/%s' % (settings.CONFIG_PARAMS['google_storage_gs_prefix'], 
-                    destination_bucket, \
-                    destination_object \
-                )
-                full_source_location_without_prefix = p[len(settings.CONFIG_PARAMS['google_storage_gs_prefix']):]
-                source_bucketname = full_source_location_without_prefix.split('/')[0]
-                source_objectname = '/'.join(full_source_location_without_prefix.split('/')[1:])
-
-                copied = False
-                attempts = 0
-                while ((not copied) and (attempts < MAX_COPY_ATTEMPTS)):
-                    try:
-                        response = storage_client.objects().copy(sourceBucket=source_bucketname, \
-                            sourceObject=source_objectname, \
-                            destinationBucket=destination_bucket, \
-                            destinationObject=destination_object, body={}).execute()
-                        copied = True
-                    except Exception as ex:
-                        print('Copy failed.  Sleep and try again.')
-                        time.sleep(SLEEP_PERIOD)
-                        attempts += 1
-                # if still not copied, raise an issue:
-                if not copied:
-                    raise JobOutputCopyException('Still could not copy after %d attempts.' % MAX_COPY_ATTEMPTS)
 
                 # add the Resource to the database:
                 r = Resource(
                     source = environment,
                     path = full_destination_with_prefix,
                     name = os.path.basename(p),
-                    owner = owner,
+                    owner = job.project.owner,
                     size = size_in_bytes,
                     expiration_date = expiration_datetime
                 )

@@ -35,11 +35,13 @@ from .tasks import fill_wdl_input, \
     check_job, \
     register_outputs, \
     parse_outputs, \
+    move_resource_to_user_bucket, \
     MissingDataException, \
     InputMappingException, \
     WORKFLOW_LOCATION, \
     USER_PK, \
-    JobOutputsException
+    JobOutputsException, \
+    JobOutputCopyException
 
 
 class TasksTestCase(TestCase):
@@ -175,6 +177,26 @@ class TasksTestCase(TestCase):
         with self.assertRaises(JobOutputsException):
             register_outputs(job)
 
+
+    @mock.patch('analysis.tasks.time')
+    def test_handle_error_with_resource_interbucket_copy(self, mock_time):
+        '''
+        This test covers the case where an inter-bucket copy fails due to some
+        reason on google's end.  Test that we try multiple times and eventually
+        gracefully fail.
+        '''
+        mock_storage_client = mock.MagicMock()
+        mock_objects_func = mock.MagicMock()
+        mock_objects_copy = mock.MagicMock(side_effect=Exception('Some backend ex!'))
+
+        mock_objects_func.return_value = mock_objects_copy
+        mock_storage_client.objects = mock_objects_func
+
+        mock_time.sleep = mock.MagicMock()
+
+
+
+       
 
     @mock.patch('analysis.tasks.google_api_build')
     @mock.patch('analysis.tasks.parse_outputs')
