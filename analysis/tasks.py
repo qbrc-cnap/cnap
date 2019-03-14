@@ -3,6 +3,7 @@ import glob
 import json
 import shutil
 import datetime
+import time
 import zipfile
 import requests
 from importlib import import_module
@@ -31,6 +32,9 @@ WDL_INPUTS = 'inputs.json'
 WORKFLOW_LOCATION = 'location'
 USER_PK = 'user_pk'
 
+MAX_COPY_ATTEMPTS = 5
+SLEEP_PERIOD = 60 # in seconds.  how long to sleep between copy attempts.
+
 
 class InputMappingException(Exception):
     pass
@@ -43,6 +47,10 @@ class MissingMappingHandlerException(Exception):
 class MissingDataException(Exception):
     pass
 
+
+class JobOutputCopyException(Exception):
+    pass
+    
 
 class JobOutputsException(Exception):
     pass
@@ -367,6 +375,7 @@ def register_outputs(job):
             storage_client = google_api_build('storage', 'v1')
             for p in output_filepath_list:
                 size_in_bytes = get_resource_size(p)
+
                 # move the resource into the user's bucket:
                 destination_bucket = settings.CONFIG_PARAMS['storage_bucket_prefix'][len(settings.CONFIG_PARAMS['google_storage_gs_prefix']):]
                 destination_object = os.path.join( str(owner.user_uuid), \
@@ -381,10 +390,24 @@ def register_outputs(job):
                 full_source_location_without_prefix = p[len(settings.CONFIG_PARAMS['google_storage_gs_prefix']):]
                 source_bucketname = full_source_location_without_prefix.split('/')[0]
                 source_objectname = '/'.join(full_source_location_without_prefix.split('/')[1:])
-                response = storage_client.objects().copy(sourceBucket=source_bucketname, \
-                    sourceObject=source_objectname, \
-                    destinationBucket=destination_bucket, \
-                    destinationObject=destination_object, body={}).execute()
+
+                copied = False
+                attempts = 0
+                while ((not copied) and (attempts < MAX_COPY_ATTEMPTS)):
+                    try:
+                        response = storage_client.objects().copy(sourceBucket=source_bucketname, \
+                            sourceObject=source_objectname, \
+                            destinationBucket=destination_bucket, \
+                            destinationObject=destination_object, body={}).execute()
+                        copied = True
+                    except Exception as ex:
+                        print('Copy failed.  Sleep and try again.')
+                        time.sleep(SLEEP_PERIOD)
+                        attempts += 1
+                # if still not copied, raise an issue:
+                if not copied:
+                    raise JobOutputCopyException('Still could not copy after %d attempts.' % MAX_COPY_ATTEMPTS)
+
                 # add the Resource to the database:
                 r = Resource(
                     source = environment,
