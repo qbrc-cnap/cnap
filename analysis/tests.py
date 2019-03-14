@@ -194,6 +194,18 @@ class TasksTestCase(TestCase):
 
         mock_time.sleep = mock.MagicMock()
 
+        job = SubmittedJob(
+            project = self.analysis_project,
+            job_id = 'some_job_id'
+        )
+
+        with self.assertRaises(JobOutputCopyException):
+            move_resource_to_user_bucket(
+                mock_storage_client, 
+                job, 
+                'gs://some-bucket/some-path.txt'
+            )
+        
 
 
        
