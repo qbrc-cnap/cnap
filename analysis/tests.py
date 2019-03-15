@@ -185,12 +185,20 @@ class TasksTestCase(TestCase):
         reason on google's end.  Test that we try multiple times and eventually
         gracefully fail.
         '''
-        mock_storage_client = mock.MagicMock()
         mock_objects_func = mock.MagicMock()
-        mock_objects_copy = mock.MagicMock(side_effect=Exception('Some backend ex!'))
+        mock_objects = mock.MagicMock()
+        mock_objects_func.return_value = mock_objects
 
-        mock_objects_func.return_value = mock_objects_copy
-        mock_storage_client.objects = mock_objects_func
+        mock_copy = mock.MagicMock()
+        mock_that_raises_ex = mock.MagicMock(side_effect=Exception('Some backend ex!'))
+        mock_copy.execute = mock_that_raises_ex
+        mock_objects.copy.return_value = mock_copy
+
+        class MockStorageClient(object):
+            def __init__(self, object_attr_mock):
+                self.objects = object_attr_mock
+
+        mock_storage_client = MockStorageClient(mock_objects_func)
 
         mock_time.sleep = mock.MagicMock()
 
@@ -205,10 +213,100 @@ class TasksTestCase(TestCase):
                 job, 
                 'gs://some-bucket/some-path.txt'
             )
-        
 
 
-       
+    @mock.patch('analysis.tasks.time')
+    def test_interbucket_copy_recovers_from_initial_failure(self, mock_time):
+        '''
+        This test covers the case where an inter-bucket copy fails due to some
+        reason on google's end.  Eventually it works, however.
+        '''
+        mock_objects_func = mock.MagicMock()
+        mock_objects = mock.MagicMock()
+        mock_objects_func.return_value = mock_objects
+
+        mock_copy = mock.MagicMock()
+        mock_that_raises_ex = mock.MagicMock(side_effect=[
+            Exception('Some backend ex!'),
+            Exception('Some backend ex!'),
+            None
+        ])
+        mock_copy.execute = mock_that_raises_ex
+        mock_objects.copy.return_value = mock_copy
+
+        class MockStorageClient(object):
+            def __init__(self, object_attr_mock):
+                self.objects = object_attr_mock
+
+        mock_storage_client = MockStorageClient(mock_objects_func)
+
+        mock_time.sleep = mock.MagicMock()
+
+        job = SubmittedJob(
+            project = self.analysis_project,
+            job_id = 'some_job_id'
+        )
+
+        r = move_resource_to_user_bucket(
+            mock_storage_client, 
+            job, 
+            'gs://some-bucket/some-path.txt'
+        )
+        destination_bucket = settings.CONFIG_PARAMS[ \
+            'storage_bucket_prefix' \
+            ][len(settings.CONFIG_PARAMS['google_storage_gs_prefix']):]
+        expected_r = 'gs://%s/%s/%s/%s/some-path.txt' % (destination_bucket, \
+            job.project.owner.user_uuid, 
+            job.project.analysis_uuid,
+            job.job_id
+        )
+        self.assertTrue(r == expected_r)
+
+
+    @mock.patch('analysis.tasks.time')
+    def test_interbucket_copy_success(self, mock_time):
+        '''
+        This test covers the case where an inter-bucket copy works the first time.
+        we assert that the sleep function is not called.
+        '''
+        mock_objects_func = mock.MagicMock()
+        mock_objects = mock.MagicMock()
+        mock_objects_func.return_value = mock_objects
+
+        mock_copy = mock.MagicMock()
+        mock_execute = mock.MagicMock()
+        mock_copy.execute = mock_execute
+        mock_objects.copy.return_value = mock_copy
+
+        class MockStorageClient(object):
+            def __init__(self, object_attr_mock):
+                self.objects = object_attr_mock
+
+        mock_storage_client = MockStorageClient(mock_objects_func)
+
+        mock_time.sleep = mock.MagicMock()
+
+        job = SubmittedJob(
+            project = self.analysis_project,
+            job_id = 'some_job_id'
+        )
+
+        r = move_resource_to_user_bucket(
+            mock_storage_client, 
+            job, 
+            'gs://some-bucket/some-path.txt'
+        )
+        destination_bucket = settings.CONFIG_PARAMS[ \
+            'storage_bucket_prefix' \
+            ][len(settings.CONFIG_PARAMS['google_storage_gs_prefix']):]
+        expected_r = 'gs://%s/%s/%s/%s/some-path.txt' % (destination_bucket, \
+            job.project.owner.user_uuid, 
+            job.project.analysis_uuid,
+            job.job_id
+        )
+        self.assertTrue(r == expected_r)
+        mock_time.sleep.assert_not_called()
+
 
     @mock.patch('analysis.tasks.google_api_build')
     @mock.patch('analysis.tasks.parse_outputs')
