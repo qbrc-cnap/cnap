@@ -1,20 +1,25 @@
+    <h4><label for="{{id}}">{{label}}</label></h4>
+    <p>
+        {{description}}
+    </p>
+
 <div id="dynamic-input-grid-{{id}}" class="form-group" dataTarget={{name}}>
     <div class="dynamic-grid-outer-wrapper">
         <div class="dynamic-grid-inner-wrapper">
             <div class="dynamic-grid-col-wrapper">
+               {% for col in columns %}
                 <div class="dynamic-grid-col">
-                    {% for col in columns %}
                     <div>
                         <p>{{col}}</p>
                     </div>
                     <div class="dynamic-grid-input-row" row="0">
-                        <input column_index="{{loop.index0}}" type="text">
+                        <input class="form-control" column_index="{{loop.index0}}" type="text">
                     </div>
-                    {% endfor %}
                 </div>
+                {% endfor %}
             </div>
             <div class="dynamic-grid-add-more">
-                    <p id="add-row-{{id}}">Add +</p>
+                    <p id="add-row-{{id}}"><i class="far fa-plus-square"></i> Add contrast </p>
             </div>
         </div>
     </div>
