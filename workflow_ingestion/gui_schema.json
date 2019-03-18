@@ -162,6 +162,30 @@
                 }
             ]
         },
+        "dynamic_input_grid": {
+            "html_source": "html_elements/dynamic_input_grid.html",
+            "js_source": "js/dynamic_input_grid.js",
+            "submit_handler": "js/dynamic_input_grid_submit.js",
+            "parameters": [
+                {
+                    "name": "label",
+                    "type": "string",
+                    "required": false,
+                    "default": ""
+                },
+                {
+                    "name": "description",
+                    "type": "string",
+                    "required": false,
+                    "default": ""
+                },
+                {
+                    "name": "columns",
+                    "type": "list of strings, used for column headers",
+                    "required": true
+                }
+            ]
+        },
         "dynamic_hidden": {
             "html_source": "html_elements/dynamic_hidden_input.html",
             "js_source": "js/hidden_input.js",

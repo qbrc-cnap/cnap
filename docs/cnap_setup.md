@@ -223,6 +223,13 @@ OpenJDK Runtime Environment (build 1.8.0_181-8u181-b13-2~deb9u1-b13)
 OpenJDK 64-Bit Server VM (build 25.181-b13, mixed mode)
 ```
 
+We also need docker to be installed, so we do not have to worry about installation/management of MySQL.  Follow the instructions for installing Docker and then run:
+```
+docker run -p 3306:3306 --name mysql_container -e MYSQL_ROOT_PASSWORD=cromwellroot -e MYSQL_DATABASE=cnap_cromwell -e MYSQL_USER=cromwelluser -e MYSQL_PASSWORD=cromwelluserpwd -d mysql/mysql-server:5.5
+````
+Note that the `latest` version ended up causing problems with Cromwell, so use 5.5.  
+
+
 Now get the latest Cromwell JAR.  At the time of writing this was v36 and was located at the Broad Institute's Github (https://github.com/broadinstitute/cromwell/releases).  We keep the JAR under a new directory, `/opt/cromwell/`.
 
 ```
@@ -444,9 +451,32 @@ Note that we use supervisor to manage processes such as redis and celery, which 
 You can stop those processes and restart by running:
 ```
 supervisorctl stop all
-supervisorctl remove transfer_celery_beat
-supervisorctl remove transfer_celery_worker
+supervisorctl remove cnap_celery_beat
+supervisorctl remove cnap_celery_worker
 supervisorctl remove redis
 supervisorctl reread
-supervisorctl restart
-```  
+supervisorctl update
+```
+
+**API tokens**
+
+You can make requests to the API directly (e.g. using cURL) if the user has a token generated.  This is helpful in situations where an administrator might want to add a large a amount of files.  Such a use-case might arise if sequencing files are already stored on your bucket storage system.  In this case, the administrator may wish to associate those files with a particular client, who might then use the CNAP to perform analysis.  
+
+To generate a new key, the admin can do this directly in the Django admin (`https://<YOUR DOMAIN>/admin/`) in the "Auth token" section.  Simply choose the user, copy the token, and send that to the client.  Alternatively, a request may be made to the token endpoint at `https://<YOUR DOMAIN>/api-token-auth/` with the user's credentials:
+
+```
+curl -X POST \
+  -d '{"username":"<USERNAME/EMAIL>, "password":"<PASSWORD>"}' \
+  -H "Content-Type:application/json" \
+  https://<YOUR DOMAIN>/api-token-auth/
+```
+This will return a token in a json object, such as:
+```
+{
+    "token": "<YOUR TOKEN>"
+}
+```
+then, to make requests (e.g. query for resources here), add the token as a header:
+```
+curl -H "Authorization: Token <YOUR TOKEN>" https://<YOUR DOMAIN>/resources/"
+```

@@ -9,3 +9,31 @@
 }
 
 /* more developer-specific CSS will go here */
+
+/* START CSS for dynamic grid element */
+.dynamic-grid-outer-wrapper{
+    display: flex;
+    justify-content: center;
+    flex-direction: row;
+}
+
+.dynamic-grid-inner-wrapper{
+    width: 75%
+}
+
+.dynamic-grid-col-wrapper {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-around;
+}
+
+.dynamic-grid-col {
+    display: flex;
+    flex-direction: column;
+}
+
+.dynamic-grid-add-more{
+    display:flex;
+    justify-content: flex-end;
+}
+/* END CSS for dynamic grid element */
