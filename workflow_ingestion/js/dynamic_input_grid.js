@@ -18,8 +18,8 @@ $("#add-row-{{id}}").click(function(e){
         $(current_col).append(new_element);
     }
     // handle last column which includes a 'remove' button
-    var new_element = `<div class="dynamic-grid-input-row" row="${ row_index_{{id}} }">
-            <input class="form-control" column_index="${col_count_{{id}}-1}" type="text"><i class="fas fa-times remove-dynamic-input-grid-row" rmTarget="${row_index_{{id}}}"></i></div>`;
+    var new_element = `<div class="dynamic-grid-input-row" row="${ row_index_{{id}} }"><div class="input-group">
+            <input class="form-control" column_index="${col_count_{{id}}-1}" type="text"><i class="fas fa-times remove-dynamic-input-grid-row" rmTarget="${row_index_{{id}}}"></i></div></div>`;
         var current_col = column_objs_{{id}}[col_count_{{id}}-1];
         $(current_col).append(new_element);
         $(".remove-dynamic-input-grid-row").click(remove_row);
