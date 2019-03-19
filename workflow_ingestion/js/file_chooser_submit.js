@@ -7,7 +7,9 @@
           var selectedPks = [];
           for(var i in selected){
             var pk = selected[i].pk;
-            selectedPks.push(pk);
+            if(pk !== undefined){
+              selectedPks.push(pk);
+            }
           }
           payload[dataTarget] = selectedPks;
         {% else %}
