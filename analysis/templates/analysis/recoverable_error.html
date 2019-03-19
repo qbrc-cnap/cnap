@@ -4,9 +4,8 @@
 
 {% block page_specific_css %}
 <style>
-.pad-top-bottom-20{
-    padding-top:20px;
-    padding-bottom:20px;
+.pad-20{
+    padding:20px;
 }
 </style>
 {% endblock %}
@@ -14,16 +13,27 @@
 
 
 {% block content%}
-<div class="pad-top-bottom-20">
+<div class="pad-20">
   <div>
     <h3>
       An error occurred during execution of the analysis.  
     </h3>
   </div>
   <p>The pipeline produced the following error message, which might help in resolving the problem.  If the problem is not clear or if you cannot resolve the problem, please contact an administrator.</p>
-  <p>{{message}}</p>
+  <p class="alert alert-danger">{{message}}</p>
   <div>
-    <a href="{{restart_url}}">Try again</a>
+    <button id="restart-button" class="btn btn-secondary">Try again </button>
   </div>
 </div>
+{% endblock %}
+
+
+{% block page_specific_js %}
+<script>
+    var url = "{{restart_url}}";
+
+    $("#restart-button").click(function(e){
+         window.location = url;
+    });
+</script>
 {% endblock %}

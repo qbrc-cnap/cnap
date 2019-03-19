@@ -3,6 +3,7 @@ import json
 
 from django.conf import settings
 from django.shortcuts import render
+from django.shortcuts import redirect
 from django.http import HttpResponseBadRequest, JsonResponse
 from django.views import View
 from django.contrib.auth.decorators import login_required
@@ -261,7 +262,7 @@ class AnalysisView(View):
                         context['error'] = False
                     return render(request, 'analysis/in_progress.html', context)
                 else: # started AND complete
-                    if analysis_project.success:
+                    if not analysis_project.error:
                         # return a success page
                         context = {}
                         if analysis_project.finish_time is not None:
@@ -276,7 +277,7 @@ class AnalysisView(View):
                             context['status'] = analysis_project.status
                             context['message'] = analysis_project.message
                             context['restart_url'] = reverse('analysis-project-restart', args=[analysis_project.analysis_uuid,])
-                            return render(request, 'analysis/recoverable_error.html',{})
+                            return render(request, 'analysis/recoverable_error.html', context)
                         else:
                             return render(request, 'analysis/complete_error.html',{})
 
@@ -392,7 +393,11 @@ class AnalysisRestartView(View):
             analysis_project.error = False
             analysis_project.completed = False
             analysis_project.started = False
-            return AnalysisProject.as_view().get(request, *args, **kwargs)
+            analysis_project.message = ''
+            analysis_project.status ='' 
+            analysis_project.save()
+            return redirect('analysis-project-execute', analysis_uuid=analysis_project.analysis_uuid)
+            #return AnalysisView.as_view()(request, *args, **kwargs)
         else:
             return HttpResponseBadRequest('Cannot perform this action.')
             
