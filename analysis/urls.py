@@ -11,6 +11,9 @@ urlpatterns = [
     # (NOT the endpoint for actually running an analysis!)
     path('projects/details/<uuid:analysis_uuid>/', views.AnalysisProjectDetail.as_view(), name='analysis-project-detail'),
 
+    # a view where users can restart an AnalysisProject if they input bad data
+    path('projects/<uuid:analysis_uuid>/restart/', views.AnalysisRestartView.as_view(), name='analysis-project-restart'),
+
     # a view where users can actually execute an AnalysisProject, which is different than 
     # the API view given above
     path('projects/<uuid:analysis_uuid>/', views.AnalysisView.as_view(), name='analysis-project-execute'),

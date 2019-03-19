@@ -179,5 +179,5 @@ def start_job_on_gcp(request, data, workflow_obj):
     location = os.path.join(settings.BASE_DIR, workflow_dir)
     data[analysis_tasks.WORKFLOW_LOCATION] = location
     data[analysis_tasks.USER_PK] = request.user.pk
-    analysis_tasks.start_workflow.delay(data)
+    analysis_tasks.prep_workflow.delay(data)
 

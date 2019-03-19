@@ -11,6 +11,7 @@ from jinja2 import Template
 
 from django.conf import settings
 from celery.decorators import task
+from django.urls import reverse
 from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
 from googleapiclient.discovery import build as google_api_build
@@ -165,8 +166,9 @@ def fill_wdl_input(data):
     else:
         return wdl_input_dict
 
-@task(name='start_workflow')
-def start_workflow(data):
+
+@task(name='prep_workflow')
+def prep_workflow(data):
     '''
     
     '''
@@ -225,6 +227,27 @@ def start_workflow(data):
     wdl_input_path = os.path.join(staging_dir, WDL_INPUTS)
     with open(wdl_input_path, 'w') as fout:
         json.dump(wdl_input_dict, fout)
+    
+    # Go start the workflow:
+    if data['analysis_uuid']:
+
+        # we are going to start the workflow-- check if we shoudl run a pre-check
+        # to examine user input:
+        run_precheck = False
+        if os.path.exists(os.path.join(staging_dir, settings.PRECHECK_WDL)):
+            run_precheck = True
+
+        execute_wdl(staging_dir, run_precheck)
+    else:
+        print('View final staging dir at %s' % staging_dir)
+        print('Would post the following:\n')
+        print('Data: %s\n' % data)
+
+
+def execute_wdl(staging_dir, run_precheck=False):
+    '''
+    This function performs the actual work of submitting the job
+    '''
 
     # read config to get the names/locations/parameters for job submission
     config_path = os.path.join(THIS_DIR, 'wdl_job_config.cfg')
@@ -237,66 +260,76 @@ def start_workflow(data):
     payload = {'workflowType': config_dict['workflow_type'], \
         'workflowTypeVersion': config_dict['workflow_type_version']
     }
-    files = {
-        'workflowSource': open(os.path.join(staging_dir, settings.MAIN_WDL), 'rb'), 
-        'workflowInputs': open(wdl_input_path,'rb')
-    }
-    if zip_archive:
+
+    if run_precheck:
+        files = {
+            'workflowSource': open(os.path.join(staging_dir, settings.PRECHECK_WDL), 'rb'), 
+            'workflowInputs': open(wdl_input_path,'rb')
+        }
+    else:
+        files = {
+            'workflowSource': open(os.path.join(staging_dir, settings.MAIN_WDL), 'rb'), 
+            'workflowInputs': open(wdl_input_path,'rb')
+        }
+
+    if os.path.exists(os.path.join(staging_dir, ZIPNAME)):
         files['workflowDependencies'] = open(zip_archive, 'rb')
 
     # start the job:
-    if data['analysis_uuid']:
-        try:
-            response = requests.post(submission_url, data=payload, files=files)
-        except Exception as ex:
-            print('An exception was raised when requesting cromwell server:')
-            print(ex)
-            message = 'An exception occurred when trying to submit a job to Cromwell. \n'
-            message += 'Project ID was: %s' % data['analysis_uuid']
-            message += str(ex)
-            analysis_project.status = '''
-                Error on job submission.  An administrator has been automatically notified of this error.
-                Thank you for your patience.
-                '''
-            analysis_project.error = True
-            analysis_project.save()
-            handle_exception(ex, message=message)
-            raise ex
-        response_json = json.loads(response.text)
-        if response.status_code == 201:
-            if response_json['status'] == 'Submitted':
-                job_id = response_json['id']
-                job = SubmittedJob(project=analysis_project, 
-                    job_id=job_id, 
-                    job_status='Submitted', 
-                    job_staging_dir=staging_dir
-                )
-                job.save()
+    try:
+        response = requests.post(submission_url, data=payload, files=files)
+    except Exception as ex:
+        print('An exception was raised when requesting cromwell server:')
+        print(ex)
+        message = 'An exception occurred when trying to submit a job to Cromwell. \n'
+        message += 'Project ID was: %s' % data['analysis_uuid']
+        message += str(ex)
+        analysis_project.status = '''
+            Error on job submission.  An administrator has been automatically notified of this error.
+            Thank you for your patience.
+            '''
+        analysis_project.error = True
+        analysis_project.save()
+        handle_exception(ex, message=message)
+        raise ex
+    response_json = json.loads(response.text)
+    if response.status_code == 201:
+        if response_json['status'] == 'Submitted':
+            job_id = response_json['id']
 
-                # update the project also:
-                analysis_project.started = True # should already be set
-                analysis_project.start_time = datetime.datetime.now()
-                analysis_project.status = 'Submitted...'
-                analysis_project.save()
+            if run_precheck:
+                job_status = 'Checking input data...'
             else:
-                # In case we get other types of responses, inform the admins:
-                message = 'Job was submitted, but received an unexpected response from Cromwell:\n'
-                message += response.text
-                handle_exception(None, message=message)
-        else:
-            message = 'Did not submit job-- status code was %d, and response text was: %s' % (response.status_code, response.text)
-            analysis_project.status = '''
-                Error on job submission.  An administrator has been automatically notified of this error.
-                Thank you for your patience.
-                '''
-            analysis_project.error = True
+                job_status = 'Job submitted...'
+
+            job = SubmittedJob(project=analysis_project, 
+                job_id=job_id, 
+                job_status=job_status, 
+                job_staging_dir=staging_dir,
+                is_precheck = run_precheck
+            )
+            job.save()
+
+            # update the project also:
+            analysis_project.started = True # should already be set
+            analysis_project.start_time = datetime.datetime.now()
+            analysis_project.status = job_status
             analysis_project.save()
+        else:
+            # In case we get other types of responses, inform the admins:
+            message = 'Job was submitted, but received an unexpected response from Cromwell:\n'
+            message += response.text
             handle_exception(None, message=message)
     else:
-        print('View final staging dir at %s' % staging_dir)
-        print('Would post the following:\n')
-        print('Data: %s\n' % data)
-        print('Files as appropriate.  Keys are: %s' % files.keys())
+        message = 'Did not submit job-- status code was %d, and response text was: %s' % (response.status_code, response.text)
+        analysis_project.status = '''
+            Error on job submission.  An administrator has been automatically notified of this error.
+            Thank you for your patience.
+            '''
+        analysis_project.error = True
+        analysis_project.save()
+        handle_exception(None, message=message)
+
 
 def parse_outputs(obj):
     '''
@@ -547,6 +580,105 @@ def handle_failure(job):
     notify_admins(message, subject)
 
 
+def walk_response(key, val, target):
+    '''
+    Walks through a json object (`val`), returns all 
+    primitives (e.g. strings) referenced by a `key` which
+    equals `target`.  
+    '''
+    f = []
+    if type(val) == list:
+        for item in val:
+            f.extend(walk('', item, target))
+    elif type(val) == dict:
+        for k, v in val.items():
+            f.extend(walk(k, v, target))
+    elif key == target:
+        f.append(val)
+    return f
+
+
+def handle_precheck_failure(job):
+    '''
+    If a pre-check job failed, something was wrong with the inputs.  
+    We query the cromwell metadata to get the error so the user can correct it
+    '''
+    config_path = os.path.join(THIS_DIR, 'wdl_job_config.cfg')
+    config_dict = utils.load_config(config_path)
+
+    # pull together the components of the request to the Cromwell server
+    metadata_endpoint = config_dict['metadata_endpoint']
+    metadata_url_template = Template(settings.CROMWELL_SERVER_URL + metadata_endpoint)
+    metadata_url = metadata_url_template.render({'job_id': job.job_id})
+    try:
+        response = requests.get(metadata_url)
+        response_json = response.json()
+        stderr_file_list = walk_response('',response_json, 'stderr')
+        response_to_client = construct_client_response(stderr_file_list)
+
+        # update the AnalysisProject instance:
+        project = job.project
+        project.completed = True
+        project.success = False
+        project.error = True
+        project.status = 'Issue encountered with inputs.'
+        project.message = response_to_client
+        project.finish_time = datetime.datetime.now()
+        project.save() 
+
+        # inform the client of this problem so they can fix it (if allowed):
+        email_address = project.owner.email
+        current_site = Site.objects.get_current()
+        domain = current_site.domain
+        project_url = reverse('analysis-project-execute', args=[project.analysis_uuid,])
+        url = 'https://%s/%s' % (domain, project_url)
+        context = {'site': url, 'user_email': email_address}
+        if project.restart_allowed:
+            email_template_path = 'email_templates/analysis_fail_with_recovery.html'
+            email_plaintxt_path = 'email_templates/analysis_fail_with_recovery.txt'
+            email_subject = 'email_templates/analysis_fail_subject.txt'
+        else:
+            email_template_path = 'email_templates/analysis_fail.html'
+            email_plaintxt_path = 'email_templates/analysis_fail.txt'
+            email_subject = 'email_templates/analysis_fail_subject.txt'
+
+        email_template = get_jinja_template(email_template_path)
+        email_html = email_template.render(context)
+        email_plaintxt_template = get_jinja_template(email_plaintxt_path)
+        email_plaintxt = email_plaintxt_template.render(context)
+        email_subject = open(email_subject).readline().strip()
+        send_email(email_plaintxt, email_html, email_address, email_subject)
+
+    except Exception as ex:
+        print('An exception was raised when requesting metadata '
+            'from cromwell server following a pre-check failure')
+        print(ex)
+        message = 'An exception occurred when trying to query metadata. \n'
+        message += 'Job ID was: %s' % job.job_id
+        message += 'Project ID was: %s' % job.project.analysis_uuid
+        message += str(ex)
+        warnings_sent = Warning.objects.get(job=job)
+        if len(warnings_sent) == 0:
+            handle_exception(ex, message=message)
+
+            # add a 'Warning' object in the database so that we don't
+            # overwhelm the admin email boxes.
+            warn = Warning(message=message, job=job)
+            warn.save()
+        else:
+            print('Error when querying cromwell for metadata.  Notification suppressed')
+        raise ex  
+
+
+def handle_precheck_success(job):
+    '''
+    This function is invoked if the pre-check passed, and we are hence 
+    likely OK to launch the full job
+    '''
+    staging_dir = job.job_staging_dir
+    execute_wdl(staging_dir, False)
+
+
 @task(name='check_job')
 def check_job():
     '''
@@ -556,6 +688,12 @@ def check_job():
         'Succeeded': handle_success,
         'Failed': handle_failure
     }
+
+    precheck_terminal_actions = {
+        'Succeeded': handle_precheck_success,
+        'Failed': handle_precheck_failure
+    }
+
     other_states = ['Submitted','Running']
 
     config_path = os.path.join(THIS_DIR, 'wdl_job_config.cfg')
@@ -580,7 +718,12 @@ def check_job():
 
                 # if the job was in one of the finished states, execute some specific logic
                 if status in terminal_actions.keys():
-                    terminal_actions[status](job) # call the function to execute the logic for this end-state
+                    
+                    if job.is_precheck:
+                        precheck_terminal_actions[status](job) # call the function to execute the logic for this end-state
+
+                    else:
+                        terminal_actions[status](job) # call the function to execute the logic for this end-state
                 elif status in other_states:
                     # any custom behavior for unfinished tasks
                     # can be handled here if desired
@@ -617,4 +760,5 @@ def check_job():
             else:
                 print('Error when querying cromwell for job status.  Notification suppressed')
             raise ex
+
         

@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+
+
+
+{% block page_specific_css %}
+<style>
+.pad-top-bottom-20{
+    padding-top:20px;
+    padding-bottom:20px;
+}
+</style>
+{% endblock %}
+
+
+
+{% block content%}
+<div class="pad-top-bottom-20">
+  <div>
+    <h3>
+      An error occurred during execution of the analysis.  
+    </h3>
+  </div>
+  <p>The pipeline produced the following error message, which might help in resolving the problem.  If the problem is not clear or if you cannot resolve the problem, please contact an administrator.</p>
+  <p>{{message}}</p>
+  <div>
+    <a href="{{restart_url}}">Try again</a>
+  </div>
+</div>
+{% endblock %}

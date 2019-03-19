@@ -1,0 +1,1 @@
+An analysis project has failed during execution.  Go go <a href="{{site}}">{{site}}</a> to view the problem(s) and retry.  If you are unable to fix the problem, please contact an administrator.

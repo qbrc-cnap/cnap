@@ -132,8 +132,15 @@ class AnalysisProject(models.Model):
     # boolean for whether complete
     completed = models.BooleanField(default=False)
 
+    # boolean indicating whether restarts are allowed
+    # (perhaps due to bad input)
+    restart_allowed = models.BooleanField(default=False)
+
     # for displaying the job status, as returned by Cromwell
     status = models.CharField(max_length=200, default='', blank=True)
+
+    # for displaying longer messages, like possible errors:
+    message = models.CharField(max_length=5000, default='', blank=True)
 
     # fields to track status
     start_time = models.DateTimeField(blank=True, null=True)
@@ -206,6 +213,10 @@ class SubmittedJob(models.Model):
     # where the staging directory is-- for debug purposes.
     # This is an absolute path
     job_staging_dir = models.CharField(max_length=1000, blank=False)
+
+    # is this a pre-check job?  We can launch pre-workflows
+    # that check user input prior to launching the entire pipeline
+    is_precheck = models.BooleanField(default=False)
 
     def __str__(self):
         return '%s' % (self.job_id)

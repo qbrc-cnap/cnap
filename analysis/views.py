@@ -271,7 +271,14 @@ class AnalysisView(View):
                         return render(request, 'analysis/complete_success.html', context)
                     elif analysis_project.error:
                         # return a page indicating error
-                        return render(request, 'analysis/complete_error.html',{})
+                        if analysis_project.restart_allowed:
+                            context = {}
+                            context['status'] = analysis_project.status
+                            context['message'] = analysis_project.message
+                            context['restart_url'] = reverse('analysis-project-restart', args=[analysis_project.analysis_uuid,])
+                            return render(request, 'analysis/recoverable_error.html',{})
+                        else:
+                            return render(request, 'analysis/complete_error.html',{})
 
         # if we are here, we have a workflow object from the database.
         # We can use that to find the appropriate workflow directory where
@@ -363,4 +370,29 @@ class AnalysisView(View):
             return HttpResponseBadRequest('Error when instantiating workflow.')
 
 
+class AnalysisRestartView(View):
+    '''
+    This is used when a recoverable error was encountered (e.g. bad inputs).  Allow a restart
+    if possible.
+    '''
+    def get(self, request, *args, **kwargs):
 
+        try:
+            workflow_obj, analysis_project = AnalysisView.get_workflow(kwargs, request.user.is_staff)
+        except AnalysisQueryException as ex:
+            message = str(ex)
+            return HttpResponseBadRequest(message)
+
+        # check that it was completed and had an error:
+        error = analysis_project.error
+        completed = analysis_project.completed
+        restart_allowed = analysis_project.restart_allowed
+
+        if error and completed and restart_allowed:
+            analysis_project.error = False
+            analysis_project.completed = False
+            analysis_project.started = False
+            return AnalysisProject.as_view().get(request, *args, **kwargs)
+        else:
+            return HttpResponseBadRequest('Cannot perform this action.')
+            

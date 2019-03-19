@@ -335,6 +335,10 @@ STAGING_DIR = ingestion_config_dict['staging_dir']
 
 # the name of the main WDL file:
 MAIN_WDL = ingestion_config_dict['main_wdl']
+
+# the name of a pre-check WDL file, which checks user input 
+# prior to starting the actual main WDL
+PRECHECK_WDL = 'pre_check.wdl'
 ###############################################################################
 ###############################################################################
 
