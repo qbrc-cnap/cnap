@@ -182,6 +182,7 @@ a{
     -moz-box-shadow: 0 6px 12px rgba(0,0,0,.175);
     background-clip: padding-box;
     margin-top:5px;
+    margin-bottom:20px;
 
     /*padding-bottom:20px;*/
     
@@ -233,6 +234,7 @@ a{
     flex-direction: row;
     justify-content: space-between;
     width:100%;
+    margin-bottom: 0px;
 }
 
 .section-chooser{
@@ -331,6 +333,7 @@ a{
     #menu-list{
         flex-direction: column;
         align-items: center;
+        margin-bottom:0px;
     }
     
     .section-chooser{
