@@ -594,10 +594,10 @@ def walk_response(key, val, target):
     f = []
     if type(val) == list:
         for item in val:
-            f.extend(walk('', item, target))
+            f.extend(walk_response('', item, target))
     elif type(val) == dict:
         for k, v in val.items():
-            f.extend(walk(k, v, target))
+            f.extend(walk_response(k, v, target))
     elif key == target:
         f.append(val)
     return f
@@ -616,7 +616,7 @@ def log_client_errors(job, stderr_file_list):
     storage_client = storage.Client()
     bucket_prefix = settings.CONFIG_PARAMS['google_storage_gs_prefix']
     local_file_list = []
-    for i, stderr_path in stderr_file_list:
+    for i, stderr_path in enumerate(stderr_file_list):
         path_without_prefix = stderr_path[len(bucket_prefix):]
         bucket_name = path_without_prefix.split('/')[0]
         object_name = '/'.join(path_without_prefix.split('/')[1:])
@@ -630,9 +630,12 @@ def log_client_errors(job, stderr_file_list):
     errors = []
     for f in local_file_list:
         file_contents = open(f).read()
-        jc = JobClientError(project=job.project, error_text=file_contents)
-        jc.save()
-        errors.append(jc)
+        if len(file_contents) > 0:
+            stderr_sections = file_contents.split(settings.CROMWELL_STDERR_DELIM)
+            for section in stderr_sections:
+                jc = JobClientError(project=job.project, error_text=section)
+                jc.save()
+                errors.append(jc)
             
     shutil.rmtree(stderr_folder)
     return errors
@@ -688,6 +691,9 @@ def handle_precheck_failure(job):
         email_plaintxt = email_plaintxt_template.render(context)
         email_subject = open(email_subject).readline().strip()
         send_email(email_plaintxt, email_html, email_address, email_subject)
+
+        # delete the failed job:
+        job.delete()
 
     except Exception as ex:
         print('An exception was raised when requesting metadata '

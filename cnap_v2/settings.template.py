@@ -382,3 +382,8 @@ REGULAR_TEST_EMAIL = 'user@foobarbaz.com'
 OTHER_TEST_EMAIL = 'other-user@foobarbaz.com'
 YET_ANOTHER_TEST_EMAIL = 'yet-another-user@foobarbaz.com'
 TEST_EMAIL_ADDRESSES = [ADMIN_TEST_EMAIL, REGULAR_TEST_EMAIL, OTHER_TEST_EMAIL, YET_ANOTHER_TEST_EMAIL]
+
+# when we run pre-check WDL pipelines, we will be dumping all errors into stderr logs.  Some stderrs are
+# multiple lines, while others are single, etc. etc.  We use this delimeter to separate distinct errors
+# so they can be more readable in the output page.
+CROMWELL_STDERR_DELIM = '#####'

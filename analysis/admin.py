@@ -6,7 +6,8 @@ from .models import Workflow, \
     CompletedJob, \
     PendingWorkflow, \
     AnalysisProjectResource, \
-    Warning
+    Warning, \
+    JobClientError
 
 class WorkflowAdmin(admin.ModelAdmin):
     list_display = ('workflow_name', 'workflow_id', 'version_id', 'is_default', 'is_active', 'workflow_title', 'workflow_short_description', 'workflow_long_description')
@@ -38,8 +39,14 @@ class CompletedJobAdmin(admin.ModelAdmin):
     list_display = ('job_id','job_status', 'project')
     list_display_links = ('project',)
 
+
 class PendingWorkflowAdmin(admin.ModelAdmin):
     list_display = ('start_time','status','error','complete')
+
+
+class JobClientErrorAdmin(admin.ModelAdmin):
+    list_display = ('error_text',)
+
 
 admin.site.register(Workflow, WorkflowAdmin)
 admin.site.register(PendingWorkflow, PendingWorkflowAdmin)
@@ -48,3 +55,4 @@ admin.site.register(AnalysisProjectResource, AnalysisProjectResourceAdmin)
 admin.site.register(SubmittedJob, SubmittedJobAdmin)
 admin.site.register(Warning, WarningAdmin)
 admin.site.register(CompletedJob, CompletedJobAdmin)
+admin.site.register(JobClientError, JobClientErrorAdmin)

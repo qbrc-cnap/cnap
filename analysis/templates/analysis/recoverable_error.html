@@ -19,7 +19,7 @@
       An error occurred during execution of the analysis.  
     </h3>
   </div>
-  <p>The pipeline produced the following error message, which might help in resolving the problem.  If the problem is not clear or if you cannot resolve the problem, please contact an administrator.</p>
+  <p>The pipeline produced the following error message(s), which might help in resolving the problem.  If the problem is not clear or if you cannot resolve the problem, please contact an administrator.</p>
   {% for error in errors %}
     <p class="alert alert-danger">{{error.error_text}}</p>
   {% endfor %}

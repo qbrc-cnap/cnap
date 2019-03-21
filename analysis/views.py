@@ -398,6 +398,11 @@ class AnalysisRestartView(View):
             analysis_project.message = ''
             analysis_project.status ='' 
             analysis_project.save()
+
+            # remove any error messages as well:
+            old_errors = JobClientError.objects.filter(project=analysis_project)
+            [o.delete() for o in old_errors] 
+
             return redirect('analysis-project-execute', analysis_uuid=analysis_project.analysis_uuid)
         else:
             return HttpResponseBadRequest('Cannot perform this action.')
