@@ -256,3 +256,18 @@ class Warning(models.Model):
     '''
     message = models.CharField(max_length=2000)
     job = models.ForeignKey('SubmittedJob', on_delete=models.CASCADE)
+
+
+class JobClientError(models.Model):
+    '''
+    This class/table is used for tracking errors that were due to incorrect user inputs.
+    After a pre-check job is complete, the backend parses the stderr files and can then parse 
+    an arbitrary number of errors (as strings).  Rather than keep all of those as a large block of text
+    we save them here.  Then, when the client visits the page to view errors, they are displayed consistently.
+    '''
+
+    # need to know which project it originated from:
+    project = models.ForeignKey('AnalysisProject', on_delete=models.CASCADE)
+
+    # the text of the error itself:
+    error_text = models.CharField(max_length=2000, blank=True)

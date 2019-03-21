@@ -21,7 +21,8 @@ from .models import Workflow, \
     AnalysisProject, \
     OrganizationWorkflow, \
     PendingWorkflow, \
-    AnalysisProjectResource
+    AnalysisProjectResource, \
+    JobClientError
 from base.models import Issue
 from .serializers import WorkflowSerializer, \
     AnalysisProjectSerializer, \
@@ -274,8 +275,9 @@ class AnalysisView(View):
                         # return a page indicating error
                         if analysis_project.restart_allowed:
                             context = {}
+                            client_errors = JobClientError.objects.filter(project=analysis_project)
                             context['status'] = analysis_project.status
-                            context['message'] = analysis_project.message
+                            context['errors'] = client_errors
                             context['restart_url'] = reverse('analysis-project-restart', args=[analysis_project.analysis_uuid,])
                             return render(request, 'analysis/recoverable_error.html', context)
                         else:
@@ -397,7 +399,6 @@ class AnalysisRestartView(View):
             analysis_project.status ='' 
             analysis_project.save()
             return redirect('analysis-project-execute', analysis_uuid=analysis_project.analysis_uuid)
-            #return AnalysisView.as_view()(request, *args, **kwargs)
         else:
             return HttpResponseBadRequest('Cannot perform this action.')
             

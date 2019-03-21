@@ -15,6 +15,7 @@ from django.urls import reverse
 from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
 from googleapiclient.discovery import build as google_api_build
+from google.cloud import storage
 
 from helpers import utils
 from helpers.utils import get_jinja_template
@@ -24,7 +25,8 @@ from analysis.models import Workflow, \
     AnalysisProjectResource, \
     SubmittedJob, \
     Warning, \
-    CompletedJob
+    CompletedJob, \
+    JobClientError
 from base.models import Resource, Issue
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -231,20 +233,20 @@ def prep_workflow(data):
     # Go start the workflow:
     if data['analysis_uuid']:
 
-        # we are going to start the workflow-- check if we shoudl run a pre-check
+        # we are going to start the workflow-- check if we should run a pre-check
         # to examine user input:
         run_precheck = False
         if os.path.exists(os.path.join(staging_dir, settings.PRECHECK_WDL)):
             run_precheck = True
 
-        execute_wdl(staging_dir, run_precheck)
+        execute_wdl(analysis_project, staging_dir, run_precheck)
     else:
         print('View final staging dir at %s' % staging_dir)
         print('Would post the following:\n')
         print('Data: %s\n' % data)
 
 
-def execute_wdl(staging_dir, run_precheck=False):
+def execute_wdl(analysis_project, staging_dir, run_precheck=False):
     '''
     This function performs the actual work of submitting the job
     '''
@@ -252,6 +254,9 @@ def execute_wdl(staging_dir, run_precheck=False):
     # read config to get the names/locations/parameters for job submission
     config_path = os.path.join(THIS_DIR, 'wdl_job_config.cfg')
     config_dict = utils.load_config(config_path)
+
+    # the path of the input json file:
+    wdl_input_path = os.path.join(staging_dir, WDL_INPUTS)
 
     # pull together the components of the POST request to the Cromwell server
     submission_endpoint = config_dict['submit_endpoint']
@@ -272,7 +277,8 @@ def execute_wdl(staging_dir, run_precheck=False):
             'workflowInputs': open(wdl_input_path,'rb')
         }
 
-    if os.path.exists(os.path.join(staging_dir, ZIPNAME)):
+    zip_archive = os.path.join(staging_dir, ZIPNAME)
+    if os.path.exists(zip_archive):
         files['workflowDependencies'] = open(zip_archive, 'rb')
 
     # start the job:
@@ -544,7 +550,6 @@ def handle_success(job):
         job.delete()
 
 
-
 def handle_failure(job):
     '''
     This is executed when a WDL job has completed and Cromwell has indicated a failure has occurred
@@ -597,6 +602,41 @@ def walk_response(key, val, target):
         f.append(val)
     return f
 
+def log_client_errors(job, stderr_file_list):
+    '''
+    This handles pulling the stderr files (which indicate what went wrong)
+    from the cloud-based storage and extracting their contents
+    '''
+
+    # make a folder where we can dump these stderr files temporarily:
+    foldername = 'tmp_stderr_%s' % datetime.datetime.now().strftime('%H%M%S_%m%d%Y')
+    stderr_folder = os.path.join(job.job_staging_dir, foldername)
+    os.mkdir(stderr_folder)
+
+    storage_client = storage.Client()
+    bucket_prefix = settings.CONFIG_PARAMS['google_storage_gs_prefix']
+    local_file_list = []
+    for i, stderr_path in stderr_file_list:
+        path_without_prefix = stderr_path[len(bucket_prefix):]
+        bucket_name = path_without_prefix.split('/')[0]
+        object_name = '/'.join(path_without_prefix.split('/')[1:])
+        bucket = storage_client.get_bucket(bucket_name)
+        blob = bucket.blob(object_name)
+        file_location = os.path.join(stderr_folder, 'stderr_%d' % i)
+        local_file_list.append(file_location)
+        blob.download_to_filename(file_location)
+
+    # now have all files-- read content and create database objects to track:
+    errors = []
+    for f in local_file_list:
+        file_contents = open(f).read()
+        jc = JobClientError(project=job.project, error_text=file_contents)
+        jc.save()
+        errors.append(jc)
+            
+    shutil.rmtree(stderr_folder)
+    return errors
+
 
 def handle_precheck_failure(job):
     '''
@@ -614,7 +654,7 @@ def handle_precheck_failure(job):
         response = requests.get(metadata_url)
         response_json = response.json()
         stderr_file_list = walk_response('',response_json, 'stderr')
-        response_to_client = construct_client_response(stderr_file_list)
+        error_obj_list = log_client_errors(job, stderr_file_list)
 
         # update the AnalysisProject instance:
         project = job.project
@@ -622,7 +662,7 @@ def handle_precheck_failure(job):
         project.success = False
         project.error = True
         project.status = 'Issue encountered with inputs.'
-        project.message = response_to_client
+        project.message = ''
         project.finish_time = datetime.datetime.now()
         project.save() 
 
@@ -672,11 +712,21 @@ def handle_precheck_failure(job):
 
 def handle_precheck_success(job):
     '''
-    This function is invoked if the pre-check passed, and we are hence 
-    likely OK to launch the full job
+    This function is invoked if the pre-check passed, and we are OK to launch the full job
     '''
+    project = job.project
     staging_dir = job.job_staging_dir
-    execute_wdl(staging_dir, False)
+
+    # create a CompletedJob and remove the old job object
+    cj = CompletedJob(project=job.project, 
+        job_id = job.job_id, 
+        job_status=job.job_status, 
+        job_staging_dir=job.job_staging_dir)
+    cj.save()
+    job.delete()
+
+    # execute the main wdl file:
+    execute_wdl(project, staging_dir, False)
 
 
 @task(name='check_job')
