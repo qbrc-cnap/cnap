@@ -692,6 +692,13 @@ def handle_precheck_failure(job):
         email_subject = open(email_subject).readline().strip()
         send_email(email_plaintxt, email_html, email_address, email_subject)
 
+        if not project.restart_allowed:
+            # a project that had a pre-check failed, but a restart was NOT allowed.
+            # need to inform admins:
+            message = 'Job (%s) experienced failure during pre-check.  No restart was allowed.  Staging dir was %s' % (job.job_id, job.staging_dir)
+            subject = 'Cromwell job failure on pre-check'
+            notify_admins(message, subject)
+
         # delete the failed job:
         job.delete()
 
