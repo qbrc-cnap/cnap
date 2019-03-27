@@ -124,8 +124,7 @@ class ResourceCreateTestCase(TestCase):
                 'name': 'baz.txt', \
                 'size':500, \
                 'owner': adminuser_pk, \
-                'is_active': True,
-                'expiration_date': '2018-12-02T00:00:00'
+                'is_active': True
         }
         response = client.post(url, data, format='json')
         self.assertEqual(response.status_code, 201)  
@@ -148,8 +147,7 @@ class ResourceCreateTestCase(TestCase):
                 'name': 'baz.txt', \
                 'size':500, \
                 'owner': reguser_pk, \
-                'is_active': True,
-                'expiration_date': '2018-12-02T00:00:00'
+                'is_active': True
         }
         response = client.post(url, data, format='json')
         self.assertEqual(response.status_code, 201)  
@@ -176,8 +174,7 @@ class ResourceCreateTestCase(TestCase):
                 'name': 'baz.txt', \
                 'size':500, \
                 'owner': reguser_pk, \
-                'is_active': True,
-                'expiration_date': '2018-12-02T00:00:00'
+                'is_active': True
         }
         response = client.post(url, data, format='json')
         self.assertEqual(response.status_code, 201)  
@@ -203,8 +200,7 @@ class ResourceCreateTestCase(TestCase):
                 'name': 'baz.txt', \
                 'size':500, \
                 'owner': adminuser_pk, \
-                'is_active': True,
-                'expiration_date': '2018-12-02T00:00:00'
+                'is_active': True
         }
         response = client.post(url, data, format='json')
         self.assertEqual(response.status_code, 404)  

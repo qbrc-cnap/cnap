@@ -288,8 +288,9 @@ def execute_wdl(analysis_project, staging_dir, run_precheck=False):
         print('An exception was raised when requesting cromwell server:')
         print(ex)
         message = 'An exception occurred when trying to submit a job to Cromwell. \n'
-        message += 'Project ID was: %s' % data['analysis_uuid']
+        message += 'Project ID was: %s' % str(analysis_project.analysis_uuid)
         message += str(ex)
+
         analysis_project.status = '''
             Error on job submission.  An administrator has been automatically notified of this error.
             Thank you for your patience.

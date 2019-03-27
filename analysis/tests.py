@@ -31,7 +31,8 @@ from .view_utils import query_workflow, \
     InactiveWorkflowException
 
 from .tasks import fill_wdl_input, \
-    start_workflow, \
+    prep_workflow, \
+    execute_wdl, \
     check_job, \
     register_outputs, \
     parse_outputs, \
@@ -81,6 +82,8 @@ class TasksTestCase(TestCase):
             is_active=True,
             workflow_location=w1_dir
         )
+
+        self.valid_staging_dir = os.path.join(TEST_UTILS_DIR, 'valid_staging_dir')
 
         # create a mock analysis project, tying it to
         # the valid workflow and the 'regular' user
@@ -410,7 +413,7 @@ class TasksTestCase(TestCase):
         myex = Exception('Some ex')
         mock_requests.post.side_effect = myex
         with self.assertRaises(Exception):
-          start_workflow(self.data)
+          execute_wdl(self.analysis_project, self.valid_staging_dir)
         self.assertTrue(mock_handle_ex.called)
 
     @mock.patch('analysis.tasks.handle_exception')
@@ -420,7 +423,7 @@ class TasksTestCase(TestCase):
         This covers where the requests.post receives a 500 from the cromwell server
         '''
         mock_requests.post.return_value = self._mock_response(500)
-        start_workflow(self.data)
+        execute_wdl(self.analysis_project, self.valid_staging_dir)
         self.assertTrue(mock_handle_ex.called)
 
     @mock.patch('analysis.tasks.handle_exception')
@@ -430,7 +433,8 @@ class TasksTestCase(TestCase):
         This covers where the requests.post receives a 400 from the cromwell server
         '''
         mock_requests.post.return_value = self._mock_response(400)
-        start_workflow(self.data)
+        prep_workflow(self.data)
+        execute_wdl(self.analysis_project, self.valid_staging_dir)
         self.assertTrue(mock_handle_ex.called)
 
     @mock.patch('analysis.tasks.handle_exception')
@@ -440,7 +444,7 @@ class TasksTestCase(TestCase):
         This covers where the requests.post receives a 404 from the cromwell server
         '''
         mock_requests.post.return_value = self._mock_response(404)
-        start_workflow(self.data)
+        execute_wdl(self.analysis_project, self.valid_staging_dir)
         self.assertTrue(mock_handle_ex.called)
 
     @mock.patch('analysis.tasks.handle_exception')
@@ -595,7 +599,7 @@ class TasksTestCase(TestCase):
         self.assertFalse(project.started)
 
         # "start" it...
-        start_workflow(self.data)
+        prep_workflow(self.data)
 
         # ensure that the proper objects were created in the db:
         submitted_job = SubmittedJob.objects.get(job_id=mock_uuid)
@@ -622,7 +626,7 @@ class TasksTestCase(TestCase):
         mock_requests.post.return_value = mock_return
 
         # "start" it...
-        start_workflow(self.data)
+        prep_workflow(self.data)
 
         # check that everything was unchanged:
         self.assertTrue(mock_handle_ex.called) # notification was sent

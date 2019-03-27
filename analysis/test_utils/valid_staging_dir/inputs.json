@@ -1,0 +1,1 @@
+{"TestWorkflow.outputFilename": "output.txt", "TestWorkflow.inputs": ["gs://a/b/reg_owned1.txt", "gs://a/b/reg_owned2.txt"]}
