@@ -213,6 +213,9 @@ for key, val in CONFIG_PARAMS.items():
 # This logic could be altered as desired:
 EXPIRATION_PERIOD = datetime.timedelta(days=int(CONFIG_PARAMS['expiration_period_days']))
 
+# These are the days on which clients are reminded of pending deletion of Resources:
+EXPIRATION_REMINDER_DAYS = [int(x.strip()) for x in CONFIG_PARAMS['expiration_reminder_days'].split(',')]
+
 additional_sections = [GOOGLE_DRIVE, DROPBOX, GOOGLE]
 LIVE_TEST_CONFIG_PARAMS = utils.load_config(os.path.join(CONFIG_DIR, 'live_tests.cfg'), additional_sections)
 

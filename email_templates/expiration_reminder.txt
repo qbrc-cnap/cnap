@@ -1,0 +1,9 @@
+This is an automatic reminder that the following files will be expired and removed from your account ({{user_email}}) at {{site}}.
+If you have not downloaded your results, please ensure that you do so, or files will be permanently deleted.
+
+{% for days, resource_names in data.items() %}
+  To be deleted in {{days}} days:
+  {% for r in resource_names %}
+    {{r}}
+  {% endfor %}
+{% endfor %}
