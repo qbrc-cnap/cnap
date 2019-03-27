@@ -1,7 +1,9 @@
+import datetime
+
 from jinja2.filters import do_filesizeformat
 
 from django.db import models
-
+from django.conf import settings
 from django.contrib.auth import get_user_model
 
 class ResourceManager(models.Manager):
@@ -48,14 +50,21 @@ class Resource(models.Model):
 
     # when does this Resource expire?  When we expire a Resource, it will
     # be set to inactive.  Can be null, which would allow it to be permanent
-    expiration_date = models.DateTimeField(null=True)
+    expiration_date = models.DateField(null=True, blank=True)
 
     # track the number of times this Resource has been downloaded.  The total
     # number of downloads can be set in the config file:
     total_downloads = models.PositiveSmallIntegerField(null=False, default=0)
 
     objects = ResourceManager()
-    
+
+    def save(self, *args, **kwargs):
+        if self._state.adding: # if creating, NOT updating
+            today = datetime.date.today()
+            expiration_date = today + settings.EXPIRATION_PERIOD
+            self.expiration_date = expiration_date
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return '%s' % self.name
 

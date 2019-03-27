@@ -452,7 +452,6 @@ def register_outputs(job):
             outputs = response_json['outputs']
             output_filepath_list = parse_outputs(outputs)
             environment = settings.CONFIG_PARAMS['cloud_environment']
-            expiration_datetime = datetime.datetime.now() + settings.EXPIRATION_PERIOD
             storage_client = google_api_build('storage', 'v1')
             for p in output_filepath_list:
                 size_in_bytes = get_resource_size(p)
@@ -468,8 +467,7 @@ def register_outputs(job):
                     path = full_destination_with_prefix,
                     name = os.path.basename(p),
                     owner = job.project.owner,
-                    size = size_in_bytes,
-                    expiration_date = expiration_datetime
+                    size = size_in_bytes
                 )
                 r.save()
 
@@ -823,5 +821,3 @@ def check_job():
             else:
                 print('Error when querying cromwell for job status.  Notification suppressed')
             raise ex
-
-        
