@@ -1,3 +1,5 @@
+import unittest.mock as mock
+
 from django.test import TestCase
 from rest_framework.test import APIClient
 from rest_framework import status
@@ -397,6 +399,8 @@ class ResourceExpirationTestCase(TestCase):
         
     @mock.patch('base.tasks.send_reminder')
     def test_marks_expired(self, mock_reminder):
+        r = Resource.objects.filter(is_active = False)
+        self.assertEqual(len(r), 0)
         manage_files()
         r = Resource.objects.filter(is_active = False)
         self.assertEqual(len(r), 1)
