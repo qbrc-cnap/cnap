@@ -36,7 +36,7 @@ def manage_files():
     
     # find any expired resources and mark them inactive and delete
     today = datetime.date.today()
-    expired_resources = Resource.objects.filter(expiration_date__lt=today)
+    expired_resources = Resource.objects.filter(is_active=True, expiration_date__lt=today)
     for r in expired_resources:
         r.is_active = False
         r.save()
@@ -47,10 +47,11 @@ def manage_files():
     # Go through each user and collect Resources that will expire:
     for u in get_user_model().objects.all():
         # map of number of days to a list of the resources that will expire in that many days
-        pending_expiration_map = {k:list(Resource.objects.filter(expiration_date = v, owner=u)) for k,v in target_date_map.items()}
+        pending_expiration_map = {k:list(Resource.objects.filter(is_active=True, expiration_date = v, owner=u)) for k,v in target_date_map.items()}
         d = {}
         for num_days, resource_list in pending_expiration_map.items():
             if len(resource_list)>0:
                 d[num_days] = [x.name for x in resource_list]
         # email that user:
-        send_reminder(u, d)
+        if len(d.keys()) > 0:
+            send_reminder(u, d)

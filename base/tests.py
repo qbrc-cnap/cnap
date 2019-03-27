@@ -7,6 +7,9 @@ from django.contrib.auth import get_user_model
 from django.conf import settings
 
 from base.models import Resource
+from base.tasks import manage_files
+
+import datetime
 
 # a method for creating a reasonable test dataset:
 def create_data(testcase_obj):
@@ -334,3 +337,75 @@ class UserResourceListTestCase(TestCase):
         self.assertEqual(response.status_code,200) 
         self.assertEqual(len(response.data), 3)
         self.assertTrue(all([x.get('owner') == reguser_pk for x in data]))  
+
+
+class ResourceExpirationTestCase(TestCase):
+
+    def setUp(self):
+        self.regular_user = get_user_model().objects.create_user(email=settings.REGULAR_TEST_EMAIL, password='abcd123!')
+
+        today = datetime.date.today()
+
+        # create a Resource that will remain active
+        r1 = Resource.objects.create(
+            source = 'google_bucket',
+            path='gs://a/b/f1.txt',
+            name = 'f1.txt',
+            size=500,
+            owner=self.regular_user
+        )
+    
+        # create a Resource that will remain end up being marked inactive
+        r2 = Resource.objects.create(
+            source = 'google_bucket',
+            path='gs://a/b/f2.txt',
+            name = 'f2.txt',
+            size=500,
+            owner=self.regular_user,
+            expiration_date = today - datetime.timedelta(days=3)
+        )
+
+        # create a couple of Resources that will be removed on one of the notification dates:
+        d = settings.EXPIRATION_REMINDER_DAYS[0]
+        r3 = Resource.objects.create(
+            source = 'google_bucket',
+            path='gs://a/b/f3.txt',
+            name = 'f3.txt',
+            size=500,
+            owner=self.regular_user,
+            expiration_date = today + datetime.timedelta(days=d)
+        )
+        r4 = Resource.objects.create(
+            source = 'google_bucket',
+            path='gs://a/b/f4.txt',
+            name = 'f4.txt',
+            size=500,
+            owner=self.regular_user,
+            expiration_date = today + datetime.timedelta(days=d)
+        )
+
+        # another Resource marked for the other notification date:
+        d = settings.EXPIRATION_REMINDER_DAYS[1]
+        r5 = Resource.objects.create(
+            source = 'google_bucket',
+            path='gs://a/b/f5.txt',
+            name = 'f5.txt',
+            size=500,
+            owner=self.regular_user,
+            expiration_date = today + datetime.timedelta(days=d)
+        )
+        
+    @mock.patch('base.tasks.send_reminder')
+    def test_marks_expired(self, mock_reminder):
+        manage_files()
+        r = Resource.objects.filter(is_active = False)
+        self.assertEqual(len(r), 1)
+
+    @mock.patch('base.tasks.send_reminder')
+    def test_notifies_of_pending_removal(self, mock_reminder):
+        manage_files()
+        expected_data = {
+            settings.EXPIRATION_REMINDER_DAYS[0]: ['f3.txt', 'f4.txt'],
+            settings.EXPIRATION_REMINDER_DAYS[1]: ['f5.txt',],
+        }
+        mock_reminder.assert_called_with(self.regular_user, expected_data)
