@@ -273,6 +273,41 @@ get_history = function(){
 
 get_history();
 
+// a function to call if the user would like to view their current files
+function showCurrentFiles(){
+    console.log('GO GET FILES');
+    $.ajax({
+        url:"{{resource_tree_endpoint}}?include_uploads=true",
+        type:"GET",
+        headers:{"X-CSRFToken": csrfToken},
+        success:function(response){
+            $("#current-files-tree").treeview({
+                    data: response,
+                    multiSelect: true,
+                    showCheckbox: true,
+                    checkedIcon: "far fa-check-square",
+                    uncheckedIcon: "far fa-square",
+                    expandIcon: "far fa-plus-square",
+                    collapseIcon: "far fa-minus-square",
+                    showBorder: false,
+                    highlightSelected: false,
+                    levels: 1,
+                    searchResultColor: "#155724",
+                    searchResultBackColor:"#d4edda"
+                });
+                setupMethods("current-files-tree");
+            if (response.length === 0)  {
+                console.log('No files to display');
+                //TODO: add html markup when table is empty
+                $("#current-files-tree").html("<p class=\"alert alert-warning\">No files are associated with this user account.</p>");
+            }
+        },
+        error:function(){
+            console.log('error!');
+        }
+    });
+}
+showCurrentFiles();
 /* 
 ******************************************************
 END Loading of dynamic resources
@@ -574,3 +609,95 @@ $(".init-upload-btn").click(function(){
 });
 
 //End code related to javascript for uploads
+
+showConfirmationDialog = function(message){
+     var dialog = $("#confirmation-dialog");
+     var subdiv = $("#confirmation-dialog-content")
+     var markup = "<div>"+ message +"</div>"
+     subdiv.empty().append(markup);
+     $("#wrapper").toggleClass("blur");
+     dialog.toggle();
+}
+
+var confirmation_actions = {'confirm': null, 'cancel': null};
+
+
+$("#confirm-action-button").click(function(){
+     console.log('DO IT!');
+     confirmation_actions['confirm']();
+     $("#wrapper").toggleClass("blur");
+     $("#confirmation-dialog").toggle();
+});
+
+$("#cancel-action-button").click(function(){
+     console.log('cancel');
+     $("#wrapper").toggleClass("blur");
+     $("#confirmation-dialog").toggle();
+});
+
+
+function performDeletions(pk_list){
+
+    var count = pk_list.length;
+    var all_done = $.Deferred();
+
+    for(var i in pk_list){
+        var pk = pk_list[i];
+        $.ajax({
+            url:"/resources/" + pk,
+            method:"DELETE",
+            headers:{"X-CSRFToken": csrfToken},
+            success:function(response){
+                console.log('deleted!');
+                count--;
+                if(count === 0){
+                    all_done.resolve();
+                }
+            },
+            error:function(response){
+                console.log('Error with deletion.');
+                var jsonResponse = response['responseJSON'];
+                showErrorDialog(jsonResponse['errors']);
+            }
+        });
+    }
+    return all_done.promise();
+}
+
+
+deleteFiles = function(pk_list){
+    $("#current-files-tree").empty();
+    performDeletions(pk_list).done(
+        function(){
+            showCurrentFiles();
+        }
+    );
+}
+
+
+$("#delete-files").click(function(){
+
+    var selected = $("#current-files-tree").treeview('getSelected');
+    var selectedPks = [];
+    for(var i in selected){
+        var pk = selected[i].pk;
+        if(pk !== undefined){
+            selectedPks.push(pk);
+        }
+    }
+    if(selectedPks.length > 0){
+        var confirm_delete_action = function(pks){
+            var pkList=pks;
+            return function(){
+		deleteFiles(pkList);
+            }
+        }(selectedPks);
+
+        confirmation_actions['confirm'] = confirm_delete_action;
+        message = 'You have selected ' + selectedPks.length  + ' file(s) for deletion.  This action will permanently delete files from our system.  Please confirm this action.';
+        showConfirmationDialog(message);
+    } else {
+        showErrorDialog(["You have not selected any files to delete."]);
+    }
+});
+

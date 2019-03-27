@@ -33,8 +33,13 @@ a{
     width:95%;
     display:flex;
     flex-direction:row;
-    justify-content:flex-end;
+    justify-content:space-between;
     margin-top:30px;
+}
+
+#logout-rhs-wrapper{
+    display: flex;
+    align-items: flex-end;
 }
 
 #logout-text{
@@ -61,7 +66,7 @@ a{
    margin-bottom:30px;
 }
 
-#error-dialog, #general-dialog{
+#error-dialog, #general-dialog, #confirmation-dialog{
     display:none;
     width: 500px;
     background: #fff;
@@ -79,6 +84,12 @@ a{
     position:absolute;
 }
 
+#confirmation-dialog-actions {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-around;
+}
+
 #svg-wrapper-logout{
     width:40px;
     margin-left:10px;
@@ -91,6 +102,10 @@ a{
 
 .active{
     display: inherit;
+}
+
+#current-files-tree-wrapper{
+    margin-top:20px;
 }
 
 .providers-wrapper{
@@ -132,7 +147,7 @@ a{
 
 .custom-table tbody tr:last-child td:last-child{
     border-radius: 0 0 10px 0;
-}
+	}
 
 .custom-table tr{
     height: 50px;
@@ -309,6 +324,17 @@ a{
 }
 /* END for extra styling on the tree used to display resources */
 
+#group-rhs-controls {
+    display: flex;
+    flex-direction: column;
+}
+
+#delete-files-wrapper {
+    display:flex;
+    justify-content: flex-end;
+    margin-top: 15px;
+    margin-bottom: 15px;
+}
 
 /* For large screens */
 @media (min-width: 767.98px) {

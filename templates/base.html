@@ -52,7 +52,13 @@
                 <div>Close</div>
             </div>
         </div>
-
+        <div id="confirmation-dialog">
+            <div id="confirmation-dialog-content" class="dialog-content alert alert-warning"></div>
+            <div id="confirmation-dialog-actions">
+                <div><button id="confirm-action-button" type="button" class="btn btn-success">Confirm</button></div>
+                <div><button id="cancel-action-button" type="button" class="btn btn-warning">Cancel</button></div>
+            </div>
+        </div>
         <script type="text/javascript" src="{% static "base/js/base.js" %}"></script>
         {% block page_specific_js %}
         {% endblock %}
