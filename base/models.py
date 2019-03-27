@@ -60,9 +60,10 @@ class Resource(models.Model):
 
     def save(self, *args, **kwargs):
         if self._state.adding: # if creating, NOT updating
-            today = datetime.date.today()
-            expiration_date = today + settings.EXPIRATION_PERIOD
-            self.expiration_date = expiration_date
+            if self.expiration_date is None:
+                today = datetime.date.today()
+                expiration_date = today + settings.EXPIRATION_PERIOD
+                self.expiration_date = expiration_date
         super().save(*args, **kwargs)
 
     def __str__(self):
