@@ -568,6 +568,7 @@ def handle_failure(job):
     project.error = True
     project.status = 'The job submission has failed.  An administrator has been notified.'
     project.finish_time = datetime.datetime.now()
+    project.restart_allowed = False # do not allow restarts for runtime failures
     project.save()
 
     # inform client (if desired):
