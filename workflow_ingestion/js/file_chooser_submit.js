@@ -1,24 +1,25 @@
-    var tree = $("#file-choice-tree-{{id}}");
-    var selected = tree.treeview('getSelected');
-    var dataTarget = tree.attr("dataTarget");
+    var tree_{{id}} = $("#file-choice-tree-{{id}}");
+    var selected_{{id}} = tree_{{id}}.treeview('getSelected');
+    var dataTarget = tree_{{id}}.attr("dataTarget");
 
-    if(selected.length > 0){
+    // need to first get rid of non-leaves:
+    var selectedPks_{{id}} = [];
+    for(var i in selected_{{id}}){
+        var pk = selected_{{id}}[i].pk;
+        if(pk !== undefined){
+            selectedPks_{{id}}.push(pk);
+        }
+    }
+
+    if(selectedPks_{{id}}.length > 0){
         {% if choose_multiple %}
-          var selectedPks = [];
-          for(var i in selected){
-            var pk = selected[i].pk;
-            if(pk !== undefined){
-              selectedPks.push(pk);
-            }
-          }
-          payload[dataTarget] = selectedPks;
+          payload[dataTarget] = selectedPks_{{id}};
         {% else %}
-          if(selected.length > 1){
+          if(selectedPks_{{id}}.length > 1){
             form_problems.push("You have selected more than one file where we accept only a single file.  Please check your inputs.");
             return;
           }
-          var selectedPk = selected[0].pk; 
-          payload[dataTarget] = selectedPk;
+          payload[dataTarget] = selectedPks_{{id}}[0];
         {% endif %}
     } else {
         console.log('Nothing selected!');
