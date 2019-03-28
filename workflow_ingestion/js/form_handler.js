@@ -40,7 +40,7 @@ var prepareFormData = function(){
 }
 
 function create_post(payload){
-    var url = $("#analysis-creation-form").attr("action");
+    var url = $("#analysis-creation-form").attr("submit_url");
     $.ajax({
             url: url,
             type: "post",

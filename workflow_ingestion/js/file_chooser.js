@@ -106,6 +106,14 @@ function initSearch_{{id}}(searchBox){
     }
 }
 
+$("#search-box-{{id}}").on("keypress", function(e){
+    if(e.which == 13){
+        $("#tree-filter-button-{{id}}").click();
+    }
+});
+
+
+
 $("#tree-filter-button-{{id}}").click(function(e){
     var target = e.target; //the filter
     var searchBoxId = $(target).attr("filterTarget");

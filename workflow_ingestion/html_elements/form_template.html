@@ -25,7 +25,7 @@
             {{workflow_long_description}}
         {% endraw %}
         </p>
-        <form id="analysis-creation-form" action={% raw %}"{{submit_url}}" {% endraw %}>
+        <div id="analysis-creation-form" submit_url={% raw %}"{{submit_url}}" {% endraw %}>
 		{% raw %}
 		{% csrf_token %}
 		{% endraw %}
@@ -35,7 +35,7 @@
 			{{element}}
 		{% endfor %}
 		<button id="submit-form" class="btn btn-primary">Analyze</button>			
-        </form>
+        </div>
 </div>
 {% raw %}
 {% endblock %}
