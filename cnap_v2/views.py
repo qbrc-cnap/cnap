@@ -14,6 +14,7 @@ def index(request):
     context['providers'] = providers
     context['dropbox_enabled'] = settings.CONFIG_PARAMS['dropbox_enabled']
     context['drive_enabled'] = settings.CONFIG_PARAMS['drive_enabled']
+    context['dropbox_client_id'] = settings.CONFIG_PARAMS['dropbox_client_id']
     return render(request, 'index.html', context)
 
 

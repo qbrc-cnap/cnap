@@ -169,7 +169,7 @@
             </div>
 {% endblock %}
 {% block page_specific_js %}
-            <script type="text/javascript" src="https://www.dropbox.com/static/api/2/dropins.js" id="dropboxjs" data-app-key="434yn436p3z4rg0"></script>
+            <script type="text/javascript" src="https://www.dropbox.com/static/api/2/dropins.js" id="dropboxjs" data-app-key="{{dropbox_client_id}}"></script>
             <script type="text/javascript" src="{% static "base/js/custom_tree_behavior.js" %}"></script>
             <script type="text/javascript" src="{% static "base/js/index.js" %}"></script>
             <script type="text/javascript" src="{% static "base/js/bootstrap-treeview.min.js" %}"></script>
