@@ -8,6 +8,15 @@
         if (typeof dataTarget !== typeof undefined && dataTarget !== false) {
             // Element has this attribute
             var val = el.val();
+            {% if normalize_input %}
+                var pattern1 = /\s+/g;
+                val = val.replace(pattern1, '_');
+                var pattern2 = /^[\-_a-zA-Z0-9]+$/;
+                if (!val.match(pattern2)){
+                    form_problems.push("The value of \""+ val  +"\" was unexpected.  Please enter a value with only letters, numbers, underscores (\"_\"), and dashes (\"-\")");
+                    return;
+                }
+            {% endif %}
             payload[dataTarget] = val;
         } else{
             console.log('Does not have dataTarget attr');

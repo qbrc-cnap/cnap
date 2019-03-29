@@ -68,6 +68,12 @@
                     "type": "int",
                     "required": false,
                     "default": 1
+                },
+                {
+                    "name": "normalize_input",
+                    "type": "bool",
+                    "required": false,
+                    "default": true
                 }
             ]
 
