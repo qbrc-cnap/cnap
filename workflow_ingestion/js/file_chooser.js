@@ -10,30 +10,28 @@ var tree_{{id}} = $("#file-choice-tree-{{id}}");
 function attach_functions_tree_{{id}}(){
 // register method to run when the search is done
 tree_{{id}}.on('searchComplete', function(event, data) {
-    console.log("searchComplete!!!!!!!!!!!: " + JSON.stringify(data));
     highlighted_items_{{id}} = [];
     for(var item in data){
         highlighted_items_{{id}}.push(data[item].nodeId);
     }
-    console.log('HLI: ' + JSON.stringify(highlighted_items_{{id}}));
+    if(highlighted_items_{{id}}.length === 0){
+        var searchBox = $("#search-box-{{id}}");
+        searchBox.focus();
+        searchBox.addClass('is-invalid');
+    }
 });
 
 // This lets us know which items were "unhighlighted" following a new search
 tree_{{id}}.on('searchCleared', function(event, data){
-    console.log("searchCleared: " + JSON.stringify(data));
     var allParents = new Set();
     for(var item in data){
-            console.log('cleared:' + item);
             var parent = data[item].parentId;
-                    console.log(parent);
             if (parent !== undefined){
                     allParents.add(parent);
             }
     }
-    console.log('parent set:' + allParents);
     allParents.forEach(
             function(values){
-                    console.log('val: ' + values);
                     tree_{{id}}.treeview('collapseNode', values);
             }
     );
@@ -43,7 +41,6 @@ tree_{{id}}.on('searchCleared', function(event, data){
 tree_{{id}}.on('nodeChecked', function(event, node){
     var children = node.nodes;
     for(item in children){
-        console.log(item);
         var nodeId = children[item].nodeId;
         tree_{{id}}.treeview('checkNode', nodeId);
         tree_{{id}}.treeview('selectNode', nodeId);
@@ -57,7 +54,6 @@ tree_{{id}}.on('nodeUnchecked', function(event, node){
     //get any children and uncheck them as well.  Note only goes down ONE layer.
     var children = node.nodes;
     for(item in children){
-        console.log(item);
         var nodeId = children[item].nodeId;
         tree_{{id}}.treeview('uncheckNode', nodeId);
         tree_{{id}}.treeview('unselectNode', nodeId);
@@ -67,18 +63,13 @@ tree_{{id}}.on('nodeUnchecked', function(event, node){
 });
 
 $("#select-highlighted-checkbox-{{id}}").change(function(e) {
-    console.log('clicked!');
-    console.log("CT: " +JSON.stringify(tree_{{id}}));
     if(this.checked){
-            console.log('was checked');
             for(var i=0; i < highlighted_items_{{id}}.length; i++){
                 tree_{{id}}.treeview('checkNode', highlighted_items_{{id}}[i]);
                 tree_{{id}}.treeview('selectNode', highlighted_items_{{id}}[i]);
             }
             var selectedNodes = tree_{{id}}.treeview('getSelected');
-            console.log(selectedNodes)
     } else {
-            console.log('was unchecked');
             for(var i=0; i < highlighted_items_{{id}}.length; i++){
                 tree_{{id}}.treeview('uncheckNode', highlighted_items_{{id}}[i]);
                 tree_{{id}}.treeview('unselectNode', highlighted_items_{{id}}[i]);
@@ -101,7 +92,6 @@ function initSearch_{{id}}(searchBox){
     tree_{{id}}.treeview('uncheckAll');
     var selectedNodes = tree_{{id}}.treeview('getSelected');
     for(item in selectedNodes){
-        console.log('unselect: ' + selectedNodes[item]);
         tree_{{id}}.treeview('unselectNode', selectedNodes[item].nodeId);
     }
 }
@@ -117,8 +107,8 @@ $("#search-box-{{id}}").on("keypress", function(e){
 $("#tree-filter-button-{{id}}").click(function(e){
     var target = e.target; //the filter
     var searchBoxId = $(target).attr("filterTarget");
-    console.log(searchBoxId);
     var searchBox = $("#" + searchBoxId);
+    searchBox.removeClass('is-invalid');
     initSearch_{{id}}(searchBox);
 });
 
