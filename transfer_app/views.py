@@ -223,9 +223,8 @@ class TransferComplete(APIView):
                             # did they use the last download?  If so, set the Resource inactive
                             if (resource.total_downloads + 1) >= \
                                 int(settings.CONFIG_PARAMS['maximum_downloads']):
-                                resource.is_active = False
-                            else: # still more downloads allowed.  increment
-                                resource.total_downloads += 1
+                                resource.is_active = False                                
+                            resource.total_downloads += 1
                             resource.save()
                         else: # upload
                             resource = transfer_obj.resource
