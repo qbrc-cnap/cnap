@@ -710,16 +710,16 @@ def handle_precheck_failure(job):
         message += 'Job ID was: %s' % job.job_id
         message += 'Project ID was: %s' % job.project.analysis_uuid
         message += str(ex)
-        warnings_sent = Warning.objects.get(job=job)
-        if len(warnings_sent) == 0:
+        try:
+            warnings_sent = Warning.objects.get(job=job)
+            print('Error when querying cromwell for metadata.  Notification suppressed')
+        except analysis.models.Warning.DoesNotExist:
             handle_exception(ex, message=message)
 
             # add a 'Warning' object in the database so that we don't
             # overwhelm the admin email boxes.
             warn = Warning(message=message, job=job)
             warn.save()
-        else:
-            print('Error when querying cromwell for metadata.  Notification suppressed')
         raise ex  
 
 
@@ -812,14 +812,14 @@ def check_job():
             message += 'Job ID was: %s' % job.job_id
             message += 'Project ID was: %s' % job.project.analysis_uuid
             message += str(ex)
-            warnings_sent = Warning.objects.get(job=job)
-            if len(warnings_sent) == 0:
+            try:
+                warnings_sent = Warning.objects.get(job=job)
+                print('Error when querying cromwell for job status.  Notification suppressed')
+            except analysis.models.Warning.DoesNotExist:
                 handle_exception(ex, message=message)
 
                 # add a 'Warning' object in the database so that we don't
                 # overwhelm the admin email boxes.
                 warn = Warning(message=message, job=job)
                 warn.save()
-            else:
-                print('Error when querying cromwell for job status.  Notification suppressed')
             raise ex
