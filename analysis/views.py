@@ -159,7 +159,7 @@ class WorkflowConstraintList(generics.ListAPIView):
     permission_classes = (permissions.IsAdminUser,)
 
     def get_queryset(self):
-        return Workflow.objects.all()
+        return WorkflowConstraint.objects.all()
 
 
 class WorkflowConstraintRetrieveUpdateDestroy(generics.RetrieveUpdateDestroyAPIView):
@@ -177,10 +177,14 @@ def get_constraint_options(request):
     selecting the Workflow, the front-end will send an AJAX request to get the potential
     constraints that may be applied to the project.  This function does just that.
     '''
+    print(request)
+    print(request.POST)
     if request.user.is_staff:
-        workflow_pk = request.POST['workflow_pk']
+        data = request.POST.get('data')
+        j = json.loads(data)
+        workflow_pk = int(j['workflow_pk'])
         workflow_obj = Workflow.objects.get(pk=workflow_pk)
-        constraints = Workflow.objects.filter(workflow=workflow_obj)
+        constraints = WorkflowConstraint.objects.filter(workflow=workflow_obj)
         all_forms = []
         import analysis.models
         for c in constraints:
@@ -188,7 +192,33 @@ def get_constraint_options(request):
             clazz = getattr(analysis.models, constraint_class)
             modelform = modelform_factory(clazz, fields=['value'])
             all_forms.append(modelform())
-        return JsonResponse({'forms': all_forms})
+        #return JsonResponse({'forms': all_forms})
+        return render(request, 'analysis/constraints.html', {'forms': all_forms})
+    else:
+        return HttpResponseForbidden()
+
+
+def get_constraint_options_alt(request, pk):
+    '''
+    This view is used to return WorkflowConstraint options for a particular Workflow.
+    When creating a new AnalysisProject, the admins will select a user and a Workflow.  After
+    selecting the Workflow, the front-end will send an AJAX request to get the potential
+    constraints that may be applied to the project.  This function does just that.
+    '''
+    if request.user.is_staff:
+        workflow_pk = int(pk)
+        workflow_obj = Workflow.objects.get(pk=workflow_pk)
+        constraints = WorkflowConstraint.objects.filter(workflow=workflow_obj)
+        all_forms = []
+        import analysis.models
+        for c in constraints:
+            constraint_class = c.implementation_class
+            clazz = getattr(analysis.models, constraint_class)
+            label_dict = {'value': c.description}
+            modelform = modelform_factory(clazz, fields=['value'], labels=label_dict)
+            all_forms.append(modelform())
+        #return JsonResponse({'forms': all_forms})
+        return render(request, 'analysis/constraints.html', {'forms': all_forms})
     else:
         return HttpResponseForbidden()
 
@@ -207,6 +237,8 @@ class AnalysisProjectCreateView(View):
         all_workflows = Workflow.objects.all()
         context = {}
         context['workflow_constraints_endpoint'] = reverse('workflow-constraint-options')
+        context['users'] = all_users
+        context['workflows'] = all_workflows
         return render(request, 'analysis/create_project.html', context)
 
     def post(self, request, *args, **kwargs):

@@ -7,7 +7,8 @@ from .models import Workflow, \
     PendingWorkflow, \
     AnalysisProjectResource, \
     Warning, \
-    JobClientError
+    JobClientError, \
+    WorkflowConstraint
 
 class WorkflowAdmin(admin.ModelAdmin):
     list_display = ('workflow_name', 'workflow_id', 'version_id', 'is_default', 'is_active', 'workflow_title', 'workflow_short_description', 'workflow_long_description')
@@ -48,7 +49,12 @@ class JobClientErrorAdmin(admin.ModelAdmin):
     list_display = ('error_text',)
 
 
+class WorkflowConstraintAdmin(admin.ModelAdmin):
+    list_display = ('name', 'implementation_class')
+    list_display_links = ('workflow',)
+
 admin.site.register(Workflow, WorkflowAdmin)
+admin.site.register(WorkflowConstraint, WorkflowConstraintAdmin)
 admin.site.register(PendingWorkflow, PendingWorkflowAdmin)
 admin.site.register(AnalysisProject, AnalysisProjectAdmin)
 admin.site.register(AnalysisProjectResource, AnalysisProjectResourceAdmin)
