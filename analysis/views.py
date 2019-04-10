@@ -4,14 +4,15 @@ import json
 from django.conf import settings
 from django.shortcuts import render
 from django.shortcuts import redirect
-from django.http import HttpResponseBadRequest, JsonResponse
+from django.http import HttpResponseBadRequest, JsonResponse, HttpResponseForbidden
 from django.views import View
 from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
 from django.urls import reverse
 from django.http import Http404
 from django.core.exceptions import ObjectDoesNotExist
-
+from django.contrib.auth import get_user_model
+from django.forms import modelform_factory
 
 from rest_framework import generics, permissions, status
 from django_filters.rest_framework import DjangoFilterBackend
@@ -22,13 +23,15 @@ from .models import Workflow, \
     OrganizationWorkflow, \
     PendingWorkflow, \
     AnalysisProjectResource, \
-    JobClientError
+    JobClientError, \
+    WorkflowConstraint
 from base.models import Issue
 from .serializers import WorkflowSerializer, \
     AnalysisProjectSerializer, \
     OrganizationWorkflowSerializer, \
     PendingWorkflowSerializer, \
-    AnalysisProjectResourceSerializer
+    AnalysisProjectResourceSerializer, \
+    WorkflowConstraintSerializer
 from .view_utils import query_workflow, \
     validate_workflow_dir, \
     fill_context, \
@@ -104,7 +107,7 @@ class PendingWorkflowDetail(generics.RetrieveUpdateDestroyAPIView):
     filter_fields = ('complete', 'error')
 
 
-class AnalysisProjectListAndCreate(generics.ListCreateAPIView):
+class AnalysisProjectList(generics.ListAPIView):
     '''
     This lists or creates instances of AnalysisProjects
     '''
@@ -146,6 +149,70 @@ class AnalysisProjectDetail(generics.RetrieveUpdateDestroyAPIView):
 
         except ObjectDoesNotExist as ex:
             raise Http404
+
+
+class WorkflowConstraintList(generics.ListAPIView):
+    '''
+    This lists the available WorkflowConstraint instances avaiable.  Only available to admins
+    '''
+    serializer_class = WorkflowConstraintSerializer
+    permission_classes = (permissions.IsAdminUser,)
+
+    def get_queryset(self):
+        return Workflow.objects.all()
+
+
+class WorkflowConstraintRetrieveUpdateDestroy(generics.RetrieveUpdateDestroyAPIView):
+    '''
+    This gives details about a particular WorkflowConstraint.  Only available to admins
+    '''
+    serializer_class = WorkflowConstraintSerializer
+    permission_classes = (permissions.IsAdminUser,)
+
+
+def get_constraint_options(request):
+    '''
+    This view is used to return WorkflowConstraint options for a particular Workflow.
+    When creating a new AnalysisProject, the admins will select a user and a Workflow.  After
+    selecting the Workflow, the front-end will send an AJAX request to get the potential
+    constraints that may be applied to the project.  This function does just that.
+    '''
+    if request.user.is_staff:
+        workflow_pk = request.POST['workflow_pk']
+        workflow_obj = Workflow.objects.get(pk=workflow_pk)
+        constraints = Workflow.objects.filter(workflow=workflow_obj)
+        all_forms = []
+        import analysis.models
+        for c in constraints:
+            constraint_class = c.implementation_class
+            clazz = getattr(analysis.models, constraint_class)
+            modelform = modelform_factory(clazz, fields=['value'])
+            all_forms.append(modelform())
+        return JsonResponse({'forms': all_forms})
+    else:
+        return HttpResponseForbidden()
+
+
+class AnalysisProjectCreateView(View):
+    '''
+    This handles creation of projects *outside* of the django admin, and gives admins
+    the ability to create a project and apply constraints in one place.  For instance, if 
+    a project is created in the standard Django admin page, the admin will have to explicitly
+    navigate to the admin page for constraints to add constraints to the newly created project
+    Here, we guide that process so it's not as clunky. 
+    '''
+
+    def get(self, request, *args, **kwargs):
+        all_users = get_user_model().objects.all()
+        all_workflows = Workflow.objects.all()
+        context = {}
+        context['workflow_constraints_endpoint'] = reverse('workflow-constraint-options')
+        return render(request, 'analysis/create_project.html', context)
+
+    def post(self, request, *args, **kwargs):
+        print('*'*40)
+        print(request.POST)
+        print('*'*40)
 
 
 class AnalysisView(View):

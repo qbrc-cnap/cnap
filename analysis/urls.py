@@ -5,7 +5,7 @@ from . import views
 urlpatterns = [
 
     # lists all AnalysisProject instances
-    path('projects/', views.AnalysisProjectListAndCreate.as_view(), name='analysis-project-list-and-create'),
+    path('projects/', views.AnalysisProjectList.as_view(), name='analysis-project-list'),
 
     # API view that gives details about a particular AnalysisProject 
     # (NOT the endpoint for actually running an analysis!)
@@ -18,6 +18,9 @@ urlpatterns = [
     # the API view given above
     path('projects/<uuid:analysis_uuid>/', views.AnalysisView.as_view(), name='analysis-project-execute'),
 
+    # a view to create AnalysisProject instances for admins
+    path('projects/create/', views.AnalysisProjectCreateView.as_view(), name='analysis-project-create'),
+
     # endpoints for Workflows
     path('workflows/', views.WorkflowList.as_view(), name='workflow-list'),
     path('workflows/<int:pk>/', views.WorkflowDetail.as_view(), name='workflow-detail'),
@@ -25,6 +28,11 @@ urlpatterns = [
     # endpoints for PEndingWorkflows
     path('pending-workflows/', views.PendingWorkflowList.as_view(), name='pending-workflow-list'),
     path('pending-workflows/<int:pk>/', views.PendingWorkflowDetail.as_view(), name='pending-workflow-detail'),
+
+    # endpoint for querying constraints
+    path('workflow-constraints/', views.WorkflowConstraintList.as_view(), name='workflow-constraints'),
+    path('workflow-constraints/<int:pk>', views.WorkflowConstraintRetrieveUpdateDestroy, name='workflow-constraints-details'),
+    path('workflow-constraint-options/', views.get_constraint_options, name='workflow-constraint-options'),
 
     # endpoints for OrganizationWorkflows
     path('org-workflows/', views.OrganizationWorkflowList.as_view(), 

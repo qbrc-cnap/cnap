@@ -4,7 +4,8 @@ from analysis.models import Workflow, \
     AnalysisProject, \
     AnalysisProjectResource, \
     OrganizationWorkflow, \
-    PendingWorkflow
+    PendingWorkflow, 
+    WorkflowConstraint
 
 class WorkflowSerializer(serializers.ModelSerializer):
 
@@ -63,3 +64,15 @@ class OrganizationWorkflowSerializer(serializers.ModelSerializer):
     class Meta:
         model = OrganizationWorkflow
         fields = '__all__'
+
+
+class WorkflowConstraintSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = WorkflowConstraint
+        fields = ('name', \
+                  'description', \
+                  'handler', \
+                  'implementation_class', \
+                  'value' \
+        )

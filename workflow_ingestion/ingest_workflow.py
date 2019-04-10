@@ -20,6 +20,7 @@ import re
 import json
 import sys
 import time
+import inspect
 import subprocess as sp
 from importlib import import_module
 from inspect import signature
@@ -59,6 +60,7 @@ ACCEPTED_FILE_EXTENSIONS = [WDL, PYFILE, ZIP, JSON]
 
 # Other constants:
 MAIN_WDL = settings.MAIN_WDL
+CONSTRAINTS_JSON = settings.CONSTRAINTS_JSON
 NEW_WDL_DIR = 'wdl_dir' # a string used for common reference.  Value arbitrary.
 COMMIT_HASH = 'commit_hash' # a string used for common reference.  Value arbitrary.
 CLONE_URL = 'clone_url' # a string used for common reference.  Value arbitrary
@@ -117,6 +119,14 @@ class DockerRegistryQueryException(Exception):
     '''
     This is raised if there was a problem when querying the docker registry
     for the appropriate tag
+    '''
+    pass
+
+
+class ConstraintFileException(Exception):
+    '''
+    This is raised if there are ANY problems with the file dictating
+    constraints that may be placed upon a workflow that we are ingesting.
     '''
     pass
 
@@ -729,6 +739,7 @@ def add_workflow_to_db(workflow_name, destination_dir, clone_url, commit_hash):
         git_commit_hash = commit_hash
     )
     wf.save()
+    return wf
 
 def link_django_template(workflow_libdir_name, workflow_dir, final_html_template_name):
     '''
@@ -812,6 +823,72 @@ def link_form_css(workflow_libdir_name, workflow_dir, css_filename):
     os.symlink(css_path, linkpath)
 
 
+def register_constraints(workflow, staging_dir):
+    '''
+    Here we parse (if present) a file that defines various constraints that may be placed
+    on this workflow when an analysis project is initiated.
+    '''
+
+    # import the analysis.models module which has the available constraint classes:
+    import analysis.models
+    from analysis.models import WorkflowConstraint
+
+    # get a list of class names if the class derives from that base class above
+    available_constraint_classname = []
+    for name, obj in inspect.getmembers(analysis.models):
+        if inspect.isclass(obj):
+            if obj.__base__ == WorkflowConstraint:
+                available_constraint_classnames.append(name)
+
+    required_keys = set(['type','handler','description'])
+    constraint_filepath = os.path.join(staging_dir, CONSTRAINTS_JSON)
+    if os.path.exists(constraint_filepath):
+        j = json.load(open(constraint_filepath))
+        if not type(j) == dict:
+            raise ConstraintFileException('Please check your formatting of the constraint file located at %s.  '
+                'It should be parsed as a native dictionary when parsed by json.load' % constraint_filepath
+            )
+        for constraint_name, constraint_obj in j.items():
+            # iterate through the elements of the constraints file, check that they meet the minimum 
+            # requirements to be valid.
+            keyset = required_keys.difference(j.keys())
+            if len(keyset) > 0: # this means some keys were missing in the constraint file
+                raise ConstraintFileException('The set of required keys is %s.  The following keys '
+                    'were NOT given in the "constraint object": %s' % (required_keys, keyset)
+                )
+            else:
+                # Had the correct keys, at least.  Now check them each.
+
+                # check that the specified class type is something we know of (child of WorkflowConstraint)
+                constraint_classname = constraint_obj['type']
+                if not constraint_classname in available_constraint_classnames:
+                    raise ConstraintFileException('The class (%s) is not a subclass of analysis.models.WorkflowConstraint' % constraint_classname)
+                # we now have an apparently valid type for the constraint.  Check that the handler file is present:
+                handler_filename = constraint_obj['handler']
+                module_path = os.path.join(staging_dir, handler_filename)
+                if not os.path.exists(module_path):
+                    raise ConstraintFileException('The handler file (%s) was not found in the staging directory.  '
+                        'Ensure that the file is included with your distribution.' % handler_filename
+                    )
+                # handler is there.  Check that it has a function with the correct signature
+                inspect_handler_module(module_path, 'check_constraints', 2)
+
+                # now we have a proper handler and class.  The description is not strictly necessary, but we enforce it for clarity:
+                description = constraint_obj['description']
+
+                # Now make an object of the appropriate type and save.  Note that the 
+                # value of the constraint is null
+                c = WorkflowConstraint(
+                    workflow=workflow,
+                    name=constraint_name,
+                    description=description,
+                    handler=handler_filename,
+                    implementation_class=constraint_classname
+                )
+                c.save()
+
+
+
 def ingest_main(clone_dir, clone_url, commit_hash):
     '''
     clone_dir is the path to a local directory which has the workflow content
@@ -891,12 +968,15 @@ def ingest_main(clone_dir, clone_url, commit_hash):
             shutil.copy2(fp, destination_dir)
 
     # add the workflow to the database
-    add_workflow_to_db(workflow_name, destination_dir, clone_url, commit_hash)
+    workflow = add_workflow_to_db(workflow_name, destination_dir, clone_url, commit_hash)
 
     # link the html template so Django can find it
     link_django_template(WORKFLOWS_DIR, destination_dir, settings.HTML_TEMPLATE_NAME)
     link_form_javascript(WORKFLOWS_DIR, destination_dir, settings.FORM_JAVASCRIPT_NAME)
     link_form_css(WORKFLOWS_DIR, destination_dir, settings.FORM_CSS_NAME)
+
+    # look for and register any constraints that can be applied to this new workflow
+    register_constraints(workflow, staging_dir)
 
     # cleanup the staging dir:
     shutil.rmtree(staging_dir)

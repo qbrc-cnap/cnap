@@ -271,3 +271,62 @@ class JobClientError(models.Model):
 
     # the text of the error itself:
     error_text = models.CharField(max_length=2000, blank=True)
+
+
+class WorkflowConstraint(models.Model):
+    '''
+    This is a base class that holds information about various constraints we can place
+    on workflows.  Fields here should be applicable to the concrete classes that derive
+    from this class
+
+    Note that it is marked as abstract, so you cannot instantiate instances of this--
+    it has no concept of *how* a constraint might be constructed.
+    '''
+
+    # the workflow to which this constraint is applied
+    workflow = models.ForeignKey('Workflow', on_delete=models.CASCADE)
+
+    # a name for the constraint.  Not used for anything important, but aim for
+    # this to be descriptive so its function is obvious 
+    name = models.CharField(max_length=500, blank=False)
+
+    # This is a longer, full-text description of what the constraint does
+    description = models.CharField(max_length=5000, blank=False)
+
+    # This is a path to a python module that has a function of the appropriate signature.
+    # It contains a function that does the actual logic of checking the constraint
+    # The function is run prior to job submission so that the constraints can be checked.
+    handler = models.CharField(max_length=1000, blank=False)
+
+    # the concrete implementation class which will be used.  Should be one of the 
+    # classes derived from this model
+    implementation_class = models.CharField(max_length=500, blank=False)
+
+
+class NumericConstraint(WorkflowConstraint):
+    '''
+    This can be used for any simple numeric constraint.  e.g. if some value
+    cannot be more than 10, the "value" can be 10, and the handler function
+    in the parent class will do the appropriate check for less-than.
+    '''
+    value = models.FloatField(null=False)
+
+
+class AnalysisUnitConstraint(WorkflowConstraint):
+    '''
+    This class is used to track the concept of an "analysis unit"
+    In most cases, an analysis proceeds on a number of "samples", such as
+    fastq files representing biological replicates.  However, this allows 
+    the developer of the WDL to define an appropriate unit upon which they can
+    quantify the analysis and constrain the analysis
+    '''
+    value = models.PositiveIntegerField(null=False)
+
+
+class ProjectConstraint(models.Model):
+    '''
+    This class holds the information about which constraints are applied
+    to which AnalysisProject instances
+    '''
+    project = models.ForeignKey('AnalysisProject', on_delete=models.CASCADE)
+    constraint = models.ForeignKey('WorkflowConstraint', on_delete=models.CASCADE)

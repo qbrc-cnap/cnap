@@ -342,6 +342,9 @@ MAIN_WDL = ingestion_config_dict['main_wdl']
 # the name of a pre-check WDL file, which checks user input 
 # prior to starting the actual main WDL
 PRECHECK_WDL = 'pre_check.wdl'
+
+# the name of a json file that specifies potential constraints for a workflow:
+CONSTRAINTS_JSON = 'constraints.json'
 ###############################################################################
 ###############################################################################
 
