@@ -12,42 +12,20 @@
 
 
 {% block content%}
-<div class="pad-top-bottom-20">
-    <select name="users">
-        {% for user in users %}
-            <option value="{{user.pk}}">{{user.email}}</option>
-        {% endfor %}
-    </select>
-    <select id="workflow-select" name="workflow">
-        {% for wf in workflows %}
-            <option value="{{wf.pk}}">{{wf.workflow_name}} (version ID: {{wf.version_id}})</option>
-        {% endfor %}
-    </select>
-<div>
-{% endblock %}
-
-{% block page_specific_js %}
-<script>
-    $("#workflow-select").change(function(e){
-        var selected_workflow_pk = $("#workflow-select").val();
-        console.log('selected: ' + selected_workflow_pk);
-        url = "{{workflow_constraints_endpoint}}"
-        payload = {'workflow_pk': selected_workflow_pk};
-        $.ajax({
-            url: url,
-            type: "post",
-            data: {"data": JSON.stringify(payload)},
-
-            success: function(response){
-                console.log('Success!');
-                console.log(response);
-                
-            },
-            error: function(xhr, status, err){
-                console.log('Error!');
-            }
-    });
-    })
-</script>
+    <div class="pad-top-bottom-20">
+        <form method="POST">
+        <select name="user">
+            {% for user in users %}
+                <option value="{{user.pk}}">{{user.email}}</option>
+            {% endfor %}
+        </select>
+        <select id="workflow-select" name="workflow">
+            {% for wf in workflows %}
+                <option value="{{wf.pk}}">{{wf.workflow_name}} (version ID: {{wf.version_id}})</option>
+            {% endfor %}
+        </select>
+        <input type="submit" value="Next">
+        </form>
+    </div>
 {% endblock %}
 

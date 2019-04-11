@@ -13,16 +13,25 @@
 
 {% block content%}
 <div class="pad-top-bottom-20">
+    <h2>Apply available constraints on project:</h2>
+    <form method="POST">
     {% for f in forms %}
         <div>
         {{f}}
         </div>
     {% endfor %}
+    <input type="submit" value="Apply constraints and email client">
+    </form>
+    <button id="only-email">No constraints- just email client</button>
 <div>
 {% endblock %}
 
 {% block page_specific_js %}
 <script>
+    $("#only-email").click(function(){
+        console.log('Send client email');
+        // TODO: send request
+    });
 </script>
 {% endblock %}
 

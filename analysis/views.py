@@ -4,7 +4,7 @@ import json
 from django.conf import settings
 from django.shortcuts import render
 from django.shortcuts import redirect
-from django.http import HttpResponseBadRequest, JsonResponse, HttpResponseForbidden
+from django.http import HttpResponseBadRequest, JsonResponse, HttpResponseForbidden, HttpResponse
 from django.views import View
 from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
@@ -233,18 +233,63 @@ class AnalysisProjectCreateView(View):
     '''
 
     def get(self, request, *args, **kwargs):
-        all_users = get_user_model().objects.all()
-        all_workflows = Workflow.objects.all()
-        context = {}
-        context['workflow_constraints_endpoint'] = reverse('workflow-constraint-options')
-        context['users'] = all_users
-        context['workflows'] = all_workflows
-        return render(request, 'analysis/create_project.html', context)
+        if request.user.is_staff:
+            all_users = get_user_model().objects.all()
+            all_workflows = Workflow.objects.all()
+            context = {}
+            context['workflow_constraints_endpoint'] = reverse('workflow-constraint-options')
+            context['users'] = all_users
+            context['workflows'] = all_workflows
+            return render(request, 'analysis/create_project.html', context)
+        else:
+            return HttpResponseForbidden()
 
     def post(self, request, *args, **kwargs):
-        print('*'*40)
-        print(request.POST)
-        print('*'*40)
+        if request.user.is_staff:
+            print('*'*40)
+            print(request.POST)
+            print('*'*40)
+            w = request.POST['workflow']
+            o = request.POST['user']
+            project = AnalysisProject(workflow=w, owner=o)
+            project.save()
+            #return render(request, 'analysis', {})
+            return HttpResponse('Thanks- %s' % str(project.analysis_uuid))
+        else:
+            return HttpResponseForbidden()
+
+
+class AnalysisProjectApplyConstraints(View):
+    '''
+    This view handles applying constraints to a project
+    '''
+    def get(self, request, *args, **kwargs):
+        #TODO- check if there are constraints applied already.
+        if request.user.is_staff:
+            analysis_uuid = kwargs['analysis_uuid']
+            project = AnalysisProject.objects.get(analysis_uuid=analysis_uuid)
+            workflow = project.workflow
+            constraints = WorkflowConstraint.objects.filter(workflow=workflow)
+            all_forms = []
+            import analysis.models
+            for c in constraints:
+                constraint_class = c.implementation_class
+                clazz = getattr(analysis.models, constraint_class)
+                label_dict = {'value': c.description}
+                modelform = modelform_factory(clazz, fields=['value'], labels=label_dict)
+                all_forms.append(modelform())
+            #return JsonResponse({'forms': all_forms})
+            return render(request, 'analysis/constraints.html', {'forms': all_forms})
+        else:
+            return HttpResponseForbidden()
+
+    def post(self, request, *args, **kwargs):
+        if request.user.is_staff:
+            print(request.POST)
+            return HttpResponse('thanks.')
+        else:
+            return HttpResponseForbidden()
+
 
 
 class AnalysisView(View):

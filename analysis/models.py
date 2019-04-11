@@ -166,11 +166,11 @@ class AnalysisProject(models.Model):
                 email_plaintxt_template = get_jinja_template('email_templates/new_project.txt')
                 email_plaintxt = email_plaintxt_template.render(context)
                 email_subject = open('email_templates/new_project_subject.txt').readline().strip()
-                send_email(email_plaintxt, \
-                    email_html, \
-                    email_address, \
-                    email_subject \
-                )
+                #send_email(email_plaintxt, \
+                #    email_html, \
+                #    email_address, \
+                #    email_subject \
+                #)
         super().save(*args, **kwargs)
 
     def __str__(self):
