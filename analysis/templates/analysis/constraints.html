@@ -2,10 +2,11 @@
 
 {% block page_specific_css %}
 <style>
-.pad-top-bottom-20{
-    padding-top:20px;
-    padding-bottom:20px;
-}
+    .pad-top-bottom-20{
+        padding-top:20px;
+        padding-bottom:20px;
+    }
+
 </style>
 {% endblock %}
 
@@ -14,24 +15,31 @@
 {% block content%}
 <div class="pad-top-bottom-20">
     <h2>Apply available constraints on project:</h2>
-    <form method="POST">
+    <p>Note that this will remove any existing constraints on this project!</p>
+    <form id="constraint-form"  method="POST">
+    {% csrf_token %}
     {% for f in forms %}
-        <div>
+        <div class="form-group">
+        {{f.label}}         
         {{f}}
         </div>
     {% endfor %}
     <input type="submit" value="Apply constraints and email client">
+    <div class="form-group">
+    <p>Or</p>    
+    <input type="submit" id="only-email" value="No constraints- just email client">
+    </div>
     </form>
-    <button id="only-email">No constraints- just email client</button>
 <div>
 {% endblock %}
 
 {% block page_specific_js %}
 <script>
-    $("#only-email").click(function(){
-        console.log('Send client email');
-        // TODO: send request
-    });
+  $(document).ready(function() {
+    // add some styling to the dynamic form since it's not very straightforward in the backend
+    $("#constraint-form input").addClass("form-control");
+    $("#constraint-form input[type='submit']").addClass("btn btn-primary");
+  });
 </script>
 {% endblock %}
 

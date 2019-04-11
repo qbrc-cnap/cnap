@@ -13,6 +13,7 @@ from django.http import Http404
 from django.core.exceptions import ObjectDoesNotExist
 from django.contrib.auth import get_user_model
 from django.forms import modelform_factory
+from django.contrib.sites.models import Site
 
 from rest_framework import generics, permissions, status
 from django_filters.rest_framework import DjangoFilterBackend
@@ -24,7 +25,8 @@ from .models import Workflow, \
     PendingWorkflow, \
     AnalysisProjectResource, \
     JobClientError, \
-    WorkflowConstraint
+    WorkflowConstraint, \
+    ProjectConstraint
 from base.models import Issue
 from .serializers import WorkflowSerializer, \
     AnalysisProjectSerializer, \
@@ -36,7 +38,8 @@ from .view_utils import query_workflow, \
     validate_workflow_dir, \
     fill_context, \
     start_job_on_gcp
-
+from helpers.email_utils import send_email
+from helpers.utils import get_jinja_template
 
 class AnalysisQueryException(Exception):
     pass
@@ -170,59 +173,6 @@ class WorkflowConstraintRetrieveUpdateDestroy(generics.RetrieveUpdateDestroyAPIV
     permission_classes = (permissions.IsAdminUser,)
 
 
-def get_constraint_options(request):
-    '''
-    This view is used to return WorkflowConstraint options for a particular Workflow.
-    When creating a new AnalysisProject, the admins will select a user and a Workflow.  After
-    selecting the Workflow, the front-end will send an AJAX request to get the potential
-    constraints that may be applied to the project.  This function does just that.
-    '''
-    print(request)
-    print(request.POST)
-    if request.user.is_staff:
-        data = request.POST.get('data')
-        j = json.loads(data)
-        workflow_pk = int(j['workflow_pk'])
-        workflow_obj = Workflow.objects.get(pk=workflow_pk)
-        constraints = WorkflowConstraint.objects.filter(workflow=workflow_obj)
-        all_forms = []
-        import analysis.models
-        for c in constraints:
-            constraint_class = c.implementation_class
-            clazz = getattr(analysis.models, constraint_class)
-            modelform = modelform_factory(clazz, fields=['value'])
-            all_forms.append(modelform())
-        #return JsonResponse({'forms': all_forms})
-        return render(request, 'analysis/constraints.html', {'forms': all_forms})
-    else:
-        return HttpResponseForbidden()
-
-
-def get_constraint_options_alt(request, pk):
-    '''
-    This view is used to return WorkflowConstraint options for a particular Workflow.
-    When creating a new AnalysisProject, the admins will select a user and a Workflow.  After
-    selecting the Workflow, the front-end will send an AJAX request to get the potential
-    constraints that may be applied to the project.  This function does just that.
-    '''
-    if request.user.is_staff:
-        workflow_pk = int(pk)
-        workflow_obj = Workflow.objects.get(pk=workflow_pk)
-        constraints = WorkflowConstraint.objects.filter(workflow=workflow_obj)
-        all_forms = []
-        import analysis.models
-        for c in constraints:
-            constraint_class = c.implementation_class
-            clazz = getattr(analysis.models, constraint_class)
-            label_dict = {'value': c.description}
-            modelform = modelform_factory(clazz, fields=['value'], labels=label_dict)
-            all_forms.append(modelform())
-        #return JsonResponse({'forms': all_forms})
-        return render(request, 'analysis/constraints.html', {'forms': all_forms})
-    else:
-        return HttpResponseForbidden()
-
-
 class AnalysisProjectCreateView(View):
     '''
     This handles creation of projects *outside* of the django admin, and gives admins
@@ -237,7 +187,7 @@ class AnalysisProjectCreateView(View):
             all_users = get_user_model().objects.all()
             all_workflows = Workflow.objects.all()
             context = {}
-            context['workflow_constraints_endpoint'] = reverse('workflow-constraint-options')
+            #context['workflow_constraints_endpoint'] = reverse('workflow-constraint-options')
             context['users'] = all_users
             context['workflows'] = all_workflows
             return render(request, 'analysis/create_project.html', context)
@@ -246,15 +196,15 @@ class AnalysisProjectCreateView(View):
 
     def post(self, request, *args, **kwargs):
         if request.user.is_staff:
-            print('*'*40)
-            print(request.POST)
-            print('*'*40)
-            w = request.POST['workflow']
-            o = request.POST['user']
+            workflow_pk = int(request.POST['workflow'])
+            owner_pk = int(request.POST['user'])
+            w = Workflow.objects.get(pk=workflow_pk)
+            o = get_user_model().objects.get(pk=owner_pk)
             project = AnalysisProject(workflow=w, owner=o)
             project.save()
             #return render(request, 'analysis', {})
-            return HttpResponse('Thanks- %s' % str(project.analysis_uuid))
+            #return HttpResponse('Thanks- %s' % str(project.analysis_uuid))
+            return redirect('analysis-project-apply-constraints', analysis_uuid=project.analysis_uuid)
         else:
             return HttpResponseForbidden()
 
@@ -267,7 +217,10 @@ class AnalysisProjectApplyConstraints(View):
         #TODO- check if there are constraints applied already.
         if request.user.is_staff:
             analysis_uuid = kwargs['analysis_uuid']
-            project = AnalysisProject.objects.get(analysis_uuid=analysis_uuid)
+            try:
+                project = AnalysisProject.objects.get(analysis_uuid=analysis_uuid)
+            except:
+                return HttpResponseBadRequest('Invalid project ID')
             workflow = project.workflow
             constraints = WorkflowConstraint.objects.filter(workflow=workflow)
             all_forms = []
@@ -277,15 +230,69 @@ class AnalysisProjectApplyConstraints(View):
                 clazz = getattr(analysis.models, constraint_class)
                 label_dict = {'value': c.description}
                 modelform = modelform_factory(clazz, fields=['value'], labels=label_dict)
-                all_forms.append(modelform())
-            #return JsonResponse({'forms': all_forms})
+                constraint_required = c.required
+                all_forms.append(modelform(prefix=c.name,empty_permitted= not constraint_required, use_required_attribute= constraint_required ))
             return render(request, 'analysis/constraints.html', {'forms': all_forms})
         else:
             return HttpResponseForbidden()
 
     def post(self, request, *args, **kwargs):
         if request.user.is_staff:
-            print(request.POST)
+            analysis_uuid = kwargs['analysis_uuid']
+            try:
+                project = AnalysisProject.objects.get(analysis_uuid=analysis_uuid)
+            except:
+                return HttpResponseBadRequest('Invalid project ID')
+
+            # remove the older constraints, if any
+            existing_constraints = ProjectConstraint.objects.filter(project=project)
+            if len(existing_constraints) > 0:
+                for c in existing_constraints:
+                    c.delete()
+
+            # now go on to apply new constraints, if any
+            workflow = project.workflow
+            constraints = WorkflowConstraint.objects.filter(workflow=workflow)
+            real_error = False
+            all_forms = []
+            import analysis.models
+            for c in constraints:
+                constraint_class = c.implementation_class
+                clazz = getattr(analysis.models, constraint_class)
+                label_dict = {'value': c.description}
+                modelform = modelform_factory(clazz, fields=['value'], labels=label_dict)
+                f = modelform(request.POST, prefix=c.name)
+                all_forms.append(f)
+                if f.is_valid():
+                    constraint_obj = f.save(commit=False)
+                    constraint_obj.workflow_constraint = c
+                    constraint_obj.save()
+                    proj_constraint = ProjectConstraint(project=project, constraint=constraint_obj)
+                    proj_constraint.save()
+                else:
+                    was_required = c.required
+                    if was_required:
+                        real_error = True
+            if real_error:
+                return render(request, 'analysis/constraints.html', {'forms': all_forms})
+
+            #TODO email
+            if settings.EMAIL_ENABLED:
+                email_address = project.owner.email
+                current_site = Site.objects.get_current()
+                domain = current_site.domain
+                url = 'https://%s' % domain
+                context = {'site': url, 'user_email': email_address}
+                email_template = get_jinja_template('email_templates/new_project.html')
+                email_html = email_template.render(context)
+                email_plaintxt_template = get_jinja_template('email_templates/new_project.txt')
+                email_plaintxt = email_plaintxt_template.render(context)
+                email_subject = open('email_templates/new_project_subject.txt').readline().strip()
+                send_email(email_plaintxt, \
+                    email_html, \
+                    email_address, \
+                    email_subject \
+                )
             return HttpResponse('thanks.')
         else:
             return HttpResponseForbidden()

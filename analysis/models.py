@@ -302,8 +302,19 @@ class WorkflowConstraint(models.Model):
     # classes derived from this model
     implementation_class = models.CharField(max_length=500, blank=False)
 
+    # is this constraint required on this workflow?
+    required = models.BooleanField(default=False)
 
-class NumericConstraint(WorkflowConstraint):
+    def __str__(self):
+        return '%s (%s)' % (self.name, self.implementation_class)
+
+class ImplementedConstraint(models.Model):
+    workflow_constraint = models.ForeignKey('WorkflowConstraint', on_delete=models.CASCADE)
+
+    def __str__(self):
+         return str(type(self).__name__)
+
+class NumericConstraint(ImplementedConstraint):
     '''
     This can be used for any simple numeric constraint.  e.g. if some value
     cannot be more than 10, the "value" can be 10, and the handler function
@@ -311,8 +322,11 @@ class NumericConstraint(WorkflowConstraint):
     '''
     value = models.FloatField(null=False)
 
+    def __str__(self):
+         return 'NumericConstraint, value=%s' % self.value
 
-class AnalysisUnitConstraint(WorkflowConstraint):
+
+class AnalysisUnitConstraint(ImplementedConstraint):
     '''
     This class is used to track the concept of an "analysis unit"
     In most cases, an analysis proceeds on a number of "samples", such as
@@ -322,6 +336,9 @@ class AnalysisUnitConstraint(WorkflowConstraint):
     '''
     value = models.PositiveIntegerField(null=False)
 
+    def __str__(self):
+         return 'AnalysisUnitConstraint, value=%s' % self.value
+
 
 class ProjectConstraint(models.Model):
     '''
@@ -329,4 +346,4 @@ class ProjectConstraint(models.Model):
     to which AnalysisProject instances
     '''
     project = models.ForeignKey('AnalysisProject', on_delete=models.CASCADE)
-    constraint = models.ForeignKey('WorkflowConstraint', on_delete=models.CASCADE)
+    constraint = models.ForeignKey('ImplementedConstraint', on_delete=models.CASCADE)

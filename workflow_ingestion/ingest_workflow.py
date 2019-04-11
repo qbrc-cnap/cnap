@@ -834,7 +834,7 @@ def register_constraints(workflow, staging_dir):
     from analysis.models import WorkflowConstraint
 
     # get a list of class names if the class derives from that base class above
-    available_constraint_classname = []
+    available_constraint_classnames = []
     for name, obj in inspect.getmembers(analysis.models):
         if inspect.isclass(obj):
             if obj.__base__ == WorkflowConstraint:
