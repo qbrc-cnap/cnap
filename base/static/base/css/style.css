@@ -47,6 +47,16 @@ a{
     align-items: center;
 }
 
+#current-files-refresh {
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+#logout-text{
+    display:flex;
+    align-items: center;
+}
+
 .blur {
         -webkit-filter: blur(3px);
         -moz-filter: blur(3px);

@@ -201,9 +201,14 @@ class AnalysisProjectCreateView(View):
         if request.user.is_staff:
             workflow_pk = int(request.POST['workflow'])
             owner_pk = int(request.POST['user'])
+            try:
+                allow_restart = request.POST['allow_restart']
+                allow_restart = True
+            except MultiValueDictKeyError:
+                allow_restart = False
             w = Workflow.objects.get(pk=workflow_pk)
             o = get_user_model().objects.get(pk=owner_pk)
-            project = AnalysisProject(workflow=w, owner=o)
+            project = AnalysisProject(workflow=w, owner=o, restart_allowed=allow_restart)
             project.save()
             #return render(request, 'analysis', {})
             #return HttpResponse('Thanks- %s' % str(project.analysis_uuid))
@@ -323,7 +328,7 @@ class AnalysisProjectApplyConstraints(View):
                     email_address, \
                     email_subject \
                 )
-            return HttpResponse('thanks.')
+            return HttpResponse('Project created and constraints applied.')
         else:
             return HttpResponseForbidden()
 

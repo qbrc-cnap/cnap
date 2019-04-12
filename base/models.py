@@ -82,6 +82,7 @@ class Resource(models.Model):
         d = {}
         d['text'] = '%s (%s)'  % (self.name, do_filesizeformat(self.size, binary=True))
         d['pk'] = self.pk
+        d['href'] = '/resources/%d' % self.pk
         return d
 
 

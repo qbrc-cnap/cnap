@@ -1,4 +1,5 @@
 import os
+import io
 import glob
 import json
 import shutil
@@ -20,6 +21,7 @@ from google.cloud import storage
 from helpers import utils
 from helpers.utils import get_jinja_template
 from helpers.email_utils import notify_admins, send_email
+import analysis.models
 from analysis.models import Workflow, \
     AnalysisProject, \
     AnalysisProjectResource, \
@@ -695,7 +697,7 @@ def handle_precheck_failure(job):
         if not project.restart_allowed:
             # a project that had a pre-check failed, but a restart was NOT allowed.
             # need to inform admins:
-            message = 'Job (%s) experienced failure during pre-check.  No restart was allowed.  Staging dir was %s' % (job.job_id, job.staging_dir)
+            message = 'Job (%s) experienced failure during pre-check.  No restart was allowed.  Staging dir was %s' % (job.job_id, job.job_staging_dir)
             subject = 'Cromwell job failure on pre-check'
             notify_admins(message, subject)
 
