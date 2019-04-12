@@ -9,6 +9,10 @@
   Unfortunately, the following transfers failed.  Sometimes the connection
   is lost and the transfer fails.  If this happens multiple times, please
   let us know, as it may be another issue.</p>
+
+<p>If you have recently synced your Dropbox to your personal computer, then a large number of failed transfers may indicate that
+the sync process is incomplete.  Please wait before trying again.  
+</p>
   <ul>
   {% for f in failed_transfers %}
     <li>{{f}}</li>
@@ -16,6 +20,5 @@
   </ul>
 {% endif %}
         
-        <p>Please do not reply to this message.</p>
     </body>
 </html>
