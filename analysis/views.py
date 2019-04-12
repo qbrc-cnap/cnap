@@ -14,19 +14,22 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.contrib.auth import get_user_model
 from django.forms import modelform_factory
 from django.contrib.sites.models import Site
+from django.utils.datastructures import MultiValueDictKeyError
 
 from rest_framework import generics, permissions, status
 from django_filters.rest_framework import DjangoFilterBackend
 
 from helpers.email_utils import notify_admins
-from .models import Workflow, \
+import analysis.models
+from analysis.models import Workflow, \
     AnalysisProject, \
     OrganizationWorkflow, \
     PendingWorkflow, \
     AnalysisProjectResource, \
     JobClientError, \
     WorkflowConstraint, \
-    ProjectConstraint
+    ProjectConstraint, \
+    ImplementedConstraint
 from base.models import Issue
 from .serializers import WorkflowSerializer, \
     AnalysisProjectSerializer, \
@@ -221,10 +224,34 @@ class AnalysisProjectApplyConstraints(View):
                 project = AnalysisProject.objects.get(analysis_uuid=analysis_uuid)
             except:
                 return HttpResponseBadRequest('Invalid project ID')
+
+            # show the older constraints, if any
+            existing_constraints = ProjectConstraint.objects.filter(project=project)
+            applied_constraints = []
+            if len(existing_constraints) > 0:
+                subclasses = ImplementedConstraint.__subclasses__()
+                subclass_names = [x.__name__.lower() for x in subclasses]
+                for c in existing_constraints:
+                    subclass_found = False
+                    idx = 0
+                    while not subclass_found and idx < len(subclass_names):
+                        try:
+                            subclass_name = subclass_names[idx]
+                            implemented_constraint = getattr(c.constraint, subclass_name)
+                            subclass_found = True
+                        except:
+                            pass
+                        idx += 1
+                    if subclass_found:
+                        value = implemented_constraint.value
+                        description = c.constraint.workflow_constraint.description
+                        applied_constraints.append((description, value))
+                    else: # the implementation of this constraint was not found-- this is a problem!
+                        raise Exception('The constraint subclass could not be located.  There is something wrong.')
+
             workflow = project.workflow
             constraints = WorkflowConstraint.objects.filter(workflow=workflow)
             all_forms = []
-            import analysis.models
             for c in constraints:
                 constraint_class = c.implementation_class
                 clazz = getattr(analysis.models, constraint_class)
@@ -232,7 +259,7 @@ class AnalysisProjectApplyConstraints(View):
                 modelform = modelform_factory(clazz, fields=['value'], labels=label_dict)
                 constraint_required = c.required
                 all_forms.append(modelform(prefix=c.name,empty_permitted= not constraint_required, use_required_attribute= constraint_required ))
-            return render(request, 'analysis/constraints.html', {'forms': all_forms})
+            return render(request, 'analysis/constraints.html', {'forms': all_forms, 'applied_constraints': applied_constraints})
         else:
             return HttpResponseForbidden()
 
@@ -255,7 +282,6 @@ class AnalysisProjectApplyConstraints(View):
             constraints = WorkflowConstraint.objects.filter(workflow=workflow)
             real_error = False
             all_forms = []
-            import analysis.models
             for c in constraints:
                 constraint_class = c.implementation_class
                 clazz = getattr(analysis.models, constraint_class)
@@ -276,8 +302,12 @@ class AnalysisProjectApplyConstraints(View):
             if real_error:
                 return render(request, 'analysis/constraints.html', {'forms': all_forms})
 
-            #TODO email
-            if settings.EMAIL_ENABLED:
+            try:
+                do_email = request.POST['send_email']
+                do_email = True
+            except MultiValueDictKeyError:
+                do_email = False
+            if do_email and settings.EMAIL_ENABLED:
                 email_address = project.owner.email
                 current_site = Site.objects.get_current()
                 domain = current_site.domain
