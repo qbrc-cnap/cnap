@@ -267,6 +267,7 @@ class InitDownload(generics.CreateAPIView):
             json_str = data['data'] # j is a json-format string
             data = json.loads(json_str)
             resource_pks = data['resource_pks']
+            resource_pks = [x for x in resource_pks if x] # remove any None that may have gotten through
             download_destination = data['destination']
         except KeyError as ex:
             raise exceptions.RequestError('''
