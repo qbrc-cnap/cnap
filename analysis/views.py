@@ -125,9 +125,19 @@ class AnalysisProjectList(generics.ListAPIView):
     def get_queryset(self):
         user = self.request.user
 
+        # did this request come from our front-end (i.e. not "real" API request)?
+        # Admins logged in were able to see other users' projects.  In general we want
+        # that behavior so we can query the API.  However, we do NOT want those projects
+        # to show up in the UI if the admin happens to be executing their own analyses
+        request_from_frontend = self.request.query_params.get('gui', None)
+        if request_from_frontend is not None:
+            request_from_frontend = True
+        else:
+            request_from_frontend = False
+
         # if admin, return all projects.  Otherwise only
         # return those owned by the user
-        if user.is_staff:
+        if user.is_staff and not request_from_frontend:
             return AnalysisProject.objects.all()
         else:
             return AnalysisProject.objects.filter(owner=user)
