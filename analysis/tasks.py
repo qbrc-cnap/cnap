@@ -676,7 +676,7 @@ def handle_precheck_failure(job):
         current_site = Site.objects.get_current()
         domain = current_site.domain
         project_url = reverse('analysis-project-execute', args=[project.analysis_uuid,])
-        url = 'https://%s/%s' % (domain, project_url)
+        url = 'https://%s%s' % (domain, project_url)
         context = {'site': url, 'user_email': email_address}
         if project.restart_allowed:
             email_template_path = 'email_templates/analysis_fail_with_recovery.html'
