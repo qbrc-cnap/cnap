@@ -34,7 +34,7 @@ def send_email(plaintext_msg, message_html, recipient, subject):
 
         service = discovery.build('gmail', 'v1', credentials = credentials)
 
-        sender = '---'
+        sender = 'qbrc@g.harvard.edu'
         message = MIMEMultipart('alternative')
 
         # create the plaintext portion
@@ -47,7 +47,7 @@ def send_email(plaintext_msg, message_html, recipient, subject):
         message.attach(part2)
 
         message['To'] = recipient
-        message['From'] = formataddr((str(Header('my app', 'utf-8')), sender))
+        message['From'] = formataddr((str(Header('QBRC', 'utf-8')), sender))
         message['subject'] = subject
         msg = {'raw': base64.urlsafe_b64encode(message.as_string().encode()).decode()}
         sent_message = service.users().messages().send(userId='me', body=msg).execute()

@@ -20,6 +20,7 @@ urlpatterns = [
 
     # a view to create AnalysisProject instances for admins
     path('projects/create/', views.AnalysisProjectCreateView.as_view(), name='analysis-project-create'),
+    path('projects/apply-constraints/<uuid:analysis_uuid>/', views.AnalysisProjectApplyConstraints.as_view(), name='analysis-project-apply-constraints'),
 
     # endpoints for Workflows
     path('workflows/', views.WorkflowList.as_view(), name='workflow-list'),
@@ -32,7 +33,6 @@ urlpatterns = [
     # endpoint for querying constraints
     path('workflow-constraints/', views.WorkflowConstraintList.as_view(), name='workflow-constraints'),
     path('workflow-constraints/<int:pk>', views.WorkflowConstraintRetrieveUpdateDestroy, name='workflow-constraints-details'),
-    path('workflow-constraint-options/', views.get_constraint_options, name='workflow-constraint-options'),
 
     # endpoints for OrganizationWorkflows
     path('org-workflows/', views.OrganizationWorkflowList.as_view(), 

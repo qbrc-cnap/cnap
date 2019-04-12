@@ -62,7 +62,9 @@
                 </div>
                 <div id="current-files" class="subcontent">
                     <h3>Files</h3>
-                    Below are the currently active files for use with analyses and for download.  Click on a file for details, or select files for deletion.
+                    Below are the currently active files for use with analyses and for download.  Click on a file for details, or select files for deletion.  If you have recently uploaded
+                    a file that you do not see, try a <span id="current-files-refresh">refresh.</span>
+
                     <div id="current-files-tree-wrapper">
                     <div class="input-container">
                         <div class="input-group mb-3">
@@ -85,7 +87,8 @@
                 </div>
                 <div id="upload" class="subcontent">
                     <h3>Uploads</h3>
-                    Upload files to our system for analysis by choosing from the storage providers below.  To view your currently uploaded files, see the file manager tab.
+                    Upload files to our system for analysis by choosing from the storage providers below.  To view your currently uploaded files, see the file manager tab.  If you do not see recently uploaded
+                    files then try refreshing the page.
                     <div class="providers-wrapper">
                              {% if dropbox_enabled %}
                              <img class="provider-btn init-upload-btn" upload-source="{{providers.dropbox}}" src="{% static "transfer_app/img/Dropbox.png" %}">

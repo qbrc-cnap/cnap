@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+
+{% block page_specific_css %}
+<style>
+.pad-top-bottom-20{
+    padding-top:20px;
+    padding-bottom:20px;
+}
+</style>
+{% endblock %}
+
+
+
+{% block content%}
+    <div class="pad-top-bottom-20">
+        <h2>Create a new analysis project</h2>
+        <form method="POST">
+        {% csrf_token %}
+        <div class="form-group">
+        <label for="select-user">Select user:</label>
+        <select id="select-user" name="user" class="form-control">
+            {% for user in users %}
+                <option value="{{user.pk}}">{{user.email}}</option>
+            {% endfor %}
+        </select>
+        </div>
+        <div class="form-group">
+        <label for="workflow-select">Select workflow:</label>
+        <select id="workflow-select" name="workflow" class="form-control">
+            {% for wf in workflows %}
+                <option value="{{wf.pk}}">{{wf.workflow_name}} (version ID: {{wf.version_id}})</option>
+            {% endfor %}
+        </select>
+        </div>
+        <div class="form-group form-check">
+            <input id="allow-restart" type="checkbox" name="allow_restart" value="true" class="form-check-input">
+            <label for="allow-restart" class="form-check-label">Allow restarts from bad inputs? (workflow must have pre-check mechanism)</label>
+        </div>
+        <input class="btn btn-primary" type="submit" value="Next">
+        </form>
+    </div>
+{% endblock %}
+

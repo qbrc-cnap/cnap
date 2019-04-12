@@ -507,6 +507,12 @@ $(".section-chooser").click(function(){
     var content_target = $(this).attr("content-target");
     var element = $("#" + content_target);
     $(element).toggle();
+
+    $("#current-files-tree").empty();
+    showCurrentFiles();
+
+    $("#downloads-tree").empty();
+    loadDownloads();
 })
 
 $("#refresh-history").click(function(){
@@ -699,5 +705,10 @@ $("#delete-files").click(function(){
     } else {
         showErrorDialog(["You have not selected any files to delete."]);
     }
+});
+
+$("#current-files-refresh").click(function(){
+    $("#current-files-tree").empty();
+    showCurrentFiles();
 });
 

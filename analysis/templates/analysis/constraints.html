@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+
+{% block page_specific_css %}
+<style>
+    .pad-top-bottom-20{
+        padding-top:20px;
+        padding-bottom:20px;
+    }
+
+</style>
+{% endblock %}
+
+
+
+{% block content%}
+<div class="pad-top-bottom-20">
+    <h2>Apply available constraints on project:</h2>
+    {% if applied_constraints|length > 0 %}
+    <p>Note that this will overwrite any existing constraints on this project!</p>
+    <div class="alert alert-primary">
+    <p><strong>Existing constraints:</strong></p>
+    <ul>
+    {% for c in applied_constraints %}
+        <li>{{c.0}}:{{c.1}}</li> 
+    {% endfor %}
+    </ul>
+    </div>
+    {% endif %}
+    <form id="constraint-form"  method="POST">
+    {% csrf_token %}
+    {% for f in forms %}
+        <div class="form-group">
+        {{f.label}}         
+        {{f}}
+        </div>
+    {% endfor %}
+    <div class="form-group form-check">
+        <input id="send-email" type="checkbox" name="send_email" value="true" checked class="form-check-input">
+        <label for="send-email" class="form-check-label">Send email to client</label>
+    </div>
+    <input type="submit" value="Submit">
+    </div>
+    </form>
+<div>
+{% endblock %}
+
+{% block page_specific_js %}
+<script>
+  $(document).ready(function() {
+    // add some styling to the dynamic form since it's not very straightforward in the backend
+    $("#constraint-form input[type='number']").addClass("form-control");
+    $("#constraint-form input[type='submit']").addClass("btn btn-primary form-control");
+  });
+</script>
+{% endblock %}
+

@@ -1,13 +1,19 @@
+import inspect
 from django.contrib import admin
+from django.contrib.admin.sites import AlreadyRegistered
 
-from .models import Workflow, \
+import analysis.models
+from analysis.models import Workflow, \
     AnalysisProject, \
     SubmittedJob, \
     CompletedJob, \
     PendingWorkflow, \
     AnalysisProjectResource, \
     Warning, \
-    JobClientError
+    JobClientError, \
+    WorkflowConstraint, \
+    ProjectConstraint, \
+    ImplementedConstraint
 
 class WorkflowAdmin(admin.ModelAdmin):
     list_display = ('workflow_name', 'workflow_id', 'version_id', 'is_default', 'is_active', 'workflow_title', 'workflow_short_description', 'workflow_long_description')
@@ -48,7 +54,39 @@ class JobClientErrorAdmin(admin.ModelAdmin):
     list_display = ('error_text',)
 
 
+class WorkflowConstraintAdmin(admin.ModelAdmin):
+    list_display = ('workflow', 'name', 'implementation_class')
+    list_display_links = ('workflow',)
+
+
+class ProjectConstraintAdmin(admin.ModelAdmin):
+    list_display = ('project', 'constraint')
+
+
+# use an auto-register for the constraint fields that are children of the 
+# ImplementedConstraint class.  This way we can see the constraints in the 
+# admin interface, but do not have to continuously update this module
+# when potentially new constraint classes are added
+
+constraint_classnames = []
+for name, obj in inspect.getmembers(analysis.models):
+    if inspect.isclass(obj):
+        if obj.__base__ == ImplementedConstraint:
+            constraint_classnames.append(name)
+for c in constraint_classnames:
+    clazz = getattr(analysis.models, c)
+    field_list = [f.name for f in clazz._meta.get_fields() if f.auto_created == False]
+    new_admin = type('NewAdmin', (admin.ModelAdmin,), {'list_display': field_list})
+    try:
+        admin.site.register(clazz, new_admin)
+    except AlreadyRegistered:
+        pass
+
+
 admin.site.register(Workflow, WorkflowAdmin)
+admin.site.register(ProjectConstraint, ProjectConstraintAdmin)
+#admin.site.register(ImplementedConstraint, ImplementedConstraintAdmin)
+admin.site.register(WorkflowConstraint, WorkflowConstraintAdmin)
 admin.site.register(PendingWorkflow, PendingWorkflowAdmin)
 admin.site.register(AnalysisProject, AnalysisProjectAdmin)
 admin.site.register(AnalysisProjectResource, AnalysisProjectResourceAdmin)
