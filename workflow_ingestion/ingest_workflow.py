@@ -981,6 +981,19 @@ def ingest_main(clone_dir, clone_url, commit_hash):
     # cleanup the staging dir:
     shutil.rmtree(staging_dir)
 
+    # If we are in production (as determined by settings.DEBUG = False), need to copy the files to the host server so the main
+    # server can handle the static requests:
+    if not settings.DEBUG:
+        # destination_dir is the absolute path to the directory we want to copy
+        # first get the relative path:
+        rel_path = os.path.relpath(destination_dir, APP_ROOT_DIR)
+        host_location = os.path.join('/host_mount', settings.STATIC_URL, rel_path) 
+
+        # The files in the container inside the static folder are symlinked back to the workflow dir
+        # The -L flag copies the actual file, since we cannot symlink out of the container
+        cp_command = 'cp -rL %s %s' % (destination_dir, host_location)
+        call_external(cp_command)
+
     # let the user know where the final files are:
     print('Success!  Your new workflow has been added to the database and the files are located at %s' % destination_dir)
 
