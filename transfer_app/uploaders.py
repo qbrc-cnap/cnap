@@ -321,6 +321,22 @@ class GoogleEnvironmentUploader(EnvironmentSpecificUploader, GoogleBase):
             item_dict['name'] = item_name
             full_item_name = os.path.join(bucket_name, item_name)
         
+            # check that the file with the same name does not already exist.  If so, add a timestamp:
+            is_unique = False
+            while not is_unique:
+                r = Resource.objects.filter(path=full_item_name)
+                if len(r) >= 1:
+                    # TODO: message admins if >1? 
+                    # already have a file at the location.  Add a timestamp prefix
+                    now = datetime.datetime.now()
+                    stamp = now.strftime('%m%d%Y-%H%M%S')
+                    name_split = item_name.split('.')
+                    newname = '.'.join(name_split[:-1]) + '.' + stamp + '.' + name_split[-1]
+                    item_dict['name'] = newname
+                    full_item_name = os.path.join(bucket_name, newname)
+                else:
+                    is_unique = True
+
             # check the validity.  GoogleStorage requires that objects are 1-1024 bytes when UTF-8 encoded
             # more info: https://cloud.google.com/storage/docs/naming
             min_length = 1
