@@ -43,7 +43,7 @@ loadDownloads();
 
 // get available analyses/workflows:
 $.ajax({
-    url:"{{analysis_list_endpoint}}?completed=false&gui=true"",
+    url:"{{analysis_list_endpoint}}?completed=false&gui=true",
     type:"GET",
     headers:{"X-CSRFToken": csrfToken},
     success:function(response){
