@@ -26,7 +26,7 @@ class Resource(models.Model):
 
     # the location (e.g. URL) where the Resource lives, relative to source
     # e.g. gs://bucket/dir/object.txt for google buckets
-    path = models.CharField(max_length=1000, null=False)
+    path = models.CharField(max_length=1000, null=False, unique=True)
     
     # a human-readable name for the UI
     name = models.CharField(max_length=1000, null=False)
