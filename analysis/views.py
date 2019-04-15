@@ -411,8 +411,13 @@ class AnalysisView(View):
         
         if analysis_uuid:
             # get the workflow object based on the UUID:
-            analysis_project = AnalysisProject.objects.get(analysis_uuid=analysis_uuid)
-            return (analysis_project.workflow, analysis_project)
+            try:
+                analysis_project = AnalysisProject.objects.get(analysis_uuid=analysis_uuid)
+                return (analysis_project.workflow, analysis_project)
+            except AnalysisProject.DoesNotExist:
+               raise AnalysisQueryException('Error when querying for workflow-- not found.')
+            except Exception:
+               raise AnalysisQueryException('Error when querying for workflow.')
         else:
 
             if staff_request:
@@ -537,12 +542,18 @@ class AnalysisView(View):
         except AnalysisQueryException as ex:
             message = str(ex)
             return HttpResponseBadRequest(message)
+        except Exception as ex:
+            return HttpResponseBadRequest('Some unexpected error has occurred.')
+
 
         if analysis_project is None:
             return JsonResponse({'message': 'No action taken since workflow was not assigned to a project.'})
 
         if analysis_project.started:
             return HttpResponseBadRequest('Analysis was already started/run.')
+
+        if request.user != analysis_project.owner:
+            return HttpResponseForbidden('You do not own this project, so you may not initiate an analysis')
 
         # parse the payload from the POST request and make a dictionary
         data = request.POST.get('data')

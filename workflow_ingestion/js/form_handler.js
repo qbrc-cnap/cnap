@@ -54,6 +54,11 @@ function create_post(payload){
             },
             error: function(xhr, status, err){
                 console.log('Error!');
+                if (xhr.status === 403){
+                    alert("You may not perform this action.  Do you own this project?");
+                } else {
+                    alert("There was a problem submitting the analysis.  If you believe this is in error, please contact the administrators.");
+                }
             }
 
     });
