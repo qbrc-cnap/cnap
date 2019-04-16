@@ -308,6 +308,7 @@ class GoogleEnvironmentUploader(EnvironmentSpecificUploader, GoogleBase):
         # the following section determines the final location in Google Storage for each file.
         # It places a 'destination' key in the dictionary for later use.
         # If the filenames are invalid, it throws an exception.
+        path_list = [] # keep track of the destinations-- in case two files with the same name are selected (fringe case!)
         for item_dict in upload_info:
             bucket_name = os.path.join(
                 settings.CONFIG_PARAMS['storage_bucket_prefix'], 
@@ -325,7 +326,8 @@ class GoogleEnvironmentUploader(EnvironmentSpecificUploader, GoogleBase):
             is_unique = False
             while not is_unique:
                 r = Resource.objects.filter(path=full_item_name)
-                if len(r) >= 1:
+                duplicate_name = full_item_name in path_list
+                if len(r) >= 1 or duplicate_name:
                     # TODO: message admins if >1? 
                     # already have a file at the location.  Add a timestamp prefix
                     now = datetime.datetime.now()
@@ -350,6 +352,7 @@ class GoogleEnvironmentUploader(EnvironmentSpecificUploader, GoogleBase):
                 raise exceptions.FilenameException(error_msg)
             else:
                 item_dict['destination'] = full_item_name
+                path_list.append(full_item_name)
 
         # Finally, check that the file is not already being transferred:
         upload_info, error_messages = cls._check_conflicts(upload_info)
