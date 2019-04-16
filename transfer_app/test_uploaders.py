@@ -1,5 +1,6 @@
 import json
 import uuid
+import datetime
 
 from django.test import TestCase
 import unittest.mock as mock
@@ -203,6 +204,65 @@ class DropboxGoogleUploadInitTestCase(TestCase):
 
         response, error_messages = uploaders.GoogleDropboxUploader.check_format(upload_info, user_pk)
         self.assertEqual(response, expected)
+
+    @mock.patch('transfer_app.uploaders.datetime.datetime.now')
+    def test_handle_upload_duplicated_filename_case1(self, mock_now):
+        '''
+        Tests that unique Resources are created.  If there already exists a file X for a particular user
+        then attempting to upload another file named X will not fail, but will append a timestamp to the 
+        Resource
+        '''
+
+        # setup the mock to return
+        d = datetime.datetime(2019, 4, 15, 21, 3, 7, 0)
+        mock_now.return_value = d
+        expected_stamp = d.strftime('%m%d%Y-%H%M%S')
+
+        user_pk = 1
+        user = get_user_model().objects.get(pk=user_pk)
+        user_uuid = user.user_uuid
+
+        # create a Resource
+        resource_path = '%s/%s/%s/%s' % (self.bucket_name, 
+                str(user_uuid), 
+                uploaders.UPLOADS_FOLDER_NAME, 
+                'f1.txt'
+        )
+        r = Resource(source = 'google',
+                source_path = '',
+                path = resource_path,
+                name = 'f1.txt',
+                owner = user,
+                size = 100,
+                originated_from_upload = True,
+                is_active=False
+        )
+        r.save()
+
+        # Upload a file that has the same name-- should trigger a change of name
+        upload_info = []
+        upload_info.append({'source_path': 'https://dropbox-link.com/1', 'name':'f1.txt'})
+
+        # the expected name of the altered file:
+        expected_new_name = 'f1.' + expected_stamp + '.txt'
+
+        # since the method below modifies the upload_info in-place, we need to copy the result
+        # BEFORE running the method we are testing:
+        expected_list = []
+        edited_item = upload_info[0].copy()
+        edited_item['owner'] = user_pk
+        edited_item['originator'] = user_pk
+        edited_item['user_uuid'] = user_uuid
+        edited_item['destination'] = '%s/%s/%s/%s' % (self.bucket_name, 
+            str(user_uuid), 
+            uploaders.UPLOADS_FOLDER_NAME, 
+            expected_new_name
+        )
+        expected_list.append(edited_item)
+
+        response, error_messages = uploaders.GoogleDropboxUploader.check_format(upload_info, user_pk)
+        self.assertEqual(response, expected_list)
+
 
     def test_dropbox_upload_format_checker_rejects_poor_format_case1(self):
         '''
