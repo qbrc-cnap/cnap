@@ -53,14 +53,14 @@ class GoogleEnvironmentDownloadTestCase(TestCase):
 
         r3 = Resource.objects.create(
             source='google_storage',
-            path='gs://a/b/other_owned.txt',
+            path='gs://a/b/other_owned1.txt',
             size=5e9,
             owner=self.other_user,
         )
 
         r4 = Resource.objects.create(
             source='google_storage',
-            path='gs://a/b/other_owned.txt',
+            path='gs://a/b/other_owned2.txt',
             size=5e9,
             owner=self.regular_user,
             is_active=False

@@ -31,7 +31,7 @@ def create_data(testcase_obj):
 
     r2 = Resource.objects.create(
         source='google_storage',
-        path='in some user dropbox',
+        path='in some user dropbox1',
         size=500,
         owner=testcase_obj.admin_user,
     )
@@ -49,12 +49,11 @@ def create_data(testcase_obj):
         size=500,
         owner=testcase_obj.regular_user,
     )
-
     r5 = Resource.objects.create(
         source='google_storage',
-        path='in some user dropbox',
+        path='in some user dropbox2',
         size=500,
-        owner=testcase_obj.regular_user,
+        owner=testcase_obj.regular_user
     )
 
 # Tests related to Resource listing/creation/retrieval:
