@@ -444,7 +444,7 @@ class TestWorkflowConstraints(TestCase):
 
     def setUp(self):
         self.test_dir = tempfile.mkdtemp()
-        from analysis.models import Worfklow
+        from analysis.models import Workflow
         self.test_workflow = Workflow.objects.create(
             git_url = 'https://github.com',
             git_commit_hash = 'abcd',
@@ -494,7 +494,7 @@ class TestWorkflowConstraints(TestCase):
         '''
         constraint_json = {
             'constraintA': {'type':'NumericConstraint', 'handler':'foo.py', 'description':'foo1'},
-            'constraintB': {'type':'NumericConstraint', 'description':'foo'2},
+            'constraintB': {'type':'NumericConstraint', 'description':'foo2'},
         }
 
         outfile_path = os.path.join(self.test_dir, CONSTRAINTS_JSON)
@@ -513,7 +513,7 @@ class TestWorkflowConstraints(TestCase):
         '''
         constraint_json = {
             'constraintA': {'type':'classA', 'handler':'foo.py', 'description':'foo1'},
-            'constraintB': {'type':'UnknownClass', 'handler': 'foo.py', 'description':'foo'2},
+            'constraintB': {'type':'UnknownClass', 'handler': 'foo.py', 'description':'foo2'},
         }
 
         outfile_path = os.path.join(self.test_dir, CONSTRAINTS_JSON)
@@ -533,7 +533,7 @@ class TestWorkflowConstraints(TestCase):
         '''
         constraint_json = {
             'constraintA': {'type':'classA', 'handler':'foo1.py', 'description':'foo1'},
-            'constraintB': {'type':'classB', 'handler': 'foo2.py', 'description':'foo'2},
+            'constraintB': {'type':'classB', 'handler': 'foo2.py', 'description':'foo2'},
         }
 
         outfile_path = os.path.join(self.test_dir, CONSTRAINTS_JSON)
@@ -553,7 +553,7 @@ class TestWorkflowConstraints(TestCase):
         '''
         constraint_json = {
             'constraintA': {'type':'classA', 'handler':'foo1.py', 'description':'foo1'},
-            'constraintB': {'type':'classB', 'handler': 'foo2.py', 'description':'foo'2},
+            'constraintB': {'type':'classB', 'handler': 'foo2.py', 'description':'foo2'},
         }
 
         outfile_path = os.path.join(self.test_dir, CONSTRAINTS_JSON)
@@ -581,7 +581,7 @@ class TestWorkflowConstraints(TestCase):
         '''
         constraint_json = {
             'constraintA': {'type':'classA', 'handler':'foo1.py', 'description':'foo1'},
-            'constraintB': {'type':'classB', 'handler': 'foo2.py', 'description':'foo'2},
+            'constraintB': {'type':'classB', 'handler': 'foo2.py', 'description':'foo2'},
         }
 
         outfile_path = os.path.join(self.test_dir, CONSTRAINTS_JSON)
@@ -602,12 +602,13 @@ class TestWorkflowConstraints(TestCase):
             register_constraints(self.test_workflow, self.test_dir)
 
     @mock.patch('workflow_ingestion.ingest_workflow.get_constraint_classnames')
-    def test_constraint_added_correctly(self, mock_constraint_class_func):
+    @mock.patch('workflow_ingestion.ingest_workflow.inspect_handler_module')
+    def test_constraint_added_correctly(self, mock_inspect,  mock_constraint_class_func):
         '''
         Tests that a WorkflowConstraint object is properly added to the database
         '''
         constraint_json = {
-            'constraintA': {'type':'classA', 'handler':'foo1.py', 'description':'foo1'}        
+            'constraintA': {'type':'classA', 'handler':'foo1.py', 'description':'foo1'}
         }
 
         outfile_path = os.path.join(self.test_dir, CONSTRAINTS_JSON)
@@ -615,6 +616,7 @@ class TestWorkflowConstraints(TestCase):
             fout.write(json.dumps(constraint_json))
 
         mock_constraint_class_func.return_value = ['classA', 'classB']
+        mock_inspect.return_value = None
 
         # write a constraint file that does not have correct function name:
         file_contents = '''
@@ -625,6 +627,7 @@ class TestWorkflowConstraints(TestCase):
             fout.write(file_contents)
 
         # prior to calling function, check that there are no database entries
+        from analysis.models import WorkflowConstraint
         w = WorkflowConstraint.objects.all()
         self.assertEqual(len(w), 0)
 
