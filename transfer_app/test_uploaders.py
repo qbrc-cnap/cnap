@@ -205,8 +205,8 @@ class DropboxGoogleUploadInitTestCase(TestCase):
         response, error_messages = uploaders.GoogleDropboxUploader.check_format(upload_info, user_pk)
         self.assertEqual(response, expected)
 
-    @mock.patch('transfer_app.uploaders.datetime.datetime.now')
-    def test_handle_upload_duplicated_filename_case1(self, mock_now):
+    @mock.patch('transfer_app.uploaders.datetime')
+    def test_handle_upload_duplicated_filename_case1(self, mock_datetime):
         '''
         Tests that unique Resources are created.  If there already exists a file X for a particular user
         then attempting to upload another file named X will not fail, but will append a timestamp to the 
@@ -215,7 +215,7 @@ class DropboxGoogleUploadInitTestCase(TestCase):
 
         # setup the mock to return
         d = datetime.datetime(2019, 4, 15, 21, 3, 7, 0)
-        mock_now.return_value = d
+        mock_datetime.datetime.now.return_value = d
         expected_stamp = d.strftime('%m%d%Y-%H%M%S')
 
         user_pk = 1
@@ -235,7 +235,7 @@ class DropboxGoogleUploadInitTestCase(TestCase):
                 owner = user,
                 size = 100,
                 originated_from_upload = True,
-                is_active=False
+                is_active=True
         )
         r.save()
 
@@ -250,6 +250,7 @@ class DropboxGoogleUploadInitTestCase(TestCase):
         # BEFORE running the method we are testing:
         expected_list = []
         edited_item = upload_info[0].copy()
+        edited_item['name'] = expected_new_name
         edited_item['owner'] = user_pk
         edited_item['originator'] = user_pk
         edited_item['user_uuid'] = user_uuid
@@ -872,7 +873,6 @@ class GoogleEnvironmentUploadInitTestCase(TestCase):
         additional_uploads.append({'source_path': 'https://dropbox-link.com/3', 'name':'f3.txt', 'owner':2}) #new
         additional_uploads.append({'source_path': 'https://dropbox-link.com/2', 'name':'f2.txt', 'owner':2}) # same as above- so reject!
         processed_uploads, error_messages = uploader_cls.check_format(additional_uploads, 2)
-
         self.assertEqual(len(processed_uploads), 1)
         self.assertEqual(len(error_messages), 1)
 
@@ -951,12 +951,12 @@ class GoogleEnvironmentUploadInitTestCase(TestCase):
         self.assertTrue(all([not tc.completed for tc in all_tc])) # no transfer_coordinators are complete
 
     @mock.patch.dict('transfer_app.uploaders.os.environ', {'GCLOUD': '/mock/bin/gcloud'})
-    def test_warn_of_conflict_case3(self):
+    @mock.patch('transfer_app.uploaders.datetime')
+    def test_warn_of_conflict_case3(self, mock_datetime):
         '''
         Here, we initiate two transfers.  We mock one being completed, and THEN the user uploads another to the same
         as an overwrite.  We want to allow this.
         '''
-        
         source = settings.DROPBOX
         uploader_cls = uploaders.get_uploader(source)
         self.assertEqual(uploader_cls, uploaders.GoogleDropboxUploader)
@@ -990,22 +990,31 @@ class GoogleEnvironmentUploadInitTestCase(TestCase):
         self.assertTrue(all([not x.completed for x in all_transfers])) # no transfer is complete
         self.assertTrue(all([not tc.completed for tc in all_tc])) # no transfer_coordinators are complete
 
-        # make the transfers 'complete'
+        # make the transfers 'complete' and set the Resources to 'active'
         for t in all_transfers:
             t.completed = True
             t.save()
         for tc in all_tc:
             tc.completed = True
             tc.save()
+        for r in all_resources:
+            r.is_active = True
+            r.save()
         
-
         # prep the upload info as is usually performed:
+        # setup the mock to return
+        d = datetime.datetime(2019, 4, 15, 21, 3, 7, 0)
+        mock_datetime.datetime.now.return_value = d
+        expected_stamp = d.strftime('%m%d%Y-%H%M%S')        
+        expected_filename = 'f2.' + expected_stamp + '.txt'
+
         additional_uploads = []
         additional_uploads.append({'source_path': 'https://dropbox-link.com/2', 'name':'f2.txt', 'owner':2}) # same as above
         processed_uploads, error_messages = uploader_cls.check_format(additional_uploads, 2)
 
         self.assertEqual(len(processed_uploads), 1)
         self.assertEqual(len(error_messages), 0)
+        self.assertEqual(processed_uploads[0]['name'], expected_filename)
 
         uploader = uploader_cls(processed_uploads)
         m2 = mock.MagicMock()
