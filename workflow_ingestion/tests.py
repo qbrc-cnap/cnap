@@ -1,6 +1,7 @@
 import os
 import shutil
 import json
+import tempfile
 
 #from unittest import TestCase
 from django.test import TestCase
@@ -12,9 +13,13 @@ TEST_UTILS_DIR = os.path.join(THIS_DIR, 'test_utils')
 from .ingest_workflow import locate_handler, \
     copy_handler_if_necessary, inspect_handler_module, \
     get_files, query_for_tag, parse_docker_runtime_declaration, \
-    check_runtime, \
+    check_runtime, register_constraints, \
     MissingHandlerException, HandlerConfigException, WdlImportException, \
-    RuntimeDockerException, WDL, PYFILE, ZIP, JSON
+    RuntimeDockerException, \
+    ConstraintFileFormatException, \
+    ConstraintFileClassnameException, \
+    ConstraintFileKeyException, \
+    WDL, PYFILE, ZIP, JSON, CONSTRAINTS_JSON
 
 from .gui_utils import check_input_mapping, fill_html_and_js_template, \
     check_known_input_element, TARGET, TARGET_IDS, DISPLAY_ELEMENT, GUI_ELEMENTS, \
@@ -433,4 +438,207 @@ class TestWorkflowIngestion(TestCase):
         '''
         result = check_runtime(wdl_text)
         self.assertTrue(len(result) == 0)
+
+
+class TestWorkflowConstraints(TestCase):
+
+    def setUp(self):
+        self.test_dir = tempfile.mkdtemp()
+        from analysis.models import Worfklow
+        self.test_workflow = Workflow.objects.create(
+            git_url = 'https://github.com',
+            git_commit_hash = 'abcd',
+            workflow_name = 'some name',
+            workflow_id = 1,
+            version_id = 1
+        )
+
+    def tearDown(self):
+        # Remove the directory after the test
+        shutil.rmtree(self.test_dir)
+
+    @mock.patch('workflow_ingestion.ingest_workflow.os')
+    def test_missing_constraint_file_is_ok(self, mock_os):
+        '''
+        If there is no constraint file, that's fine.  No reason to require
+        that a constraint be applied to a Worfklow
+
+        Should just pass silently (e.g. no exceptions raised)
+        '''
+        mock_os.path.exists.return_value = False
+        register_constraints(self.test_workflow, '/path/to/some_dir')
+
+    def test_malformed_constraint_file(self):
+        '''
+        The constraint file (in json format) needs to be parsed as a dict
+        by the native json module.  If it is anything else, then we know it's
+        invalid
+        '''
+        # This *almost* has the correct format, but is list-based, so invalid
+        some_list_json = [
+            {'constraintA': {'type':'NumericConstraint', 'handler':'foo.py', 'description':'foo'}},
+            {'constraintB': {'type':'NumericConstraint', 'handler':'foo.py', 'description':'foo'}}
+        ]
+
+        outfile_path = os.path.join(self.test_dir, CONSTRAINTS_JSON)
+        with open(outfile_path, 'w') as fout:
+            fout.write(json.dumps(some_list_json))
+
+        with self.assertRaises(ConstraintFileFormatException):
+            register_constraints(self.test_workflow, self.test_dir)
+
+    def test_malformed_constraint_file_case2(self):
+        '''
+        The constraint file has a constraint "item" that is missing
+        a required key ('handler' in this case)
+        '''
+        constraint_json = {
+            'constraintA': {'type':'NumericConstraint', 'handler':'foo.py', 'description':'foo1'},
+            'constraintB': {'type':'NumericConstraint', 'description':'foo'2},
+        }
+
+        outfile_path = os.path.join(self.test_dir, CONSTRAINTS_JSON)
+        with open(outfile_path, 'w') as fout:
+            fout.write(json.dumps(constraint_json))
+
+        with self.assertRaises(ConstraintFileKeyException):
+            register_constraints(self.test_workflow, self.test_dir)
+
+
+    @mock.patch('workflow_ingestion.ingest_workflow.get_constraint_classnames')
+    def test_malformed_constraint_file_case3(self, mock_constraint_class_func):
+        '''
+        The constraint file has a constraint "item" that specifies a constraint
+        class that does not exist
+        '''
+        constraint_json = {
+            'constraintA': {'type':'classA', 'handler':'foo.py', 'description':'foo1'},
+            'constraintB': {'type':'UnknownClass', 'handler': 'foo.py', 'description':'foo'2},
+        }
+
+        outfile_path = os.path.join(self.test_dir, CONSTRAINTS_JSON)
+        with open(outfile_path, 'w') as fout:
+            fout.write(json.dumps(constraint_json))
+
+        mock_constraint_class_func.return_value = ['classA', 'classB']
+
+        with self.assertRaises(ConstraintFileClassnameException):
+            register_constraints(self.test_workflow, self.test_dir)
+
+    @mock.patch('workflow_ingestion.ingest_workflow.get_constraint_classnames')
+    def test_constraint_handler_missing_file_raises_ex(self, mock_constraint_class_func):
+        '''
+        The constraint file has a constraint "item" that specifies a constraint
+        class that does not exist
+        '''
+        constraint_json = {
+            'constraintA': {'type':'classA', 'handler':'foo1.py', 'description':'foo1'},
+            'constraintB': {'type':'classB', 'handler': 'foo2.py', 'description':'foo'2},
+        }
+
+        outfile_path = os.path.join(self.test_dir, CONSTRAINTS_JSON)
+        with open(outfile_path, 'w') as fout:
+            fout.write(json.dumps(constraint_json))
+
+        mock_constraint_class_func.return_value = ['classA', 'classB']
+
+        with self.assertRaises(HandlerConfigException):
+            register_constraints(self.test_workflow, self.test_dir)
+
+    @mock.patch('workflow_ingestion.ingest_workflow.get_constraint_classnames')
+    def test_constraint_handler_no_func_raises_ex(self, mock_constraint_class_func):
+        '''
+        The constraint file references a python handler module that does not have
+        a function with the correct name
+        '''
+        constraint_json = {
+            'constraintA': {'type':'classA', 'handler':'foo1.py', 'description':'foo1'},
+            'constraintB': {'type':'classB', 'handler': 'foo2.py', 'description':'foo'2},
+        }
+
+        outfile_path = os.path.join(self.test_dir, CONSTRAINTS_JSON)
+        with open(outfile_path, 'w') as fout:
+            fout.write(json.dumps(constraint_json))
+
+        mock_constraint_class_func.return_value = ['classA', 'classB']
+
+        # write a constraint file that does not have correct function name:
+        file_contents = '''
+        def some_func(x,y):
+            pass
+        '''
+        with open(os.path.join(self.test_dir, 'foo1.py'), 'w') as fout:
+            fout.write(file_contents)
+
+        with self.assertRaises(HandlerConfigException):
+            register_constraints(self.test_workflow, self.test_dir)
+
+    @mock.patch('workflow_ingestion.ingest_workflow.get_constraint_classnames')
+    def test_constraint_handler_bad_signature_raises_ex(self, mock_constraint_class_func):
+        '''
+        The constraint file references a python handler module that has the correct function
+        name, but not the correct signature (2 args)
+        '''
+        constraint_json = {
+            'constraintA': {'type':'classA', 'handler':'foo1.py', 'description':'foo1'},
+            'constraintB': {'type':'classB', 'handler': 'foo2.py', 'description':'foo'2},
+        }
+
+        outfile_path = os.path.join(self.test_dir, CONSTRAINTS_JSON)
+        with open(outfile_path, 'w') as fout:
+            fout.write(json.dumps(constraint_json))
+
+        mock_constraint_class_func.return_value = ['classA', 'classB']
+
+        # write a constraint file that does not have correct function name:
+        file_contents = '''
+        def check_constraints(x):
+            pass
+        '''
+        with open(os.path.join(self.test_dir, 'foo1.py'), 'w') as fout:
+            fout.write(file_contents)
+
+        with self.assertRaises(HandlerConfigException):
+            register_constraints(self.test_workflow, self.test_dir)
+
+    @mock.patch('workflow_ingestion.ingest_workflow.get_constraint_classnames')
+    def test_constraint_added_correctly(self, mock_constraint_class_func):
+        '''
+        Tests that a WorkflowConstraint object is properly added to the database
+        '''
+        constraint_json = {
+            'constraintA': {'type':'classA', 'handler':'foo1.py', 'description':'foo1'}        
+        }
+
+        outfile_path = os.path.join(self.test_dir, CONSTRAINTS_JSON)
+        with open(outfile_path, 'w') as fout:
+            fout.write(json.dumps(constraint_json))
+
+        mock_constraint_class_func.return_value = ['classA', 'classB']
+
+        # write a constraint file that does not have correct function name:
+        file_contents = '''
+        def check_constraints(x, y):
+            pass
+        '''
+        with open(os.path.join(self.test_dir, 'foo1.py'), 'w') as fout:
+            fout.write(file_contents)
+
+        # prior to calling function, check that there are no database entries
+        w = WorkflowConstraint.objects.all()
+        self.assertEqual(len(w), 0)
+
+        register_constraints(self.test_workflow, self.test_dir)
+
+        w = WorkflowConstraint.objects.all()
+        self.assertEqual(len(w), 1)
+        w = w[0]
+        self.assertTrue(w.implementation_class == 'classA')
+
+
+
+        
+
+
+
 

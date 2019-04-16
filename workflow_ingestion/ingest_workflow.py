@@ -123,13 +123,28 @@ class DockerRegistryQueryException(Exception):
     pass
 
 
-class ConstraintFileException(Exception):
+class ConstraintFileFormatException(Exception):
     '''
-    This is raised if there are ANY problems with the file dictating
+    This is raised if there are any problems with the file format dictating
     constraints that may be placed upon a workflow that we are ingesting.
     '''
     pass
 
+
+class ConstraintFileKeyException(Exception):
+    '''
+    This is raised if a key is missing in the constraint objects contained
+    in the constraint json file
+    '''
+    pass
+
+
+class ConstraintFileClassnameException(Exception):
+    '''
+    This is raised if the class name given in the constraint file is not 
+    found
+    '''
+    pass
 
 def parse_commandline():
     '''
@@ -823,29 +838,37 @@ def link_form_css(workflow_libdir_name, workflow_dir, css_filename):
     os.symlink(css_path, linkpath)
 
 
+def get_constraint_classnames():
+    '''
+    Returns a list of strings which give the class names of the available
+    constraints (i.e. classes that derive from the base constraint type)
+    '''
+    import analysis.models
+    from analysis.models import ImplementedConstraint
+    # get a list of class names if the class derives from that base class above
+    available_constraint_classnames = []
+    for name, obj in inspect.getmembers(analysis.models):
+        if inspect.isclass(obj):
+            if obj.__base__ == ImplementedConstraint:
+                available_constraint_classnames.append(name)
+    return available_constraint_classnames
+
+
 def register_constraints(workflow, staging_dir):
     '''
     Here we parse (if present) a file that defines various constraints that may be placed
     on this workflow when an analysis project is initiated.
     '''
 
-    # import the analysis.models module which has the available constraint classes:
-    import analysis.models
-    from analysis.models import WorkflowConstraint
-
     # get a list of class names if the class derives from that base class above
-    available_constraint_classnames = []
-    for name, obj in inspect.getmembers(analysis.models):
-        if inspect.isclass(obj):
-            if obj.__base__ == WorkflowConstraint:
-                available_constraint_classnames.append(name)
+    available_constraint_classnames = get_constraint_classnames()
 
     required_keys = set(['type','handler','description'])
     constraint_filepath = os.path.join(staging_dir, CONSTRAINTS_JSON)
     if os.path.exists(constraint_filepath):
         j = json.load(open(constraint_filepath))
         if not type(j) == dict:
-            raise ConstraintFileException('Please check your formatting of the constraint file located at %s.  '
+            raise ConstraintFileFormatException('Please check your formatting of the constraint file located at %s.  '
                 'It should be parsed as a native dictionary when parsed by json.load' % constraint_filepath
             )
         for constraint_name, constraint_obj in j.items():
@@ -853,7 +876,7 @@ def register_constraints(workflow, staging_dir):
             # requirements to be valid.
             keyset = required_keys.difference(j.keys())
             if len(keyset) > 0: # this means some keys were missing in the constraint file
-                raise ConstraintFileException('The set of required keys is %s.  The following keys '
+                raise ConstraintFileKeyException('The set of required keys is %s.  The following keys '
                     'were NOT given in the "constraint object": %s' % (required_keys, keyset)
                 )
             else:
@@ -862,12 +885,12 @@ def register_constraints(workflow, staging_dir):
                 # check that the specified class type is something we know of (child of WorkflowConstraint)
                 constraint_classname = constraint_obj['type']
                 if not constraint_classname in available_constraint_classnames:
-                    raise ConstraintFileException('The class (%s) is not a subclass of analysis.models.WorkflowConstraint' % constraint_classname)
+                    raise ConstraintFileClassnameException('The class (%s) is not a subclass of analysis.models.WorkflowConstraint' % constraint_classname)
                 # we now have an apparently valid type for the constraint.  Check that the handler file is present:
                 handler_filename = constraint_obj['handler']
                 module_path = os.path.join(staging_dir, handler_filename)
                 if not os.path.exists(module_path):
-                    raise ConstraintFileException('The handler file (%s) was not found in the staging directory.  '
+                    raise HandlerConfigException('The handler file (%s) was not found in the staging directory.  '
                         'Ensure that the file is included with your distribution.' % handler_filename
                     )
                 # handler is there.  Check that it has a function with the correct signature
