@@ -28,7 +28,8 @@ from analysis.models import Workflow, \
     SubmittedJob, \
     Warning, \
     CompletedJob, \
-    JobClientError
+    JobClientError, \
+    ProjectConstraint
 from base.models import Resource, Issue
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -171,6 +172,48 @@ def fill_wdl_input(data):
         return wdl_input_dict
 
 
+def check_constraints(project, absolute_workflow_dir, inputs_json):
+    '''
+    Loads the module containing the code to check constraints
+    and calls it.  Returns a tuple.  The first item of the tuple indicates 
+    if any of the constraints are violated; True is all pass, False if any fail.
+    The second bool in the tuple indicates if there was a problem with the handler module.
+    If there was a problem with the handler module (i.e. missing file or some bug in the code)
+    then inform the admin and let the client know that it is being worked on.
+    '''
+
+    # Using the project, we can get any constraints applied to this project:
+    project_constraints = ProjectConstraint.objects.filter(project=project)
+
+    if len(project_constraints) == 0:
+        return True # no constraints, of course it passes
+
+    constraint_passes = []
+    for project_constraint in project_constraints:
+        # the constraint member is of type ImplementedConstraint, which has as one of its members
+        # an attribute referencing the WorkflowConstraint
+        implemented_constraint = project_constraint.constraint
+        handler_filename = implemented_constraint.workflow_constraint.handler
+        handler_path = os.path.join(absolute_workflow_dir, handler_filename)
+        if os.path.isfile(handler_path):
+            # the handler file exists.  Load the module and call the function
+            module_name = handler_filename[:-len(settings.PY_SUFFIX)]
+            module_location = create_module_dot_path(absolute_workflow_dir)
+            module_name = module_location + '.' + module_name
+            mod = import_module(module_name)
+            try:
+                constraint_passes.append(mod.check_constraints(implemented_constraint, inputs_json))
+            except Exception as ex:
+                print(ex) # so we can see the exception in the logs
+                handle_exception(ex, message = str(ex))
+                return (False, True)
+        else:
+            # the handler file is not there.  Something is wrong. Let an admin know
+            handle_exception(None, message = 'Constraint handler module was not found at %s for project %s' % (handler_path, str(project.analysis_uuid)))
+            return (False, True)
+    return (all(constraint_passes), False)
+
+
 @task(name='prep_workflow')
 def prep_workflow(data):
     '''
@@ -232,6 +275,16 @@ def prep_workflow(data):
     with open(wdl_input_path, 'w') as fout:
         json.dump(wdl_input_dict, fout)
     
+    # check that any applied constraints are not violated:
+    constraints_satisfied, problem = check_constraints(analysis_project, data[WORKFLOW_LOCATION], wdl_input_path)
+    if problem:
+        analysis_project.status = '''
+            An unexpected error occurred on job submission.  An administrator has been automatically notified of this error.
+            Thank you for your patience.
+            '''
+        analysis_project.error = True
+        analysis_project.save()
+
     # Go start the workflow:
     if data['analysis_uuid']:
 
