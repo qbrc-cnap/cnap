@@ -859,6 +859,7 @@ def register_constraints(workflow, staging_dir):
     Here we parse (if present) a file that defines various constraints that may be placed
     on this workflow when an analysis project is initiated.
     '''
+    from analysis.models import WorkflowConstraint
 
     # get a list of class names if the class derives from that base class above
     available_constraint_classnames = get_constraint_classnames()
@@ -874,7 +875,7 @@ def register_constraints(workflow, staging_dir):
         for constraint_name, constraint_obj in j.items():
             # iterate through the elements of the constraints file, check that they meet the minimum 
             # requirements to be valid.
-            keyset = required_keys.difference(j.keys())
+            keyset = required_keys.difference(constraint_obj.keys())
             if len(keyset) > 0: # this means some keys were missing in the constraint file
                 raise ConstraintFileKeyException('The set of required keys is %s.  The following keys '
                     'were NOT given in the "constraint object": %s' % (required_keys, keyset)
