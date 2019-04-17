@@ -175,9 +175,11 @@ def fill_wdl_input(data):
 def check_constraints(project, absolute_workflow_dir, inputs_json):
     '''
     Loads the module containing the code to check constraints
-    and calls it.  Returns a tuple.  The first item of the tuple indicates 
+    and calls it.  Returns a 3-ple.  The first item of the tuple indicates 
     if any of the constraints are violated; True is all pass, False if any fail.
-    The second bool in the tuple indicates if there was a problem with the handler module.
+    The second bool indicates if there was a problem with the handler module (i.e. which is outside
+    the user's control).  Finally the third is a list of messages that can indicate how the client
+    violated the constraints (e.g. "you submitted too many samples")
     If there was a problem with the handler module (i.e. missing file or some bug in the code)
     then inform the admin and let the client know that it is being worked on.
     '''
@@ -189,6 +191,7 @@ def check_constraints(project, absolute_workflow_dir, inputs_json):
         return True # no constraints, of course it passes
 
     constraint_passes = []
+    messages = []
     for project_constraint in project_constraints:
         # the constraint member is of type ImplementedConstraint, which has as one of its members
         # an attribute referencing the WorkflowConstraint
@@ -202,16 +205,18 @@ def check_constraints(project, absolute_workflow_dir, inputs_json):
             module_name = module_location + '.' + module_name
             mod = import_module(module_name)
             try:
-                constraint_passes.append(mod.check_constraints(implemented_constraint, inputs_json))
+                constraint_satisifed, message = mod.check_constraints(implemented_constraint, inputs_json)
+                constraint_passes.append(constraint_satisifed)
+                messages.append(message)
             except Exception as ex:
                 print(ex) # so we can see the exception in the logs
                 handle_exception(ex, message = str(ex))
-                return (False, True)
+                return (False, True, messages)
         else:
             # the handler file is not there.  Something is wrong. Let an admin know
             handle_exception(None, message = 'Constraint handler module was not found at %s for project %s' % (handler_path, str(project.analysis_uuid)))
-            return (False, True)
-    return (all(constraint_passes), False)
+            return (False, True), messages
+    return (all(constraint_passes), False, messages)
 
 
 @task(name='prep_workflow')
@@ -276,7 +281,7 @@ def prep_workflow(data):
         json.dump(wdl_input_dict, fout)
     
     # check that any applied constraints are not violated:
-    constraints_satisfied, problem = check_constraints(analysis_project, data[WORKFLOW_LOCATION], wdl_input_path)
+    constraints_satisfied, problem, constraint_violation_messages = check_constraints(analysis_project, data[WORKFLOW_LOCATION], wdl_input_path)
     if problem:
         print('Was problem with constraints!')
         analysis_project.status = '''
@@ -287,16 +292,15 @@ def prep_workflow(data):
         analysis_project.save()
         return
     elif not constraints_satisfied:
-        analysis_project.status = '''
-            The constraints imposed on this project were violated.
-            '''
+        analysis_project.status = 'The constraints imposed on this project were violated.'
         analysis_project.error = True
         analysis_project.completed = True
         analysis_project.success = False
         analysis_project.save()
 
-        jc = JobClientError(project=analysis_project, error_text='The constraints imposed on this project were violated.  Please try again.')
-        jc.save()
+        for m in constraint_violation_messages:
+            jc = JobClientError(project=analysis_project, error_text=m)
+            jc.save()
 
     # Go start the workflow:
     if data['analysis_uuid']:
