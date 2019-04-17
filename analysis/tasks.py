@@ -184,7 +184,7 @@ def check_constraints(project, absolute_workflow_dir, inputs_json):
 
     # Using the project, we can get any constraints applied to this project:
     project_constraints = ProjectConstraint.objects.filter(project=project)
-
+    print(project_constraints)
     if len(project_constraints) == 0:
         return True # no constraints, of course it passes
 
@@ -278,12 +278,25 @@ def prep_workflow(data):
     # check that any applied constraints are not violated:
     constraints_satisfied, problem = check_constraints(analysis_project, data[WORKFLOW_LOCATION], wdl_input_path)
     if problem:
+        print('Was problem with constraints!')
         analysis_project.status = '''
             An unexpected error occurred on job submission.  An administrator has been automatically notified of this error.
             Thank you for your patience.
             '''
         analysis_project.error = True
         analysis_project.save()
+        return
+    elif not constraints_satisfied:
+        analysis_project.status = '''
+            The constraints imposed on this project were violated.
+            '''
+        analysis_project.error = True
+        analysis_project.completed = True
+        analysis_project.success = False
+        analysis_project.save()
+
+        jc = JobClientError(project=analysis_project, error_text='The constraints imposed on this project were violated.  Please try again.')
+        jc.save()
 
     # Go start the workflow:
     if data['analysis_uuid']:
@@ -857,9 +870,19 @@ def check_job():
                     # has some status we do not recognize
                     message = 'When querying for status of job ID: %s, ' % job.job_id
                     message += 'received an unrecognized response: %s' % response.text
-                    handle_exception(None, message=message)
                     job.job_status = 'Unknown'
                     job.save()
+
+                    try:
+                        warnings_sent = Warning.objects.get(job=job)
+                        print('When querying cromwell for job status, received unrecognized status.  Notification suppressed')
+                    except analysis.models.Warning.DoesNotExist:
+                        handle_exception(None, message=message)
+
+                        # add a 'Warning' object in the database so that we don't
+                        # overwhelm the admin email boxes.
+                        warn = Warning(message=message, job=job)
+                        warn.save()
         except Exception as ex:
             print('An exception was raised when requesting job status from cromwell server')
             print(ex)
