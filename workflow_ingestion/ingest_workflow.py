@@ -1011,11 +1011,11 @@ def ingest_main(clone_dir, clone_url, commit_hash):
         # destination_dir is the absolute path to the directory we want to copy
         # first get the relative path:
         rel_path = os.path.relpath(destination_dir, APP_ROOT_DIR)
-        host_location = os.path.join('/host_mount', settings.STATIC_URL, rel_path) 
-
+        host_location = os.path.join('/host_mount', settings.STATIC_URL[1:], rel_path) 
         # The files in the container inside the static folder are symlinked back to the workflow dir
         # The -L flag copies the actual file, since we cannot symlink out of the container
         cp_command = 'cp -rL %s %s' % (destination_dir, host_location)
+        print('copy static files: %s' % cp_command)
         call_external(cp_command)
 
     # let the user know where the final files are:
