@@ -186,9 +186,8 @@ def check_constraints(project, absolute_workflow_dir, inputs_json):
 
     # Using the project, we can get any constraints applied to this project:
     project_constraints = ProjectConstraint.objects.filter(project=project)
-    print(project_constraints)
     if len(project_constraints) == 0:
-        return True # no constraints, of course it passes
+        return (True, False,[]) # no constraints, of course it passes
 
     constraint_passes = []
     messages = []
@@ -301,6 +300,7 @@ def prep_workflow(data):
         for m in constraint_violation_messages:
             jc = JobClientError(project=analysis_project, error_text=m)
             jc.save()
+        return
 
     # Go start the workflow:
     if data['analysis_uuid']:
