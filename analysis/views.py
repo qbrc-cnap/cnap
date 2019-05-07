@@ -1,5 +1,7 @@
 import os
 import json
+import random
+import string
 
 from django.conf import settings
 from django.shortcuts import render
@@ -17,6 +19,7 @@ from django.contrib.sites.models import Site
 from django.utils.datastructures import MultiValueDictKeyError
 
 from rest_framework import generics, permissions, status
+fromi rest_framework.views import APIView
 from django_filters.rest_framework import DjangoFilterBackend
 
 from helpers.email_utils import notify_admins
@@ -184,6 +187,78 @@ class WorkflowConstraintRetrieveUpdateDestroy(generics.RetrieveUpdateDestroyAPIV
     '''
     serializer_class = WorkflowConstraintSerializer
     permission_classes = (permissions.IsAdminUser,)
+
+
+class AutomatedAnalysisCreateEndpoint(APIView):
+    '''
+    This is used internally for creating new projects automatically
+    '''
+    def post(self, request, format=None):
+        if request.user.is_staff:
+            # to create a project we need to know:
+            # - client (email)
+            # - the workflow
+            # - whether to allow restarts
+            # - constraints (i.e. how many analyses were purchased)
+
+            # check whether the client exists.  If not, create them
+            # including some password, which we will send them
+
+            # the data as a dict:
+            payload = request.data
+
+            client_email = payload['client_email']
+            try:
+                user = get_user_model().objects.get(email=client_email)
+            except get_user_model().DoesNotExist:
+                user = get_user_model().objects.create(email=client_email)
+                random_pwd = ''.join([random.choice(string.ascii_lowercase + string.ascii_uppercase + string.digits) for _ in range(15)])
+                user.set_password(random_pwd)
+                user.save()
+
+            # now have a client.  Can create a project based on the workflow
+            workflow_pk = payload['workflow_pk']
+            workflow_obj = Workflow.objects.get(pk=workflow_pk)
+
+            # if the workflow allows restarts (given presence of a pre-check WDL)
+            if workflow_obj.restartable:
+                allow_restart = True
+            else:
+                allow_restart = False
+
+            # create the project:
+            project = AnalysisProject(workflow=workflow_obj, owner=user, restart_allowed=allow_restart)
+            project.save()
+
+            # now that we have a project, we can apply constraints (i.e. how many analyses did they order?)
+            # here the only type of constraint we apply are AnalysisUnitConstraints
+            units_ordered = int(payload['number_ordered'])
+
+            constraint = AnalysisUnitConstraint.objects.create(value=units_ordered)
+            project_constraint = ProjectConstraint.objects.create(
+                project=project,
+                constraint = constraint
+            )
+
+            if settings.EMAIL_ENABLED:
+                email_address = project.owner.email
+                current_site = Site.objects.get_current()
+                domain = current_site.domain
+                url = 'https://%s' % domain
+                context = {'site': url, 'user_email': email_address}
+                email_template = get_jinja_template('email_templates/new_project.html')
+                email_html = email_template.render(context)
+                email_plaintxt_template = get_jinja_template('email_templates/new_project.txt')
+                email_plaintxt = email_plaintxt_template.render(context)
+                email_subject = open('email_templates/new_project_subject.txt').readline().strip()
+                send_email(email_plaintxt, \
+                    email_html, \
+                    email_address, \
+                    email_subject \
+                )         
+        else:
+            return HttpResponseForbidden()        
+
 
 
 class AnalysisProjectCreateView(View):

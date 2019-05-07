@@ -45,6 +45,13 @@ class Workflow(models.Model):
     # workflows to be automatically live
     is_active = models.BooleanField(default=False)
 
+    # Is this workflow able to be restarted?  As determined by the 
+    # presence of a 'pre-check' WDL file.  If bad inputs are encountered
+    # the workflow may be restarted.  This flag only controls whether the
+    # Workflow CAN be restarted, while the flag in the AnalysisProject model 
+    # dictates whether restarts are allowed for that particular project
+    restartable = models.BooleanField(default=False) 
+
     # this keeps track of the location of the folder holding the 
     # WDL and associated files.  Allows us to locate the proper WDL
     # when an analysis is requested.

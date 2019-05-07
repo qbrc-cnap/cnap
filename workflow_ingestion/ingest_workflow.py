@@ -60,6 +60,7 @@ ACCEPTED_FILE_EXTENSIONS = [WDL, PYFILE, ZIP, JSON]
 
 # Other constants:
 MAIN_WDL = settings.MAIN_WDL
+PRECHECK_WDL = settings.PRECHECK_WDL
 CONSTRAINTS_JSON = settings.CONSTRAINTS_JSON
 NEW_WDL_DIR = 'wdl_dir' # a string used for common reference.  Value arbitrary.
 COMMIT_HASH = 'commit_hash' # a string used for common reference.  Value arbitrary.
@@ -738,6 +739,13 @@ def add_workflow_to_db(workflow_name, destination_dir, clone_url, commit_hash):
     else:
         raise Exception('Zero main WDL files found.  This should not happen.  The main WDL must have been lost somehow??')
 
+    # is there a pre-check WDL file, which determines if the workflow can be restarted:
+    precheck_wdl = os.path.join(destination_dir, PRECHECK_WDL)
+    if os.path.isfile(precheck_wdl):
+        has_precheck = True
+    else:
+        has_precheck = False
+
     # now have a valid workflow and version ID.  Create the object
     workflow_location = os.path.relpath(destination_dir, APP_ROOT_DIR)
     wf = Workflow(
@@ -751,7 +759,8 @@ def add_workflow_to_db(workflow_name, destination_dir, clone_url, commit_hash):
         workflow_short_description = workflow_short_description,
         workflow_long_description = workflow_long_description,
         git_url = clone_url,
-        git_commit_hash = commit_hash
+        git_commit_hash = commit_hash,
+        restartable = has_precheck
     )
     wf.save()
     return wf
@@ -1005,22 +1014,19 @@ def ingest_main(clone_dir, clone_url, commit_hash):
     # cleanup the staging dir:
     shutil.rmtree(staging_dir)
 
-    # If we are in production (as determined by settings.DEBUG = False), need to copy the files to the host server so the main
-    # server can handle the static requests:
-    if not settings.DEBUG:
-        # destination_dir is the absolute path to the directory we want to copy
-        # first get the relative path:
-        rel_path = os.path.relpath(destination_dir, APP_ROOT_DIR)
-        host_location = os.path.join('/host_mount', settings.STATIC_URL[1:], rel_path)
+    # destination_dir is the absolute path to the directory we want to copy
+    # first get the relative path:
+    rel_path = os.path.relpath(destination_dir, APP_ROOT_DIR)
+    host_location = os.path.join('/host_mount', settings.STATIC_URL[1:], rel_path)
 
-        # for workflows that are completely new, the intermediate directories may not be there
-        if not os.path.exists(host_location):
-            os.makedirs(host_location)
-        # The files in the container inside the static folder are symlinked back to the workflow dir
-        # The -L flag copies the actual file, since we cannot symlink out of the container
-        cp_command = 'cp -rL %s %s' % (destination_dir, host_location)
-        print('copy static files: %s' % cp_command)
-        call_external(cp_command)
+    # for workflows that are completely new, the intermediate directories may not be there
+    if not os.path.exists(host_location):
+        os.makedirs(host_location)
+
+    # The files in the container inside the static folder are symlinked back to the workflow dir
+    # The -L flag copies the actual file, since we cannot symlink out of the container
+    cp_command = 'cp -rL %s %s' % (destination_dir, host_location)
+    call_external(cp_command)
 
     # let the user know where the final files are:
     print('Success!  Your new workflow has been added to the database and the files are located at %s' % destination_dir)
