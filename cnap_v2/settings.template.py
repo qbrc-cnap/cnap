@@ -135,6 +135,10 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
+# the location (relative to the host directory that is mounted in the container) where
+# static files are served from.
+STATIC_LOC = {{static_host_dir}}
+
 
 # Settings specific to REST framework:
 REST_FRAMEWORK = {

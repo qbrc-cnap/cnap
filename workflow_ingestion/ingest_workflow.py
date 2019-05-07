@@ -1017,7 +1017,7 @@ def ingest_main(clone_dir, clone_url, commit_hash):
     # destination_dir is the absolute path to the directory we want to copy
     # first get the relative path:
     rel_path = os.path.relpath(destination_dir, APP_ROOT_DIR)
-    host_location = os.path.join('/host_mount', settings.STATIC_URL[1:], rel_path)
+    host_location = os.path.join('/host_mount', settings.STATIC_LOC, rel_path)
 
     # for workflows that are completely new, the intermediate directories may not be there
     if not os.path.exists(host_location):

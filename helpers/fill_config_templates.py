@@ -86,6 +86,11 @@ def take_inputs():
         else:
             print('Try again-- make sure you have http/https at the front.')
 
+    print('\n\n\n')
+    static_location = input('Enter the location of the directory from which you are serving static files.  This should be '
+        'RELATIVE to the directory mounted from the host machine.  For example, if the static directory that nginx uses is "/www/dev-static" '
+        ' and you started the container with "-v /www:/host_mount", then this should be simply "dev-static":')
+    params['static_host_dir'] = static_location
 
     accepted = False
     print('\n\n\n')
