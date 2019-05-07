@@ -19,7 +19,7 @@ from django.contrib.sites.models import Site
 from django.utils.datastructures import MultiValueDictKeyError
 
 from rest_framework import generics, permissions, status
-fromi rest_framework.views import APIView
+from rest_framework.views import APIView
 from django_filters.rest_framework import DjangoFilterBackend
 
 from helpers.email_utils import notify_admins
