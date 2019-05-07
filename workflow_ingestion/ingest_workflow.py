@@ -1025,7 +1025,7 @@ def ingest_main(clone_dir, clone_url, commit_hash):
 
     # The files in the container inside the static folder are symlinked back to the workflow dir
     # The -L flag copies the actual file, since we cannot symlink out of the container
-    cp_command = 'cp -rL %s %s' % (destination_dir, host_location)
+    cp_command = 'cp -rL %s/* %s' % (destination_dir, host_location)
     call_external(cp_command)
 
     # let the user know where the final files are:
