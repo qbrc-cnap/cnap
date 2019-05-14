@@ -1,6 +1,6 @@
 An analysis project has been created for your email ({{user_email}}) at {{site}}
 
 Since you are a new user of the CNAP platform, we have created a password for your login:
-{{random_pwd}}  
+{{pwd}}  
 
 You may change your password after you login.
