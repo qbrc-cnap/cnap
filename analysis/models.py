@@ -28,13 +28,13 @@ class Workflow(models.Model):
     version_id = models.PositiveSmallIntegerField()
 
     # the url of the git repository (i.e. the link used in `git clone <url>`)
-    git_url = models.CharField(max_length=1000, blank=False, null=False)
+    git_url = models.CharField(max_length=200, blank=False, null=False)
 
     # the git commit ID of the workflow repository:
-    git_commit_hash = models.CharField(max_length=1000, blank=False, null=False)
+    git_commit_hash = models.CharField(max_length=100, blank=False, null=False)
 
     # this keeps track of the workflow name. 
-    workflow_name = models.CharField(max_length=500)
+    workflow_name = models.CharField(max_length=100)
 
     # this keeps track of whether a workflow is the most recent or the "default"
     is_default = models.BooleanField(default=False)
@@ -55,7 +55,7 @@ class Workflow(models.Model):
     # this keeps track of the location of the folder holding the 
     # WDL and associated files.  Allows us to locate the proper WDL
     # when an analysis is requested.
-    workflow_location = models.CharField(max_length=2000)
+    workflow_location = models.TextField(max_length=2000)
 
     # a human-readable name for the 'title' of a workflow/analysis
     # Used for display-- users will see a list of these describing the 
@@ -65,11 +65,11 @@ class Workflow(models.Model):
 
     # a SHORT description of the workflow to help users.  Not too long (See max length)
     # Can be added to WDL under meta section with key `workflow_short_description`
-    workflow_short_description = models.CharField(max_length=400, default='', blank=True)
+    workflow_short_description = models.TextField(max_length=400, default='', blank=True)
 
     # a longer description of the workflow to help users.  Not too long (See max length)
     # Can be added to WDL under meta section with key `workflow_long_description`
-    workflow_long_description = models.CharField(max_length=2000, default='', blank=True)
+    workflow_long_description = models.TextField(max_length=2000, default='', blank=True)
 
     class Meta:
         # ensure the the combination of a workflow and a version is unique
@@ -92,13 +92,13 @@ class PendingWorkflow(models.Model):
     finish_time = models.DateTimeField(blank=True, null=True)
 
     # the url submitted for the clone:
-    clone_url = models.CharField(max_length=1000, blank=False)
+    clone_url = models.CharField(max_length=200, blank=False)
 
     # we track the version by the git commit hash 
     commit_hash = models.CharField(max_length=100, blank=False)
 
     # A status message for tracking progress
-    status = models.CharField(max_length=1000, blank=True, default='')
+    status = models.CharField(max_length=200, blank=True, default='')
 
     # Did it experience an error?
     error = models.BooleanField(default=False)
@@ -107,7 +107,7 @@ class PendingWorkflow(models.Model):
     complete = models.BooleanField(default=False)
 
     # The directory where the repo was cloned and staged:
-    staging_directory = models.CharField(max_length=1000, blank=False)
+    staging_directory = models.CharField(max_length=200, blank=False)
 
 
 class AnalysisProject(models.Model):
@@ -125,7 +125,7 @@ class AnalysisProject(models.Model):
 
     # an analysis needs a location where the files are stored.  Filled in the save method
     # technically a bucket and a folder inside that bucket
-    analysis_bucketname = models.CharField(max_length=2000, blank=True)
+    analysis_bucketname = models.TextField(max_length=2000, blank=True)
 
     # foreign key to the Workflow
     workflow = models.ForeignKey('Workflow', on_delete=models.CASCADE)
@@ -147,7 +147,7 @@ class AnalysisProject(models.Model):
     status = models.CharField(max_length=200, default='', blank=True)
 
     # for displaying longer messages, like possible errors:
-    message = models.CharField(max_length=5000, default='', blank=True)
+    message = models.TextField(max_length=5000, default='', blank=True)
 
     # fields to track status
     start_time = models.DateTimeField(blank=True, null=True)
@@ -219,7 +219,7 @@ class SubmittedJob(models.Model):
 
     # where the staging directory is-- for debug purposes.
     # This is an absolute path
-    job_staging_dir = models.CharField(max_length=1000, blank=False)
+    job_staging_dir = models.CharField(max_length=255, blank=False)
 
     # is this a pre-check job?  We can launch pre-workflows
     # that check user input prior to launching the entire pipeline
@@ -247,7 +247,7 @@ class CompletedJob(models.Model):
 
     # where the staging directory is-- for debug purposes.
     # This is an absolute path
-    job_staging_dir = models.CharField(max_length=1000, blank=False)
+    job_staging_dir = models.CharField(max_length=255, blank=False)
 
     def __str__(self):
         return '%s' % (self.job_id)
@@ -261,7 +261,7 @@ class Warning(models.Model):
     send many, many emails before it can be fixed.  The entries in this database table
     track this so that doesn't happen
     '''
-    message = models.CharField(max_length=2000)
+    message = models.TextField(max_length=2000)
     job = models.ForeignKey('SubmittedJob', on_delete=models.CASCADE)
 
 
@@ -277,7 +277,7 @@ class JobClientError(models.Model):
     project = models.ForeignKey('AnalysisProject', on_delete=models.CASCADE)
 
     # the text of the error itself:
-    error_text = models.CharField(max_length=2000, blank=True)
+    error_text = models.TextField(max_length=2000, blank=True)
 
 
 class WorkflowConstraint(models.Model):
@@ -295,19 +295,19 @@ class WorkflowConstraint(models.Model):
 
     # a name for the constraint.  Not used for anything important, but aim for
     # this to be descriptive so its function is obvious 
-    name = models.CharField(max_length=500, blank=False)
+    name = models.CharField(max_length=200, blank=False)
 
     # This is a longer, full-text description of what the constraint does
-    description = models.CharField(max_length=5000, blank=False)
+    description = models.TextField(max_length=5000, blank=False)
 
     # This is a path to a python module that has a function of the appropriate signature.
     # It contains a function that does the actual logic of checking the constraint
     # The function is run prior to job submission so that the constraints can be checked.
-    handler = models.CharField(max_length=1000, blank=False)
+    handler = models.CharField(max_length=255, blank=False)
 
     # the concrete implementation class which will be used.  Should be one of the 
     # classes derived from this model
-    implementation_class = models.CharField(max_length=500, blank=False)
+    implementation_class = models.CharField(max_length=50, blank=False)
 
     # is this constraint required on this workflow?
     required = models.BooleanField(default=False)
