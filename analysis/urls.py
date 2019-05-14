@@ -21,7 +21,6 @@ urlpatterns = [
     # a view to create AnalysisProject instances for admins
     path('projects/create/', views.AnalysisProjectCreateView.as_view(), name='analysis-project-create'),
     path('projects/apply-constraints/<uuid:analysis_uuid>/', views.AnalysisProjectApplyConstraints.as_view(), name='analysis-project-apply-constraints'),
-    path('projects/autocreate', views.AutomatedAnalysisCreateEndpoint.as_view(), name='analysis-project-autocreate'),
 
     # endpoints for Workflows
     path('workflows/', views.WorkflowList.as_view(), name='workflow-list'),
