@@ -32,7 +32,8 @@ from analysis.models import Workflow, \
     JobClientError, \
     WorkflowConstraint, \
     ProjectConstraint, \
-    ImplementedConstraint
+    ImplementedConstraint, \
+    AnalysisUnitConstraint
 from base.models import Issue
 from .serializers import WorkflowSerializer, \
     AnalysisProjectSerializer, \
@@ -206,15 +207,16 @@ class AutomatedAnalysisCreateEndpoint(APIView):
 
             # the data as a dict:
             payload = request.data
-
             client_email = payload['client_email']
             try:
                 user = get_user_model().objects.get(email=client_email)
+                new_user = False
             except get_user_model().DoesNotExist:
                 user = get_user_model().objects.create(email=client_email)
                 random_pwd = ''.join([random.choice(string.ascii_lowercase + string.ascii_uppercase + string.digits) for _ in range(15)])
                 user.set_password(random_pwd)
                 user.save()
+                new_user = True
 
             # now have a client.  Can create a project based on the workflow
             workflow_pk = payload['workflow_pk']
@@ -234,7 +236,9 @@ class AutomatedAnalysisCreateEndpoint(APIView):
             # here the only type of constraint we apply are AnalysisUnitConstraints
             units_ordered = int(payload['number_ordered'])
 
-            constraint = AnalysisUnitConstraint.objects.create(value=units_ordered)
+            workflow_constraints = WorkflowConstraint.objects.filter(workflow=workflow_obj)
+            constraint = AnalysisUnitConstraint.objects.create(value=units_ordered, 
+                workflow_constraint=workflow_constraints[0])
             project_constraint = ProjectConstraint.objects.create(
                 project=project,
                 constraint = constraint
@@ -245,17 +249,28 @@ class AutomatedAnalysisCreateEndpoint(APIView):
                 current_site = Site.objects.get_current()
                 domain = current_site.domain
                 url = 'https://%s' % domain
-                context = {'site': url, 'user_email': email_address}
-                email_template = get_jinja_template('email_templates/new_project.html')
-                email_html = email_template.render(context)
-                email_plaintxt_template = get_jinja_template('email_templates/new_project.txt')
-                email_plaintxt = email_plaintxt_template.render(context)
-                email_subject = open('email_templates/new_project_subject.txt').readline().strip()
+
+                if not new_user:
+                    context = {'site': url, 'user_email': email_address}
+                    email_template = get_jinja_template('email_templates/new_project.html')
+                    email_html = email_template.render(context)
+                    email_plaintxt_template = get_jinja_template('email_templates/new_project.txt')
+                    email_plaintxt = email_plaintxt_template.render(context)
+                    email_subject = open('email_templates/new_project_subject.txt').readline().strip()
+                else:
+                    context = {'site': url, 'user_email': email_address, 'pwd': random_pwd}
+                    email_template = get_jinja_template('email_templates/new_project_for_new_user.html')
+                    email_html = email_template.render(context)
+                    email_plaintxt_template = get_jinja_template('email_templates/new_project_for_new_user.txt')
+                    email_plaintxt = email_plaintxt_template.render(context)
+                    email_subject = open('email_templates/new_project_subject.txt').readline().strip()
+
                 send_email(email_plaintxt, \
                     email_html, \
                     email_address, \
                     email_subject \
-                )         
+                )
+            return HttpResponse('Project created')
         else:
             return HttpResponseForbidden()        
 
