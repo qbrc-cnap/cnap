@@ -17,6 +17,30 @@ sys.path.append(os.path.realpath('helpers'))
 from helpers.email_utils import send_email
 
 
+def check_for_transfer_availability(config):
+    '''
+    This function checks whether new downloads are allowed giving our maximum allowable transfers
+    '''
+    
+    nmax = int(config['max_transfers'])
+    while True:
+        # get all the incomplete TransferCoordinator instances.  
+        incomplete_tc = TransferCoordinator.objects.filter(completed=False)
+
+        all_transfers = []
+        for tc in incomplete_tc:
+            all_transfers.extend([x for x in Transfer.objects.filter(coordinator = tc)])
+
+        # at this point we have a list of Transfer instances that are either queued, started, or completed
+        # count how many of those have started but not completed
+        currently_running_count = sum([all([x.started, not x.completed]) for x in all_transfers])
+
+        if (nmax - currently_running_count) > 0:
+            return
+        else:
+            time.sleep(int(config['sleep_period']))
+
+
 def handle_launch_problems(failed_pks, launch_count):
     '''
     This function wraps common behavior for actions to take if one of the transfers did not launch 

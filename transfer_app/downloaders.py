@@ -609,7 +609,14 @@ class GoogleDropboxDownloader(GoogleEnvironmentDownloader):
             if cmd is not None:
                 cmd += ' --container-arg="-dropbox" --container-arg="%s"' % item['access_token']
                 cmd += ' --container-arg="-d" --container-arg="%s"' % custom_config['dropbox_destination_folderpath']
+                transfer_utils.check_for_transfer_availability(custom_config)
                 self.launcher.go(cmd)
+
+                # mark the Transfer as started
+                transfer_obj = Transfer.objects.get(pk = item['transfer_pk'])
+                transfer_obj.started=True
+                transfer_obj.save()
+
                 launch_count += 1
             else:
                 failed_pks.append(item['transfer_pk'])
@@ -633,7 +640,14 @@ class GoogleDriveDownloader(GoogleEnvironmentDownloader):
             cmd = self._prep_single_download(custom_config, i, item)
             if cmd is not None:
                 cmd += ' --container-arg="-access_token" --container-arg="%s"' % item['access_token'] # the oauth2 access token
+                transfer_utils.check_for_transfer_availability(custom_config)
                 self.launcher.go(cmd)
+                                
+                # mark the Transfer as started
+                transfer_obj = Transfer.objects.get(pk = item['transfer_pk'])
+                transfer_obj.started=True
+                transfer_obj.save()
+                
                 launch_count += 1
             else:
                 failed_pks.append(item['transfer_pk'])

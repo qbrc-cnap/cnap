@@ -9,6 +9,7 @@ from django.urls import reverse
 from django.contrib.sites.models import Site
 
 from transfer_app.base import GoogleBase, AWSBase
+import transfer_app.utils as transfer_utils
 import helpers.utils as utils
 
 from base.models import Resource
@@ -431,6 +432,7 @@ class GoogleEnvironmentUploader(EnvironmentSpecificUploader, GoogleBase):
         cmd += ' --container-arg="-zone" --container-arg="%s"' % settings.CONFIG_PARAMS['google_zone']
         return cmd
 
+
 class GoogleDropboxUploader(GoogleEnvironmentUploader):
 
     uploader_cls = DropboxUploader
@@ -444,11 +446,29 @@ class GoogleDropboxUploader(GoogleEnvironmentUploader):
 
         custom_config = copy.deepcopy(self.config_params)
 
+        launch_count = 0
+        failed_pks = []
         for i, item in enumerate(self.uploader.upload_data):
-            cmd = self._prep_single_upload(custom_config, i, item)
-            cmd += ' --container-arg="-path" --container-arg="%s"' % item['source_path'] # the special Dropbox link
-            cmd += ' --container-arg="-destination" --container-arg="%s"' % item['destination'] # the destination (in storage)
-            self.launcher.go(cmd)
+            try:
+                cmd = self._prep_single_upload(custom_config, i, item)
+                cmd += ' --container-arg="-path" --container-arg="%s"' % item['source_path'] # the special Dropbox link
+                cmd += ' --container-arg="-destination" --container-arg="%s"' % item['destination'] # the destination (in storage)
+
+                transfer_utils.check_for_transfer_availability(custom_config)
+
+                self.launcher.go(cmd)
+
+                # mark the Transfer as started
+                transfer_obj = Transfer.objects.get(pk = item['transfer_pk'])
+                transfer_obj.started=True
+                transfer_obj.save()
+
+                launch_count += 1
+            except Exception:
+                failed_pks.append(item['transfer_pk'])
+        transfer_utils.handle_launch_problems(failed_pks, launch_count) 
+
+
  
 
 class GoogleDriveUploader(GoogleEnvironmentUploader):
@@ -464,12 +484,29 @@ class GoogleDriveUploader(GoogleEnvironmentUploader):
 
         custom_config = copy.deepcopy(self.config_params)
 
+        launch_count = 0
+        failed_pks = []
         for i, item in enumerate(self.uploader.upload_data):
-            cmd = self._prep_single_upload(custom_config, i, item)
-            cmd += ' --container-arg="-drive_token" --container-arg="%s"' % item['drive_token'] # the token for accessing drive
-            cmd += ' --container-arg="-file_id" --container-arg="%s"' % item['file_id'] # the unique file ID
-            cmd += ' --container-arg="-destination" --container-arg="%s"' % item['destination'] # the destination (in storage)
-            self.launcher.go(cmd)
+            try:
+                cmd = self._prep_single_upload(custom_config, i, item)
+                cmd += ' --container-arg="-drive_token" --container-arg="%s"' % item['drive_token'] # the token for accessing drive
+                cmd += ' --container-arg="-file_id" --container-arg="%s"' % item['file_id'] # the unique file ID
+                cmd += ' --container-arg="-destination" --container-arg="%s"' % item['destination'] # the destination (in storage)
+
+                transfer_utils.check_for_transfer_availability(custom_config)
+
+                self.launcher.go(cmd)
+
+                # mark the Transfer as started
+                transfer_obj = Transfer.objects.get(pk = item['transfer_pk'])
+                transfer_obj.started=True
+                transfer_obj.save()
+
+                launch_count += 1
+            except Exception:
+                failed_pks.append(item['transfer_pk'])
+        transfer_utils.handle_launch_problems(failed_pks, launch_count) 
+
 
 
 class AWSEnvironmentUploader(EnvironmentSpecificUploader):
