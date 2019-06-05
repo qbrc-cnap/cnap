@@ -139,11 +139,14 @@ def fill_wdl_input(data):
                 if os.path.isfile(handler_path):
                     # we have a proper file.  Call that to map our unmapped_data
                     # to the WDL inputs
+                    print('Using handler code in %s to map GUI inputs to WDL inputs' % handler_path)
                     module_name = target[settings.HANDLER][:-len(settings.PY_SUFFIX)]
                     module_location = create_module_dot_path(absolute_workflow_dir)
                     module_name = module_location + '.' + module_name
                     mod = import_module(module_name)
+                    print('Imported module %s' % module_name)
                     map_dict = mod.map_inputs(user, unmapped_data, target[settings.TARGET_IDS])
+                    print('Result of input mapping: %s' % map_dict)
                     for key, val in map_dict.items():
                         if key in wdl_input_dict:
                             wdl_input_dict[key] = val
@@ -280,7 +283,9 @@ def prep_workflow(data):
         json.dump(wdl_input_dict, fout)
     
     # check that any applied constraints are not violated:
+    print('check constraints')
     constraints_satisfied, problem, constraint_violation_messages = check_constraints(analysis_project, data[WORKFLOW_LOCATION], wdl_input_path)
+    print('done checking constraints')
     if problem:
         print('Was problem with constraints!')
         analysis_project.status = '''
@@ -291,6 +296,7 @@ def prep_workflow(data):
         analysis_project.save()
         return
     elif not constraints_satisfied:
+        print('constraints violated')
         analysis_project.status = 'The constraints imposed on this project were violated.'
         analysis_project.error = True
         analysis_project.completed = True
@@ -304,11 +310,12 @@ def prep_workflow(data):
 
     # Go start the workflow:
     if data['analysis_uuid']:
-
+        print('had UUID')
         # we are going to start the workflow-- check if we should run a pre-check
         # to examine user input:
         run_precheck = False
         if os.path.exists(os.path.join(staging_dir, settings.PRECHECK_WDL)):
+            print('should run precheck')
             run_precheck = True
 
         execute_wdl(analysis_project, staging_dir, run_precheck)
@@ -338,16 +345,21 @@ def execute_wdl(analysis_project, staging_dir, run_precheck=False):
         'workflowTypeVersion': config_dict['workflow_type_version']
     }
 
+    # load the options file so we can fill-in the zones:
+    options_json = {}
+    options_json['default_runtime_attributes'] = {'zones':settings.CONFIG_PARAMS['google_zone']}
+    options_json_str = json.dumps(options_json)
+    options_io = io.BytesIO(options_json_str.encode('utf-8'))
+
+    files = {
+        'workflowOptions': options_io, 
+        'workflowInputs': open(wdl_input_path,'rb')
+    }
+    
     if run_precheck:
-        files = {
-            'workflowSource': open(os.path.join(staging_dir, settings.PRECHECK_WDL), 'rb'), 
-            'workflowInputs': open(wdl_input_path,'rb')
-        }
+        files['workflowSource'] = open(os.path.join(staging_dir, settings.PRECHECK_WDL), 'rb')
     else:
-        files = {
-            'workflowSource': open(os.path.join(staging_dir, settings.MAIN_WDL), 'rb'), 
-            'workflowInputs': open(wdl_input_path,'rb')
-        }
+        files['workflowSource'] =  open(os.path.join(staging_dir, settings.MAIN_WDL), 'rb')
 
     zip_archive = os.path.join(staging_dir, ZIPNAME)
     if os.path.exists(zip_archive):
