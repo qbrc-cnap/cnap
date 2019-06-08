@@ -540,21 +540,17 @@ class AnalysisView(View):
         # if a specific analysis was requested
         if analysis_project:
             if analysis_project.started:
-                if not analysis_project.completed:
-                    # in progress, return status page
-                    context = {}
-                    context['job_status'] = analysis_project.status
-                    if analysis_project.start_time is not None:
-                        context['start_time'] = analysis_project.start_time
-                    else:
-                        context['start_time'] = '-'
-                    if analysis_project.error:
-                        context['error'] = True
-                    else:
-                        context['error'] = False
-                    return render(request, 'analysis/in_progress.html', context)
-                else: # started AND complete
-                    if not analysis_project.error:
+                if not analysis_project.error:
+                    if not analysis_project.completed:
+                        # in progress, return status page
+                        context = {}
+                        context['job_status'] = analysis_project.status
+                        if analysis_project.start_time is not None:
+                            context['start_time'] = analysis_project.start_time
+                        else:
+                            context['start_time'] = '-'
+                        return render(request, 'analysis/in_progress.html', context)
+                    else: # started, no error, completed
                         # return a success page
                         context = {}
                         if analysis_project.finish_time is not None:
@@ -562,17 +558,16 @@ class AnalysisView(View):
                         else:
                             context['finish_time'] = '-'
                         return render(request, 'analysis/complete_success.html', context)
-                    elif analysis_project.error:
-                        # return a page indicating error
-                        if analysis_project.restart_allowed:
-                            context = {}
-                            client_errors = JobClientError.objects.filter(project=analysis_project)
-                            context['status'] = analysis_project.status
-                            context['errors'] = client_errors
-                            context['restart_url'] = reverse('analysis-project-restart', args=[analysis_project.analysis_uuid,])
-                            return render(request, 'analysis/recoverable_error.html', context)
-                        else:
-                            return render(request, 'analysis/complete_error.html',{})
+                else: # analysis project had error
+                    if analysis_project.restart_allowed:
+                        context = {}
+                        client_errors = JobClientError.objects.filter(project=analysis_project)
+                        context['status'] = analysis_project.status
+                        context['errors'] = client_errors
+                        context['restart_url'] = reverse('analysis-project-restart', args=[analysis_project.analysis_uuid,])
+                        return render(request, 'analysis/recoverable_error.html', context)
+                    else:
+                        return render(request, 'analysis/complete_error.html',{})
 
         # if we are here, we have a workflow object from the database.
         # We can use that to find the appropriate workflow directory where

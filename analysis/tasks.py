@@ -299,7 +299,7 @@ def prep_workflow(data):
         print('constraints violated')
         analysis_project.status = 'The constraints imposed on this project were violated.'
         analysis_project.error = True
-        analysis_project.completed = True
+        analysis_project.completed = False
         analysis_project.success = False
         analysis_project.save()
 
@@ -647,7 +647,7 @@ def handle_failure(job):
     job.delete()
 
     # update the AnalysisProject instance to reflect the failure:
-    project.completed = True
+    project.completed = False
     project.success = False
     project.error = True
     project.status = 'The job submission has failed.  An administrator has been notified.'
@@ -745,7 +745,7 @@ def handle_precheck_failure(job):
 
         # update the AnalysisProject instance:
         project = job.project
-        project.completed = True
+        project.completed = False
         project.success = False
         project.error = True
         project.status = 'Issue encountered with inputs.'
