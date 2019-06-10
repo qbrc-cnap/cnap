@@ -1,0 +1,21 @@
+<div class="form-group">
+    <h4><label for="{{id}}">{{label}}</label></h4>
+    <p>
+        {{description}}
+    </p>
+    <input type="number" 
+        class="form-control" 
+        name="{{name}}" 
+        id="numeric-{{id}}"  
+        placeholder="{{placeholder}}"
+        value="{{default_value}}"
+        {% if max_value %}
+        max="{{max_value}}"
+        {% endif %}
+        {% if min_value %} 
+        min="{{min_value}}"
+        {% endif %} 
+        required 
+        dataTarget="{{name}}"
+    >
+</div>
