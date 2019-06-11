@@ -67,7 +67,7 @@
                     "name": "min_length",
                     "type": "int",
                     "required": false,
-                    "default": 1
+                    "default": 0
                 },
                 {
                     "name": "normalize_input",
