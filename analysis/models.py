@@ -249,6 +249,8 @@ class CompletedJob(models.Model):
     # This is an absolute path
     job_staging_dir = models.CharField(max_length=255, blank=False)
 
+    timestamp = models.DateTimeField(blank=False, null=False, auto_now_add=True)
+
     def __str__(self):
         return '%s' % (self.job_id)
 
