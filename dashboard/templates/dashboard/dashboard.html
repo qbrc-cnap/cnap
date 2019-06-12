@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+{% load static %}
+    <head>
+        <!-- Required meta tags -->
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+        <title>CNAP Dashboard</title>
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
+        <link href="https://fonts.googleapis.com/css?family=Raleway" rel="stylesheet">
+        <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.2/css/all.css" integrity="sha384-fnmOCqbTlWIlj8LyTjo7mOUStjsKC4pOpQbqyi7RrhN7udi9RwhKkMHpvLbHG9Sr" crossorigin="anonymous">
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+        <style>
+
+            body{
+                font-family: 'Raleway', sans-serif;
+                color:rgb(80,80,80);
+            }
+            #header{
+                padding-left:10px;
+                padding-right:10px;
+                height: 50px;
+                background-color: rgb(100,100,100);
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                color: rgb(240,240,240);
+            }
+
+            #add-workflow-message {
+                 width:600px;
+                margin-top:15px;
+                display:none;
+            }
+
+            .nav-link {
+                cursor: pointer;
+            }
+
+            #main{
+                margin-top:20px;
+            }
+
+            #region-input{
+                width: 200px;
+            }
+
+            #clone-url-input{
+                width: 600px;
+            }
+
+            @media (min-width: 767.98px) {
+                #header{
+                    height: 100px;
+                }
+
+                #cnap-header{
+                    font-size: 2em;
+                }
+            }
+        </style>
+    </head>
+    <body>
+            <div id="header">
+                <div id="cnap-header">CNAP Dashboard</div>
+                <div>blawney@hsph.harvard.edu</div>
+            </div>
+            <div id="main" class="container-fluid">
+               {% csrf_token %}
+                <div class="row">
+                    <div class="col-md-3">
+                        <ul class="nav flex-column">
+                            <li class="nav-item">
+                            <a class="nav-link" target="current-projects-section">Current projects</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" target="completed-projects-section">Completed projects</a>
+                            </li>
+                            <li class="nav-item">
+                            <a class="nav-link" target="maintenance-section">Maintenance</a>
+                            </li>
+                            <li class="nav-item">
+                            <a class="nav-link" target="change-region">Change region</a>
+                            </li>
+                            <li class="nav-item">
+                            <a class="nav-link" target="create-project">Create new project</a>
+                            </li>
+                            <li class="nav-item">
+                            <a class="nav-link" target="add-workflow">Add new workflow</a>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="col-md-9">
+                        <div id="current-projects-section" class="content-tab">
+                            <h2>Projects overview</h2>
+                            <p>Below are projects that have been created but not successfully completed.</p>
+                            <table class="table table-striped table-sm">
+                                <thead>
+                                    <tr>
+                                    <th>Workflow</th>
+                                    <th>CNAP ID</th>
+                                    <th>Cromwell ID</th>
+                                    <th>Client</th>
+                                    <th>Started</th>
+                                    <th>Failed</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                                </thead>
+                                    <tbody>
+                                    {% for p in current_projects %}
+                                    <tr>
+                                    <td>{{p.workflow_name}} ({{p.version}})</td>
+                                    <td>{{p.cnap_uuid}}</td>
+                                    <td>
+                                       {% if p.cromwell_uuid %}
+                                        {{p.cromwell_uuid}}
+                                       {% else %}
+                                        <i class="fas fa-minus"></i>
+                                       {% endif %}
+                                    </td>
+                                    <td>{{p.client}}</td>
+                                    <td>
+                                       {% if p.started %}
+                                        <i class="far fa-check-circle"></i>
+                                       {% else %}
+                                        <i class="fas fa-minus"></i>
+                                       {% endif %}
+                                    </td>
+                                    <td>
+                                       {% if p.failed %}
+                                        <i class="fas fa-exclamation-triangle"></i>
+                                       {% else %}
+                                        <i class="fas fa-minus"></i>
+                                       {% endif %}
+                                    </td>
+                                    <td>
+                                       {% if p.status %}
+                                       {{p.status}}
+                                       {% else %}
+                                        <i class="fas fa-minus"></i>
+                                       {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if p.failed %}
+                                        <button class="btn btn-primary">Restart</button>
+                                        {% elif p.started %}
+                                        <button class="btn btn-danger">Kill</button>
+                                        {% else %}
+                                        <i class="fas fa-minus"></i>
+                                       {% endif %}
+                                    </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>  
+                        </div>
+                        <div id="completed-projects-section" class="content-tab">
+                            <h2>Completed projects</h2>
+                            <p>Below are projects that have successfully completed.</p>
+                            <table class="table table-striped table-sm">
+                                <thead>
+                                    <tr>
+                                    <th>Workflow</th>
+                                    <th>CNAP ID</th>
+                                    <th>Cromwell ID</th>
+                                    <th>Client</th>
+                                    <th>Date</th>
+                                    </tr>
+                                </thead>
+                                    <tbody>
+                                    {% for p in completed_jobs %}
+                                    <tr>
+                                    <td>{{p.workflow_name}} ({{p.version}})</td>
+                                    <td>{{p.cnap_uuid}}</td>
+                                    <td>{{p.cromwell_uuid}}</td>
+                                    <td>{{p.client}}</td>
+                                    <td>{{p.date}}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table></div>
+                        <div id="maintenance-section" class="content-tab">
+                            <h2>Maintenance</h2>
+                            <p>A place to do things like cleanup old/expired files</p>
+                        </div>
+                        <div id="add-workflow" class="content-tab">
+                            <h2>Add a new workflow</h2>
+                            <div class="form-group">
+                                <input id="clone-url-input" type="text" name="clone_url" placeholder="Enter git repository URL for cloning..."/>
+                            </div>
+                            <button id="add-workflow-btn" class="btn btn-primary">Add workflow</button>
+                            <div id="add-workflow-message" class="alert alert-success"></div>
+                        </div>
+                        <div id="create-project" class="content-tab">
+                            <h2>Create a new project</h2>
+                        </div>
+
+                        <div id="change-region" class="content-tab">
+                            <h2>Change region</h2>
+                            <p>Current region: {{current_region}}</p>
+                            <div class="form-group">
+                                <label for="region-input">Enter new region</label>
+                                <input id="region-input" class="form-control" type="text">
+                            </div>
+                            <button class="btn btn-primary">Change region</button>
+                        </div>
+                    </div> 
+                </div>
+            </div>    
+        <script
+            src="https://code.jquery.com/jquery-3.3.1.min.js"
+            integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8="
+            crossorigin="anonymous">
+        </script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+        <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+        <script type="text/javascript" src="{% static "base/js/base.js" %}"></script>
+        <script>
+
+                /* For toggling portions of the interface */
+                $(".content-tab").hide();
+                $("#current-projects-section").show();
+                $(".nav-link").click(function(e){
+                    var el = e.target;
+                    var target = $(el).attr("target");
+                    console.log(target);
+                    $(".content-tab").hide();
+                    $("#" + target).toggle();
+                });
+                /* End of interface toggling */
+
+                /* Ajax submission of the URL for the new workflow */
+                $("#add-workflow-btn").click(function(){
+                    var clone_url = $("#clone-url-input").val();
+                    var csrfToken = getCookie('csrftoken');
+                    $.ajax({
+                        url:"{{new_workflow_url}}",
+                        method:"POST",
+                        data: {"clone_url":clone_url},
+                        headers:{"X-CSRFToken": csrfToken},
+                        success:function(response){
+                            var markup = response['message'];
+                            $("#add-workflow-message").empty().append(markup).show();
+                        },
+                        error:function(){
+                            alert("Could not submit the new workflow.");
+                        }
+                    });
+                });
+            </script> 
+    </body>
+</html>
+
