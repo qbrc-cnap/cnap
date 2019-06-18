@@ -142,9 +142,9 @@
                                     </td>
                                     <td>
                                         {% if p.failed %}
-                                        <button class="btn btn-primary">Restart</button>
+                                        <button class="btn btn-primary reset-btn" cnap_id="{{p.cnap_uuid}}">Reset</button>
                                         {% elif p.started %}
-                                        <button class="btn btn-danger">Kill</button>
+                                        <button class="btn btn-danger kill-btn" cnap_id="{{p.cnap_uuid}}" >Kill</button>
                                         {% else %}
                                         <i class="fas fa-minus"></i>
                                        {% endif %}
@@ -246,6 +246,44 @@
                             alert("Could not submit the new workflow.");
                         }
                     });
+                });
+
+                // Handle when someone clicks the restart button to restart a failed project
+                $(".reset-btn").click(function(e){
+                    var el = e.target;
+                    var cnap_id = $(el).attr("cnap_id");
+                    var csrfToken = getCookie('csrftoken');
+                    $.ajax({
+                        url:"{{reset_project_url}}",
+                        method:"POST",
+                        data: {"cnap_uuid":cnap_id},
+                        headers:{"X-CSRFToken": csrfToken},
+                        success:function(response){
+                            alert("Project has been reset.  Refresh this page to see the current status.");
+                        },
+                        error:function(){
+                            alert("Could not reset the project.");
+                        }
+                    });
+                });
+
+                $(".kill-btn").click(function(e){
+                    var el = e.target;
+                    var cnap_id = $(el).attr("cnap_id");
+                    var csrfToken = getCookie('csrftoken');
+                    $.ajax({
+                        url:"{{kill_project_url}}",
+                        method:"POST",
+                        data: {"cnap_uuid":cnap_id},
+                        headers:{"X-CSRFToken": csrfToken},
+                        success:function(response){
+                            alert("Project has been killed.  Refresh this page to see the current status.");
+                        },
+                        error:function(){
+                            alert("Could not kill the project.");
+                        }
+                    });
+
                 });
             </script> 
     </body>

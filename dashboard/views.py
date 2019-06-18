@@ -63,6 +63,8 @@ def dashboard_index(request):
         context['completed_jobs'] = completed_jobs_list
         context['current_region'] = settings.CONFIG_PARAMS['google_zone']
         context['new_workflow_url'] = reverse('dashboard-add-workflow')
+        context['reset_project_url'] = reverse('analysis-project-reset')
+        context['kill_project_url'] = reverse('analysis-project-kill')
         return render(request, 'dashboard/dashboard.html', context)
     else:
         return HttpResponseForbidden()

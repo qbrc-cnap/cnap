@@ -2,6 +2,8 @@ import os
 import json
 import random
 import string
+import requests
+from jinja2 import Template
 
 from django.conf import settings
 from django.shortcuts import render
@@ -22,10 +24,12 @@ from rest_framework import generics, permissions, status
 from rest_framework.views import APIView
 from django_filters.rest_framework import DjangoFilterBackend
 
+from helpers import utils
 from helpers.email_utils import notify_admins
 import analysis.models
 from analysis.models import Workflow, \
     AnalysisProject, \
+    SubmittedJob, \
     OrganizationWorkflow, \
     PendingWorkflow, \
     AnalysisProjectResource, \
@@ -47,6 +51,8 @@ from .view_utils import query_workflow, \
     start_job_on_gcp
 from helpers.email_utils import send_email
 from helpers.utils import get_jinja_template
+
+THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 
 class AnalysisQueryException(Exception):
     pass
@@ -678,12 +684,11 @@ class AnalysisRestartView(View):
             message = str(ex)
             return HttpResponseBadRequest(message)
 
-        # check that it was completed and had an error:
+        # check that it had an error:
         error = analysis_project.error
-        completed = analysis_project.completed
         restart_allowed = analysis_project.restart_allowed
 
-        if error and completed and restart_allowed:
+        if error and restart_allowed:
             analysis_project.error = False
             analysis_project.completed = False
             analysis_project.started = False
@@ -698,4 +703,82 @@ class AnalysisRestartView(View):
             return redirect('analysis-project-execute', analysis_uuid=analysis_project.analysis_uuid)
         else:
             return HttpResponseBadRequest('Cannot perform this action.')
-            
+
+
+class AnalysisResetView(View):
+    '''
+    This is used when an admin wishes to reset a project that has a failed status.  
+    Allows users to submit their analysis again.  Most often used if the workflow encounters an error
+    that is outside of the client's control (aka a bug in the workflow).
+    '''
+    def post(self, request, *args, **kwargs):
+
+        if not request.user.is_staff:
+            return HttpResponseForbidden()
+        try:
+            payload = request.POST
+            analysis_uuid = payload['cnap_uuid']
+            analysis_project = AnalysisProject.objects.get(analysis_uuid = analysis_uuid)
+        except analysis.models.AnalysisProject.DoesNotExist as ex:
+            return HttpResponseBadRequest('Could not find a project with that UUID')
+
+        if analysis_project.error:
+            analysis_project.error = False
+            analysis_project.completed = False
+            analysis_project.started = False
+            analysis_project.message = ''
+            analysis_project.status ='' 
+            analysis_project.save()
+            return JsonResponse({'message': 'Analysis project was reset.'})
+        else:
+            return JsonResponse({'message': 'Analysis project did not have an error.  Did NOT reset.'})
+
+
+class AnalysisKillView(View):
+    '''
+    This is used when an admin wishes to kill a project that is currently running.
+    '''
+    def post(self, request, *args, **kwargs):
+
+        if not request.user.is_staff:
+            return HttpResponseForbidden()
+        try:
+            payload = request.POST
+            analysis_uuid = payload['cnap_uuid']
+            analysis_project = AnalysisProject.objects.get(analysis_uuid = analysis_uuid)
+        except analysis.models.AnalysisProject.DoesNotExist as ex:
+            return HttpResponseBadRequest('Could not find a project with that UUID')
+
+        # now have a project, but to kill the job, we need a SubmittedJob
+        try:
+            sj = SubmittedJob.objects.get(project=analysis_project)
+            cromwell_id = sj.job_id
+
+            # send Cromwell a message to abort the job:
+            # read config to get the names/locations/parameters for job submission
+            config_path = os.path.join(THIS_DIR, 'wdl_job_config.cfg')
+            config_dict = utils.load_config(config_path)
+
+            # pull together the components of the POST request to the Cromwell server
+            abort_endpoint_str = config_dict['abort_endpoint']
+            abort_url_template = Template(settings.CROMWELL_SERVER_URL + abort_endpoint_str)
+            abort_url = abort_url_template.render({'job_id': cromwell_id})
+            r = requests.post(abort_url)
+            if r.status_code != 200:
+                return HttpResponseBadRequest('Did not return a proper response code from Cromwell.  Reason was: %s' % r.text)
+            else:
+                # reset the project attributes
+                analysis_project.error = False
+                analysis_project.completed = False
+                analysis_project.started = False
+                analysis_project.message = ''
+                analysis_project.status ='' 
+                analysis_project.save()
+
+                # finally, delete the submitted job
+                sj.delete()
+
+                return JsonResponse({'message': 'Job has been aborted.'})
+
+        except analysis.models.SubmittedJob.DoesNotExist:
+            return HttpResponseBadRequest('Could not find a running job for project %s' % analysis_project.analysis_uuid)
