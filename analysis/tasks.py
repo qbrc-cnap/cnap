@@ -30,7 +30,7 @@ from analysis.models import Workflow, \
     CompletedJob, \
     JobClientError, \
     ProjectConstraint
-from base.models import Resource, Issue
+from base.models import Resource, Issue, CurrentZone
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 ZIPNAME = 'depenencies.zip'
@@ -347,7 +347,13 @@ def execute_wdl(analysis_project, staging_dir, run_precheck=False):
 
     # load the options file so we can fill-in the zones:
     options_json = {}
-    options_json['default_runtime_attributes'] = {'zones':settings.CONFIG_PARAMS['google_zone']}
+    try:
+        current_zone = CurrentZone.objects.all()[0]
+    except IndexError:
+        message = 'A current zone has not set.  Please check that a single zone has been selected in the database'
+        handle_exception(None, message=message)
+
+    options_json['default_runtime_attributes'] = {'zones': current_zone.zone.zone}
     options_json_str = json.dumps(options_json)
     options_io = io.BytesIO(options_json_str.encode('utf-8'))
 
@@ -628,6 +634,7 @@ def handle_success(job):
         cj = CompletedJob(project=project, 
             job_id = job.job_id, 
             job_status=job.job_status, 
+            success = True,
             job_staging_dir=job.job_staging_dir)
         cj.save()
         job.delete()
@@ -642,6 +649,7 @@ def handle_failure(job):
     cj = CompletedJob(project=project, 
         job_id = job.job_id, 
         job_status=job.job_status, 
+        success = False,
         job_staging_dir=job.job_staging_dir)
     cj.save()
     job.delete()
@@ -814,12 +822,7 @@ def handle_precheck_success(job):
     project = job.project
     staging_dir = job.job_staging_dir
 
-    # create a CompletedJob and remove the old job object
-    cj = CompletedJob(project=job.project, 
-        job_id = job.job_id, 
-        job_status=job.job_status, 
-        job_staging_dir=job.job_staging_dir)
-    cj.save()
+    # Remove the old job object
     job.delete()
 
     # execute the main wdl file:

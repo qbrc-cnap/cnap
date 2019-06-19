@@ -26,7 +26,7 @@
                 color: rgb(240,240,240);
             }
 
-            #add-workflow-message {
+            .status-message {
                  width:600px;
                 margin-top:15px;
                 display:none;
@@ -109,7 +109,7 @@
                                     <tbody>
                                     {% for p in current_projects %}
                                     <tr>
-                                    <td>{{p.workflow_name}} ({{p.version}})</td>
+                                    <td>{{p.workflow_name}} (v{{p.version}})</td>
                                     <td>{{p.cnap_uuid}}</td>
                                     <td>
                                        {% if p.cromwell_uuid %}
@@ -165,16 +165,24 @@
                                     <th>Cromwell ID</th>
                                     <th>Client</th>
                                     <th>Date</th>
+                                    <th>Success</th>
                                     </tr>
                                 </thead>
                                     <tbody>
                                     {% for p in completed_jobs %}
                                     <tr>
-                                    <td>{{p.workflow_name}} ({{p.version}})</td>
+                                    <td>{{p.workflow_name}} (v{{p.version}})</td>
                                     <td>{{p.cnap_uuid}}</td>
                                     <td>{{p.cromwell_uuid}}</td>
                                     <td>{{p.client}}</td>
                                     <td>{{p.date}}</td>
+                                    <td>
+                                       {% if p.success %}
+                                        <i class="far fa-check-circle"></i>
+                                       {% else %}
+                                        <i class="fas fa-exclamation-triangle"></i>
+                                       {% endif %}
+                                    </td>
                                     </tr>
                                     {% endfor %}
                                 </tbody>
@@ -189,7 +197,7 @@
                                 <input id="clone-url-input" type="text" name="clone_url" placeholder="Enter git repository URL for cloning..."/>
                             </div>
                             <button id="add-workflow-btn" class="btn btn-primary">Add workflow</button>
-                            <div id="add-workflow-message" class="alert alert-success"></div>
+                            <div id="add-workflow-message" class="alert alert-success status-message"></div>
                         </div>
                         <div id="create-project" class="content-tab">
                             <h2>Create a new project</h2>
@@ -197,12 +205,17 @@
 
                         <div id="change-region" class="content-tab">
                             <h2>Change region</h2>
-                            <p>Current region: {{current_region}}</p>
+                            <p>Current region: <span id="current-region">{{current_region}}</span></p>
                             <div class="form-group">
                                 <label for="region-input">Enter new region</label>
-                                <input id="region-input" class="form-control" type="text">
+                                <select id="region-input" class="form-control">
+                                    {% for z in available_zones %}
+                                    <option>{{z}}</option>
+                                    {% endfor %}
+                                </select>
                             </div>
-                            <button class="btn btn-primary">Change region</button>
+                            <button id="change-region-btn" class="btn btn-primary">Change region</button>
+                            <div id="change-region-message" class="alert alert-success status-message"></div>
                         </div>
                     </div> 
                 </div>
@@ -285,7 +298,26 @@
                     });
 
                 });
+
+                $("#change-region-btn").click(function(e){
+                    var region = $("#region-input").val();
+                    console.log("region: " + region);
+                    var csrfToken = getCookie('csrftoken');
+                    $.ajax({
+                        url:"{{change_region_url}}",
+                        method:"POST",
+                        data: {"region": region},
+                        headers:{"X-CSRFToken": csrfToken},
+                        success:function(response){
+                            var markup = response['message'];
+                            $("#change-region-message").empty().append(markup).show();
+                            $("#current-region").empty().append(region);
+                        },
+                        error:function(){
+                            alert("Could not change the region.");
+                        }
+                    });                    
+                });
             </script> 
     </body>
 </html>
-

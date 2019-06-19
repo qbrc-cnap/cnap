@@ -249,6 +249,9 @@ class CompletedJob(models.Model):
     # This is an absolute path
     job_staging_dir = models.CharField(max_length=255, blank=False)
 
+    # did the job succeed?
+    success = models.BooleanField(default=False)
+
     timestamp = models.DateTimeField(blank=False, null=False, auto_now_add=True)
 
     def __str__(self):

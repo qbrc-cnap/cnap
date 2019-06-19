@@ -3,7 +3,7 @@ from django.http import HttpResponseForbidden, JsonResponse
 from django.urls import reverse
 from django.conf import settings
 
-from base.models import Issue
+from base.models import Issue, AvailableZones, CurrentZone
 from analysis.models import AnalysisProject, Warning, PendingWorkflow, CompletedJob, SubmittedJob
 
 from .dashboard_utils import clone_repository
@@ -54,17 +54,25 @@ def dashboard_index(request):
             job_obj.cnap_uuid = str(project.analysis_uuid)
             job_obj.cromwell_uuid = str(j.job_id)
             job_obj.client = project.owner.email
+            job_obj.success = j.success
             datestamp = j.timestamp
             job_obj.date = datestamp
             completed_jobs_list.append(job_obj)
 
+        # related to changing the current region/zone:
+        current_zone = CurrentZone.objects.all()[0]
+        available_zones = [x.zone for x in AvailableZones.objects.all()]
+        
+
         context = {}
         context['current_projects'] = analysis_project_list
         context['completed_jobs'] = completed_jobs_list
-        context['current_region'] = settings.CONFIG_PARAMS['google_zone']
+        context['current_region'] = current_zone
+        context['available_zones'] = available_zones
         context['new_workflow_url'] = reverse('dashboard-add-workflow')
         context['reset_project_url'] = reverse('analysis-project-reset')
         context['kill_project_url'] = reverse('analysis-project-kill')
+        context['change_region_url'] = reverse('region-change')
         return render(request, 'dashboard/dashboard.html', context)
     else:
         return HttpResponseForbidden()
@@ -93,3 +101,27 @@ def add_new_workflow(request):
         context = {'message': message}
         #return render(request, 'dashboard/add_new_workflow.html', context)
         return JsonResponse(context)
+
+def change_region(request):
+    user = request.user
+    if not user.is_staff:
+        return HttpResponseForbidden()
+
+    if request.method == 'POST':
+        payload = request.POST
+        new_region = payload['region']
+        print(new_region)
+
+        try:
+            a = AvailableZones.objects.get(zone=new_region)
+        except base.models.AvailableZones.DoesNotExist:
+            return HttpResponseBadRequest()
+
+        # delete any existing 'current' zones.  Should only be one
+        [x.delete() for x in CurrentZone.objects.all()]
+
+        # set the chosen zone as the current zone.
+        c = CurrentZone.objects.create(zone=a)
+        c.save()
+
+        return JsonResponse({'message': 'Region has been successfully changed.'})

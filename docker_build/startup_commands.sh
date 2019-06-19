@@ -44,6 +44,9 @@ printf "Setup the database"
 python3 manage.py makemigrations
 python3 manage.py migrate
 
+# populate the zones into the db:
+python3 helpers/populate_zones.py
+
 # add some content for non-trivial views (using the test account)
 python3 helpers/populate_and_prep_db.py
 

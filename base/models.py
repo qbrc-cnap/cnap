@@ -101,3 +101,30 @@ class Issue(models.Model):
     '''
     message = models.TextField(max_length=5000)
     time = models.DateTimeField(auto_now=True)
+
+
+class AvailableZones(models.Model):
+    '''
+    This class is used to hold the information about the available operation zones for the cloud
+    provider.  It is essentially a lookup table of what is available.  
+    '''
+
+    # the cloud provider.  Must match the provider that is selected during setup (e.g. google, aws)
+    cloud_environment = models.CharField(max_length=20)
+
+    # the name of the zone.  Must exactly match (including case) those used in the cloud environment.  e.g. "us-east1-b"
+    zone = models.CharField(max_length=20, unique=True)
+
+    def __str__(self):
+        return '%s' % self.zone
+
+class CurrentZone(models.Model):
+    '''
+    This tracks the current zone by providing a foreign key to the table of available zones
+    '''
+
+    # the actual zone.
+    zone = models.ForeignKey('AvailableZones', on_delete=models.CASCADE)
+
+    def __str__(self):
+        return '%s' % self.zone.zone
