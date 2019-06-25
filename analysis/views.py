@@ -48,7 +48,8 @@ from .serializers import WorkflowSerializer, \
 from .view_utils import query_workflow, \
     validate_workflow_dir, \
     fill_context, \
-    start_job_on_gcp
+    start_job_on_gcp, \
+    test_workflow
 from helpers.email_utils import send_email
 from helpers.utils import get_jinja_template
 
@@ -612,7 +613,7 @@ class AnalysisView(View):
                     'analysis_uuid': analysis_project.analysis_uuid
                 }
             )
-        else:
+        else: # if just "testing" the workflow (stopping short of actually executing WDL)
             context_dict['submit_url'] = reverse('workflow_version_view', 
                 kwargs={
                     'workflow_id': workflow_obj.workflow_id, 
@@ -636,29 +637,30 @@ class AnalysisView(View):
         except Exception as ex:
             return HttpResponseBadRequest('Some unexpected error has occurred.')
 
-
-        if analysis_project is None:
-            return JsonResponse({'message': 'No action taken since workflow was not assigned to a project.'})
-
-        if analysis_project.started:
+        if analysis_project and analysis_project.started:
             return HttpResponseBadRequest('Analysis was already started/run.')
 
-        if request.user != analysis_project.owner:
+        if analysis_project and (request.user != analysis_project.owner):
             return HttpResponseForbidden('You do not own this project, so you may not initiate an analysis')
 
         # parse the payload from the POST request and make a dictionary
         data = request.POST.get('data')
         j = json.loads(data)
-        j['analysis_uuid'] = analysis_project.analysis_uuid
-
         try:
-            analysis_project.started = True
-            analysis_project.status = 'Preparing workflow'
-            analysis_project.save()
-            start_job_on_gcp(request, j, workflow_obj)
-            return JsonResponse({'message': '''
-            Your analysis has been submitted.  You may return to this page to check on the status of the job.  
-            If it has been enabled, an email will be sent upon completion'''})
+            if analysis_project:
+                analysis_project.started = True
+                analysis_project.status = 'Preparing workflow'
+                analysis_project.save()
+                j['analysis_uuid'] = analysis_project.analysis_uuid
+                start_job_on_gcp(request, j, workflow_obj)
+                return JsonResponse({'message': '''
+                    Your analysis has been submitted.  You may return to this page to check on the status of the job.  
+                    If it has been enabled, an email will be sent upon completion'''})
+            else:
+                j['analysis_uuid'] = None
+                wdl_input_dict = test_workflow(request, j, workflow_obj)
+                return JsonResponse({'message': json.dumps(wdl_input_dict)})
+
         except Exception as ex:
             message = 'There was a problem instantiating an analysis.  Project was %s.\n' % str(analysis_project.analysis_uuid)
             message += 'Payload sent to backend was: %s' % json.dumps(j)

@@ -36,6 +36,7 @@ THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 ZIPNAME = 'depenencies.zip'
 WDL_INPUTS = 'inputs.json'
 WORKFLOW_LOCATION = 'location'
+WORKFLOW_PK = 'workflow_primary_key'
 USER_PK = 'user_pk'
 VERSIONING_FILE = 'workflow_version.txt'
 
@@ -129,7 +130,7 @@ def fill_wdl_input(data):
             if target[settings.NAME] in data:
                 unmapped_data = data[target[settings.NAME]]
 
-                # unmapped_data could effectively be anything.  Its format
+                # The data referenced by data[target[settings.NAME]] could effectively be anything.  Its format
                 # is dictated by some javascript code.  For example, a file chooser
                 # could send data to the backend in a variety of formats, and that format
                 # is determined solely by the author of the workflow.  We need to have custom
@@ -146,7 +147,7 @@ def fill_wdl_input(data):
                     module_name = module_location + '.' + module_name
                     mod = import_module(module_name)
                     print('Imported module %s' % module_name)
-                    map_dict = mod.map_inputs(user, unmapped_data, target[settings.TARGET_IDS])
+                    map_dict = mod.map_inputs(user, data, target[settings.NAME], target[settings.TARGET_IDS]
                     print('Result of input mapping: %s' % map_dict)
                     for key, val in map_dict.items():
                         if key in wdl_input_dict:
@@ -244,9 +245,9 @@ def prep_workflow(data):
         )
 
     else:
+        workflow_obj = Workflow.objects.get(pk=data[WORKFLOW_PK])
         staging_dir = os.path.join(settings.JOB_STAGING_DIR, 
-            'test', 
-            'test_workflow_name', 
+            'test_' % workflow_obj.workflow_name, 
             date_str
         )
         analysis_project = MockAnalysisProject()
@@ -324,6 +325,7 @@ def prep_workflow(data):
         print('View final staging dir at %s' % staging_dir)
         print('Would post the following:\n')
         print('Data: %s\n' % data)
+        return wdl_input_dict
 
 
 def execute_wdl(analysis_project, staging_dir, run_precheck=False):

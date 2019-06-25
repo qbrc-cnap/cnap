@@ -240,8 +240,8 @@ class TestWorkflowIngestion(TestCase):
     ):
         '''
         The input mapping python code requires a function named
-        `map_inputs` with 3 args:
-        request.user, unmapped_data, target[TARGET_IDS]
+        `map_inputs` with 4 args:
+        request.user, ALL unmapped_data, the 'reference' of the data from the input element, target[TARGET_IDS]
 
         Raise an exception if the method has the wrong signature.
         We obviously cannot do type checking, but at least we can 
