@@ -205,9 +205,7 @@ def test_workflow(request, data, workflow_obj):
     `data` is a dictionary of the payload POST'd from the frontend
     '''
     data = prep_frontend_data_for_job(request, data, workflow_obj)
-    print('data prior to apply: %s' % data)
-    wdl_input_dict = analysis_tasks.prep_workflow.apply(args=(data,))
-    print(wdl_input_dict)
+    wdl_input_dict = analysis_tasks.prep_workflow(data)
     return wdl_input_dict
 
 

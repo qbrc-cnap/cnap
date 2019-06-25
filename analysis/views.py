@@ -659,7 +659,7 @@ class AnalysisView(View):
             else:
                 j['analysis_uuid'] = None
                 wdl_input_dict = test_workflow(request, j, workflow_obj)
-                return JsonResponse({'message': json.dumps(wdl_input_dict)})
+                return JsonResponse({'message': json.dumps(wdl_input_dict, indent=4), 'test': True})
 
         except Exception as ex:
             message = 'There was a problem instantiating an analysis.  Project was %s.\n' % str(analysis_project.analysis_uuid)

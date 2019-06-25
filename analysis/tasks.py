@@ -147,7 +147,7 @@ def fill_wdl_input(data):
                     module_name = module_location + '.' + module_name
                     mod = import_module(module_name)
                     print('Imported module %s' % module_name)
-                    map_dict = mod.map_inputs(user, data, target[settings.NAME], target[settings.TARGET_IDS]
+                    map_dict = mod.map_inputs(user, data, target[settings.NAME], target[settings.TARGET_IDS])
                     print('Result of input mapping: %s' % map_dict)
                     for key, val in map_dict.items():
                         if key in wdl_input_dict:
@@ -247,7 +247,7 @@ def prep_workflow(data):
     else:
         workflow_obj = Workflow.objects.get(pk=data[WORKFLOW_PK])
         staging_dir = os.path.join(settings.JOB_STAGING_DIR, 
-            'test_' % workflow_obj.workflow_name, 
+            'test_%s' % workflow_obj.workflow_name, 
             date_str
         )
         analysis_project = MockAnalysisProject()
@@ -285,30 +285,31 @@ def prep_workflow(data):
         json.dump(wdl_input_dict, fout)
     
     # check that any applied constraints are not violated:
-    print('check constraints')
-    constraints_satisfied, problem, constraint_violation_messages = check_constraints(analysis_project, data[WORKFLOW_LOCATION], wdl_input_path)
-    print('done checking constraints')
-    if problem:
-        print('Was problem with constraints!')
-        analysis_project.status = '''
-            An unexpected error occurred on job submission.  An administrator has been automatically notified of this error.
-            Thank you for your patience.
-            '''
-        analysis_project.error = True
-        analysis_project.save()
-        return
-    elif not constraints_satisfied:
-        print('constraints violated')
-        analysis_project.status = 'The constraints imposed on this project were violated.'
-        analysis_project.error = True
-        analysis_project.completed = False
-        analysis_project.success = False
-        analysis_project.save()
+    if data['analysis_uuid']:
+        print('check constraints')
+        constraints_satisfied, problem, constraint_violation_messages = check_constraints(analysis_project, data[WORKFLOW_LOCATION], wdl_input_path)
+        print('done checking constraints')
+        if problem:
+            print('Was problem with constraints!')
+            analysis_project.status = '''
+                An unexpected error occurred on job submission.  An administrator has been automatically notified of this error.
+                Thank you for your patience.
+                '''
+            analysis_project.error = True
+            analysis_project.save()
+            return
+        elif not constraints_satisfied:
+            print('constraints violated')
+            analysis_project.status = 'The constraints imposed on this project were violated.'
+            analysis_project.error = True
+            analysis_project.completed = False
+            analysis_project.success = False
+            analysis_project.save()
 
-        for m in constraint_violation_messages:
-            jc = JobClientError(project=analysis_project, error_text=m)
-            jc.save()
-        return
+            for m in constraint_violation_messages:
+                jc = JobClientError(project=analysis_project, error_text=m)
+                jc.save()
+            return
 
     # Go start the workflow:
     if data['analysis_uuid']:
