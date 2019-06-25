@@ -606,7 +606,7 @@ def copy_pipeline_components(job):
     environment = settings.CONFIG_PARAMS['cloud_environment']
     storage_client = storage.Client()
 
-    for p in additional_files
+    for p in additional_files:
         stat_info = os.stat(p)
         size_in_bytes = stat_info.st_size
 
