@@ -37,6 +37,7 @@ ZIPNAME = 'depenencies.zip'
 WDL_INPUTS = 'inputs.json'
 WORKFLOW_LOCATION = 'location'
 USER_PK = 'user_pk'
+VERSIONING_FILE = 'workflow_version.txt'
 
 MAX_COPY_ATTEMPTS = 5
 SLEEP_PERIOD = 60 # in seconds.  how long to sleep between copy attempts.
@@ -575,6 +576,73 @@ def register_outputs(job):
         message += str(ex)
         raise JobOutputsException(message)
 
+
+def copy_pipeline_components(job):
+    '''
+    This copies the inputs.json to the output directory.  Together with the WDL files, that can be used
+    to recreate everything  
+
+    Also creates a file that indicates the repository and commit ID for the workflow version
+    '''
+    additional_files = []
+
+    # where the submitted files were placed:
+    staging_dir = job.job_staging_dir
+    wdl_input_path = os.path.join(staging_dir, WDL_INPUTS)
+    additional_files.append(wdl_input_path)
+
+    # write the git versioning file to that staging dir:
+    version_file = os.path.join(staging_dir, VERSIONING_FILE)
+    git_url = job.project.workflow.git_url
+    git_commit = job.project.workflow.git_commit_hash
+    d = {
+        'git_repository': git_url,
+        'git_commit': git_commit
+    }
+    with open(version_file, 'w') as fout:
+        fout.write(json.dumps(d))
+    additional_files.append(version_file)
+
+    environment = settings.CONFIG_PARAMS['cloud_environment']
+    storage_client = storage.Client()
+
+    for p in additional_files
+        stat_info = os.stat(p)
+        size_in_bytes = stat_info.st_size
+
+        destination_bucket = settings.CONFIG_PARAMS['storage_bucket_prefix']
+        object_name = os.path.join( str(job.project.owner.user_uuid), \
+            str(job.project.analysis_uuid), \
+            job.job_id, \
+            os.path.basename(p)
+        )
+
+        # perform the upload to the bucket:
+        bucket_name = destination_bucket[len(settings.CONFIG_PARAMS['google_storage_gs_prefix']):]
+        bucket = storage_client.get_bucket(bucket_name)
+        blob = bucket.blob(object_name)
+        blob.upload_from_filename(p)
+
+        # add the Resource to the database:
+        full_destination_with_prefix = '%s/%s' % ( 
+            destination_bucket, \
+            object_name \
+        )
+        r = Resource(
+            source = environment,
+            path = full_destination_with_prefix,
+            name = os.path.basename(p),
+            owner = job.project.owner,
+            size = size_in_bytes
+        )
+        r.save()
+
+        # add a ProjectResource to the database, so we can tie the Resource created above with the analysis project:
+        apr = AnalysisProjectResource(analysis_project=job.project, resource=r)
+        apr.save()
+
+
+
 def handle_success(job):
     '''
     This is executed when a WDL job has completed and Cromwell has indicated success
@@ -587,6 +655,8 @@ def handle_success(job):
         # between AnalysisProject and a complete job, that's enough to track history
     
         register_outputs(job)
+
+        copy_pipeline_components(job)
 
         # update the AnalysisProject instance to reflect the success:
         project = job.project
