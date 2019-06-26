@@ -1,6 +1,6 @@
 #CNAP Guide: Creating and adding new WDL-based workflows
 
-The CNAP is designed to ingest WDL-based workflows and run on the Cromwell execution engine.  This guide assists in the creation and ingestion of workflows, including the specification of the custom UI elements that accompany each workflow.
+The CNAP is designed to ingest WDL-based workflows which run on the Cromwell execution engine.  This guide assists in the creation and ingestion of workflows, including the specification of the custom UI elements that accompany each workflow.  For a simple, but complete implementation (a "Hello World!" please see the guide for that).  This guide provides more detail and explanations.
 
 In this document there are three primary "roles" described-- the CNAP admin, the developer, and the client.  We attempt to reference to these roles in a consistent manner below.  
 - The **admin** has superuser privileges, including logging into the application server, running the application Docker container, etc.  They can essentially do anything.
@@ -27,6 +27,7 @@ Throughout this document, we assume familiarity with WDL-based workflows, git, a
 
 [Viewing the final GUI](#final-view)
 
+[Applying constraints to workflows](#constraints)
 
 <a id="quickstart"></a>
 ## Quickstart
@@ -36,16 +37,16 @@ The following quickstart will serve as a high-level overview for integrating new
 
 The steps below assume you have admin level access, as you need to be able to connect to CNAP pages that are accessible only by admins.  It also assumes you have a functional WDL-based workflow (WDL file(s) and JSON inputs) that is able to run an analysis independent of CNAP.  The Docker image(s) in which your analyses run need to be pushed to Dockerhub.  
 
-1. Create any [necessary "companion" files](#required-files) for your WDL.  This includes, at minimum, the `gui.json` file which defines the user interface.
+1. Create any [necessary "companion" files](#required-files) for your WDL.  This is in addition to the WDL, WDL-input, and includes, at minimum, the `gui.json` file which defines the user interface.
 1. Create a git repository and push the WDL and associated files to a public-accessible git host (e.g. github.com)
 1. Ensure that the Docker images responsible for executing the WDL tasks are pushed and available to be pulled from Dockerhub
-1. Navigate to `https://<DOMAIN>/dashboard/add-new-workflow`
+1. Navigate to `https://<DOMAIN>/dashboard/` and choose the link for creation of a new workflow.
 1. Copy/paste the repository URL (e.g. https://github.com/qbrc-cnap/paired-read-gatk-haplotypecaller-and-vep.git) into the text box and click the button.
 
 
 If everything is OK with your setup, the workflow should be integrated and you are able to create new analysis projects based off the WDL.  For addressing potential errors, see [debugging](#errors).
  
-
+For a basic, but concrete implementation of a workflow, please see the ["hello, world!" CNAP workflow](cnap_hello_world.md)
 
 <a id="before-starting"></a>
 #### Before starting-- about your WDL-based workflow
@@ -69,7 +70,7 @@ Given the working WDL file(s), we impose a couple of additional "requirements" w
 <a id="create-new-workflows"></a>
 ## Ingesting a new workflow
 
-As briefly mentioned above, new workflows are ingested by navigating to `https://<YOUR DOMAIN>/dashboard/add-new-workflow` and providing a link to a github repository.  This workflow ingestion mechanism ensures that workflows are properly source-controlled and thus reproducible.  
+As briefly mentioned above, new workflows are ingested by navigating to `https://<YOUR DOMAIN>/dashboard/` and providing a link to a github repository.  This workflow ingestion mechanism ensures that workflows are properly source-controlled and thus reproducible.  
 
 Prior to attempting ingestion, it is important that you do your best to have a stable WDL and that the additional required files are as close to "bug-free" as possible.
 
@@ -78,8 +79,9 @@ Prior to attempting ingestion, it is important that you do your best to have a s
 At minimum, your repository needs three files with the following names:
 
 - `main.wdl`: Your "main" WDL file.  This is the typical "entry" WDL file.  Must contain a `workflow` directive, and ideally contains a `meta` section as [described above](#meta).  Additional WDL-format files can be included, but there must be a `main.wdl`.
-- `inputs.template.json`: The "inputs" JSON file for the workflow.  Optional inputs should be removed and placed in an optional file called `input_defaults.json`.  See [here](#inputs) for more details
+- `inputs.template.json`: The "inputs" JSON file for the workflow.  Optional inputs should be removed.  See [here](#inputs) for more details
 - `gui.json`: A JSON-format file which dictates how to construct the HTML GUI.  [See below](#specify-gui).
+- `docker/Dockerfile`: a Dockerfile, contained in a folder named `docker`.  Additional files that are packaged into the Docker container should also go into that `docker` directory, although CNAP ignores them.  This is a convention to assure that all workflow-related files are contained in a single repository.
 
 **Docker considerations:**
 We require that each task contains a `runtime` stanza that specifies the Docker image to use when executing that task, such as
@@ -94,21 +96,23 @@ task X {
     }
 }
 ```
-The Docker images must be pushed to Dockerhub and be "public".  During the ingestion process, CNAP queries Dockerhub to ensure that the specified Docker images exist in their repository.  Failure to find an appropriate image will cause the ingestion process to fail. 
+When operating in cloud environments, the Cromwell engine also requires this `docker` key, but we further require that the Docker image is tagged (`v0.1` here) to avoid ambiguity with the default `latest` tag.  The Docker images must be pushed to Dockerhub and be "public".  During the ingestion process, CNAP queries Dockerhub to ensure that the specified Docker images exist in their repository.  Failure to find an appropriate image will cause the ingestion process to fail. 
 
 **The inputs JSON file**
 <a id="inputs"></a>
-As part of most WDL-based workflows, there will be an "inputs" JSON file, which defines the various arguments to the WDL process.  Ultimately, CNAP will inject values for the input variables into a "templated" version of this inputs JSON file.  We require that it be named `inputs.template.json`. 
+As part of most WDL-based workflows, there will be an "inputs" JSON file, which defines the various arguments to the WDL process.  Ultimately, CNAP will inject values for the input variables into a "templated" version of this inputs JSON file.  We require that it be named `inputs.template.json`.  The easiest way to create an inputs JSON file is to run Broad's WOMTool JAR:
 
-Depending on the WDL, certain inputs may effectively be optional, such as those set to a specific value (e.g. `String foo="bar"`).  When Broad's WOMTool processes a WDL that includes optional arguments, it will specifically mark those inputs as optional.  *Those should be removed from your `inputs.template.json` prior to ingestion.*
+```
+java -jar /path/to/womtool.jar inputs main.wdl
+```
 
-There are other situations where a developer might include inputs to the WDL that *can* change, but *should not* be arbitrarily customized, at least not without specialized knowledge.  An example might be setting a k-mer length (an integer) for an alignment algorithm.  When the WDL is constructed, the developer might desire to keep the k-mer length as a configurable parameter.  For a WDL that is executed by a team with appropriate bioinformatics experience, this might be a common situation.  However, when this WDL is integrated with the CNAP, it might be desired to fix that parameter to a "safe" default, appropriate for a first-pass analysis.  
+Depending on the WDL, certain inputs may effectively be optional, such as those set to a specific value (e.g. `Int kmer_length=22`).  When WOMTool processes a WDL that includes optional arguments, it will specifically mark those inputs as optional.  **Those should be removed from your `inputs.template.json` prior to ingestion.**
 
-Variables that are "fixed" can either be hardcoded into the WDL, or can be placed into a file named `input_defaults.json`, which captures WDL inputs that are not fully configurable, but are also not completely fixed.
+The optional inputs cover situations where a developer might include inputs to the WDL that *can* change, but *should not* be arbitrarily customized, at least not without specialized knowledge.  An example might be setting a k-mer length (an integer) for an alignment algorithm.  When the WDL is constructed, the developer might desire to keep the k-mer length as a configurable parameter.  For a WDL that is executed by a team with appropriate bioinformatics experience, this might be a common situation.  However, when this WDL is integrated with the CNAP, it might be desired to fix that parameter to a "safe" default, appropriate for a first-pass analysis.  
 
 
 **Additional files:**
-In addition to the three required files, there may be *other* files included in the repository.  This can include additional WDL-format files for supporting cases where one might save WDL tasks in separate files, or cases where workflows execute sub-workflows (in the WDL/Cromwell nomenclature).  Other WDL-format files are identified by the `.wdl` suffix/file extension, so *only* files ending with that prefix will be used.  
+In addition to the three required files, there may be *other* files included in the repository.  This can include additional WDL-format files for supporting cases where one might save WDL tasks in separate files, or cases where workflows execute sub-workflows (in the WDL/Cromwell nomenclature).  WDL-format files are identified by the `.wdl` suffix/file extension, so *only* files ending with that prefix will be used.  
 
 There is no restriction on other types of files that may also be present in the repository.  In fact, there are often python scripts which support operations related to parsing inputs defined in the `gui.json` file.  We show concrete examples of this below.
 
@@ -116,19 +120,19 @@ Note that the `gui.json` file can be created by either the developer *or* the ad
 
 
 **Multiple workflow versions**
-CNAP is able to manage multiple versions of the same workflow, as specifications evolve.  Multiple workflows with the same name (as determined by the `workflow` directive in your `main.wdl`) will be "versioned" so that there are no conflicts and older workflows may be recalled/re-run for reproducible analyses.  *Note that by default, newly ingested workflows are **not** live-- they must be activated by logging into the admin console and editing the database to set the workflow to the `active=True` status*.  Additionally, one can edit the database to set a particular version of a workflow as the default.  Thus, requests to run a workflow that do not require a specific version will use the version marked as "default". 
+CNAP is able to manage multiple versions of the same workflow, as specifications evolve.  Multiple workflows with the same name (as determined by the `workflow` directive in your `main.wdl`) will be "versioned" so that there are no conflicts and older workflows may be recalled/re-run for reproducible analyses.
 
 <a id="debug-workflow"></a>
 **Debugging ingestion problems**
 After clicking on the button to add the new workflow, the CNAP backend will attempt to process your request and create a new workflow.  This happens asynchronously, so other processes may slightly delay the ingestion process; typically the process completes within a few seconds.  If all is successful, the workflow will be added to the database.
 
-In the eventual case where something has gone wrong, CNAP will attempt to print a helpful error message to the database.  The url `https://<YOUR DOMAIN>/admin/analysis/pendingworkflow/` will display a table of your "pending" workflows and, in the case of errors, will typically have a large text string which might be helpful for debugging purposes.  Most often that string will be a Python stacktrace, so some familiarity with reading Python error traces is helpful.  If it is still not clear what went wrong, the next place to check would be the Celery log file at `/var/log/cnap/celery_worker.log`.  Examining the log file requires you to log into the Docker container serving CNAP, however.  If you are unable to understand the error or are unable to resolve it, please reach out to the CNAP team!
+In the situation where something has gone wrong due to a bug, CNAP will attempt to print a helpful error message to the database.  The url `https://<YOUR DOMAIN>/admin/analysis/pendingworkflow/` will display a table of your "pending" workflows and, in the case of errors, will typically have a large text string which might be helpful for debugging purposes.  Most often that string will be a Python stacktrace, so some familiarity with reading Python error traces is helpful.  If it is still not clear what went wrong, the next place to check would be the Celery log file at `/var/log/cnap/celery_worker.log`.  Examining the log file requires you to log into the Docker container serving CNAP, however.  If you are unable to understand the error or are unable to resolve it, please reach out to the CNAP team!
 
 
 <a id="specify-gui"></a>
 ## Specifying the user interface (GUI)
 
-A WDL workflow often has a number of inputs, such as files, strings, numbers, etc. which are typically specified with a JSON-format file.  When using WDL+Cromwell directly, a user would have to write this input file and submit it to the Cromwell server along with the WDL file(s) defining the analysis.  
+A WDL workflow often has multiple inputs, such as files, strings, numbers, etc. which are specified with a JSON-format file.  When using WDL+Cromwell directly, a user would have to write this input file and submit it to the Cromwell server along with the WDL file(s) defining the analysis.  
 
 With CNAP, developers create JSON-format files that construct basic user-interfaces which allow application users (clients) to easily specify those inputs through familiar web interfaces.  In this way, CNAP is able to distribute potentially complex and data-intensive analysis pipelines to non-technical users.
 
@@ -139,7 +143,7 @@ For example, a CNAP user might want to analyze raw fastq-format files to perform
 
 Given the proposed GUI design above, the developer would construct the `gui.json` file to include these input elements, optionally specifying custom behavior as needed.  
 
-Below, we show a basic `gui.json` which demonstrates the core set of GUI elements, and will cover the majority of use-cases.  We then discuss the GUI creation in more generality, including descriptions on how to write python-based scripts which customize data tranformations behind-the-scenes.  We aim to provide concrete examples which cover a broad range of applications.
+Below, we show a basic `gui.json` which demonstrates the core set of GUI elements, and will cover the majority of use-cases.  We then discuss the GUI creation in more generality, including descriptions on how to write Python-based scripts which perform data tranformations behind-the-scenes.  We aim to provide concrete examples which cover a broad range of applications.
 
 **Example walkthrough**
 
@@ -169,7 +173,7 @@ The inputs JSON file would look like (as created by Broad's WOMTool):
   "ExomeWorkflow.tumorSamples": "Array[File]"
 }
 ```
-Thus, we have four inputs: two arrays of files (tumor and normal fastq files), a string giving the name of an output file, and a string giving the choice of genome (via dropdown element).  This is NOT an actual workflow, so the inputs here are purely for illustration.
+Thus, we have four inputs: two arrays of files (tumor and normal FASTQ files), a string giving the name of an output file, and a string giving the choice of genome (via dropdown element).  This is NOT an actual workflow, so the inputs here are purely for illustration.
 
 The following `gui.json` was used to create the GUI above. Below, we discuss each element, its attributes, and other important points.  
 ```
@@ -214,7 +218,7 @@ The following `gui.json` was used to create the GUI above. Below, we discuss eac
 
 ```
 
-At the root of this JSON object, note that we only require a single key `"input_elements"` which points at a list of objects (here, 3 objects for the three input elements).  Each item in the list dictates an input element in the GUI (a file-chooser, a text box, and a dropdown, in order).
+At the root of this JSON object, note that we only require a single key `"input_elements"` which points at a list of objects (here, 3 objects corresponding to the three input elements).  Each item in the list dictates an input element in the GUI (a file-chooser, a text box, and a dropdown, in that order).
 
 Each input element object has two required keys: `"target"` and `"display_element"`.  The `"target"` key can point at either a string (see items 2 and 3) or a JSON object (see item 1), while the `"display_element"` always points at a JSON object.
 
@@ -229,11 +233,11 @@ Since it is the simplest element, we first examine the second element of the `in
     }	
 }
 ```
-In this input element, the `"target"` attribute points at a string, which indicates there is a 1:1 mapping between the input GUI element and the input that will be submitted when we run the workflow.  As such, the variable name `ExomeWorkflow.outputFilename` is exactly the same as that included in the inputs JSON file.
+In this input element, the `"target"` attribute points at a string, which indicates there is a 1:1 mapping between the input GUI element and the input that will be submitted when we run the workflow.  As such, the value input to this text box will be directly "injected" into the `ExomeWorkflow.outputFilename` variable in the inputs JSON file.
 
-The behavior/appearance of the actual GUI element is controlled by the object addressed by the `"display_element"` key.  Here we see that we would like a `"text"` input, which corresponds to a basic HTML text field input.  The `"label"` will clearly label the text box, and the `"placeholder"` attribute fills in the help text.  
+The behavior/appearance of the actual GUI element is controlled by the object addressed by the `"display_element"` key.  Here we see that we would like a `"text"` input, which corresponds to a basic HTML text field input.  The `"label"` will label the text box, and the `"placeholder"` attribute fills in the help text.  
 
-Note that our choice of `"type": "text"` was not arbitrary-- the value `"text"` corresponds to one of the pre-defined UI elements that are available in the GUI schema we discuss later.  Furthermore, the selection of keys inside this display element object (e.g. "label", "placeholder") is determined by the input element type; each type of input element (text box, dropdown, etc.) has a set of available keys.  Some keys are required, while others provide default values.
+Note that our choice of `"type": "text"` was not arbitrary-- the value `"text"` corresponds to one of the pre-defined UI elements that are available in the [GUI schema](#gui-schema) we discuss later.  Furthermore, the selection of keys inside this display element object (e.g. "label", "placeholder") is determined by the input element type; each type of input element (text box, dropdown, etc.) has a set of available keys.  Some keys are required, while others provide default values.
 
 Increasing in complexity, the next input element is the dropdown for selecting the reference genome, which we copy here:
 ```
@@ -249,9 +253,9 @@ Increasing in complexity, the next input element is the dropdown for selecting t
     }	
 }
 ```
-Once again, the `"target"` key points at a string (indicating 1:1 mapping), and we see that this corresponds to the `ExomeWorkflow.genomeChoice` input to the WDL workflow.  
+Once again, the `"target"` key points at a string (indicating 1:1 mapping), and we see that this corresponds to the `ExomeWorkflow.genomeChoice` input to the WDL workflow.  When a client selects "Human HG38" in the GUI, the CNAP backend will use inject "hg38" into the inputs.json file that is submitted to Cromwell.  
 
-Note that the actual "data type" of `genomeChoice` in the WDL file is a "String" (similarly `ExomeWorkflow.genomeChoice` is specified to be a string in the inputs.json file).  However, we clearly want to allow only a small set of pre-defined choices and a dropbox is the most sensible input element.  Thus, in the `display_element` object we ask for a dropdown (`"type": "select"`), label it, and specify the choices available in this dropdown.
+Note that the actual "data type" of `genomeChoice` in the WDL file is a "String" (similarly `ExomeWorkflow.genomeChoice` is specified to be a string in the inputs.json file).  However, we clearly want to allow only a small set of pre-defined choices, as we are choosing a genome, and a dropbox is the most sensible input element.  Therefore, in the `display_element` object we ask for a dropdown (`"type": "select"`), label it, and specify the choices available in this dropdown.
 
 When we specify the options, we use the simple list of JSON objects as shown.  The use of "value" and "display" in those objects is not arbitrary, but is linked to the HTML template code that defines the dropdown.  If you are creating simple dropdowns in this same manner, then it is enough to just copy this and edit to your liking.  However, this dropdown example also provides a good example of how one might choose to define their own custom GUI elements, which we discuss in a later section.
 
@@ -276,7 +280,7 @@ The final element is the file chooser, which is itself a complete example of how
 
 First, we note that the `target` key does not point at a string like with the other two elements, but instead points at an object.  For the text and dropdown discussed prior, `target` pointed at a string and there was an obvious 1:1 mapping of the GUI input element and the WDL input.  The backend is able to directly associate the data captured in the UI element and the data that needs to be supplied to the WDL workflow.  
 
-By having `target` point at an object, we allow for input elements to map to potentially >=1 WDL inputs.  Our dummy WDL accepts *separate* arrays for the tumor and normal sequence files.  However, the developer may only want to display a single file-chooser, and let the backend apply logic to determine which are the tumor and normal samples (perhaps by inferring based on the file name).   This object-based `target` allows for exactly this type of flexibility.
+By having `target` point at an object, we allow for input elements to map to potentially >=1 WDL inputs and perform data transformations in the process.  Recall that our WDL accepts *separate* arrays for the tumor and normal sequence files.  However, the developer may only want to display a single file-chooser, and let the backend apply logic to determine which are the tumor and normal samples (perhaps by inferring based on the file name).   This object-based `target` allows for exactly this type of flexibility.
 
 In addition to mapping a single GUI element to potentially multiple WDL inputs, the object-based `target` specification allows the developer to apply arbitrary transformations to GUI elements that *do* happen to map 1:1 to the WDL inputs.  For the moment, it's enough to be aware of this functionality.
 
@@ -641,15 +645,19 @@ Of course you will want to view the output produced by the the `gui.json` you wr
 
 If you need to make changes, head to the folder where the final workflow was saved (this is also available from the Workflow database table) and edit the `template.final.html` page to your liking.  Ideally changes you make there should be ultimately saved to the github repository where the workflow originated from. 
 
+Note that if you need to make edits to elements that are "static" (e.g. javascript, CSS files which are available from URLs like `https://<your domain>/static/...`) then you need to edit the file that is served by the nginx server on the host.  When workflows are ingested, those static files are copied (not linked!) to the host folder underneath `/host_mount`, which is where the Docker container and the host machine "share" files.  Thus the static files available in the workflow folder in the Docker container are *not* the ones served by nginx.
+
+In general, not many changes need to be made to the static files, and we encourage developers to avoid editing the files in the container, opting instead to make the changes in the repository and ingest the edited workflow again.  Editing workflows in the Docker container can put the "published" workflow out of step with the repository, so it is not a best-practice.  
 
 
 ---
-
+<a id="constraints"></a>
 **Constraints**
 
-Without constraints, any workflow may be executed on a dataset of "unlimited" size.  For example, in a RNA-seq analysis, this can be parallelized to an arbitrary number of worker machines.  If you wish to limit this (for cost and or operational reasons), then you may specify "constraints" on workflows as they are ingested by the CNAP platform.  Note that this only creates database entries for *potential* constraints.  In practice, the constraints are applied to specific instances of `AnalysisProject` objects upon their creation.  By default, constraints are not applied to a project, so they need to be specifically applied.  
+Without constraints, any workflow may be executed on a dataset of "unlimited" size.  For example, a RNA-seq analysis can be parallelized to an arbitrary number of worker machines.  If you wish to limit this (for cost and or operational reasons), then you may specify "constraints" on workflows prior to ingestion by the CNAP platform.  Note that this only creates database entries for *potential* constraints.  By default, constraints are *not* applied to a project, so they need to be specifically applied when an analysis project is created.  The project creation administration interface provides a user-interface for adding constraints. 
 
-The file specifying the constraints on a particular workflow are given in JSON format and have the following schema:
+
+To "register" potential constraints with a workflow, your CNAP workflow must contain a file named `constraints.json`, which is given in JSON format with the following schema:
 
 
 ```
@@ -668,11 +676,63 @@ Thus, the JSON file has a number of keys, which are simple/brief names to identi
 Each "name" key points at an object which has three required keys: `type`, `handler`, and `description`.  The `type` key is a string that gives the class name of the concrete implementation for the constraint.  This should be a subclass of `analysis.models.WorkflowConstraint`, such as `NumericConstraint` or `AnalysisUnitConstraint`.  The `description` field is used for a more verbose description of the constraint, how it is applied, etc.  This is the text shown when the available constraint options are displayed during project creation.  Finally, the `handler` key is the name of a python file which contains a function of the appropriate signature:
 
 ```
-def check_constraints(project_pk, inputs_json_path):
+def check_constraints(implemented_constraint, inputs_json_path):
     pass
 ```
 
-The input arguments are the primary key of the project and the path to a file of the final, WDL-ready inputs JSON file that will be submitted to the Cromwell server.  If the constraints are violated, then this function should return `False`.  If the inputs are OK, then return `True`. 
+The input arguments are an instance of a `ImplementedConstraint` object and the path to a file of the final, WDL-ready inputs JSON file that will be submitted to the Cromwell server.  The function should return a tuple, where the first item is a bool indicating whether the constraints are satisfied, and the second item is a string.  Thus, if a constraint is violated (e.g. a client tries to analyze too many samples) then this function should return `(False, "You are trying to analyze too many samples")`, or some other informative message in the second slot.  If the inputs are OK, then return `(True, "")` would suffice.  
+
+As an example, we may wish to limit the number of samples processed during a RNA-Seq analysis.  In that case, our `constraints.json` would look like:
+
+```
+{
+    "sample_limit":{
+        "type": "AnalysisUnitConstraint",
+        "handler": "constraints.py",
+        "description": "For limiting the maximum number of samples/fastq that will be processed"
+    }
+}
+```
+and the file responsible for verifying the constraints is `constraints.py`:
+```
+import json
+import analysis.models
+from analysis.models import AnalysisProject, ProjectConstraint
+
+def check_constraints(implemented_constraint, inputs_json_path):
+    '''
+    For this workflow, we can impose a constraint on the number of samples we will
+    allow for processing.
+
+    The length of the PairedRnaSeqAndDgeWorkflow.r1_files key will be used as the
+    determinant of that number
+    '''
+
+    # load the inputs json:
+    j = json.load(open(inputs_json_path))
+    try:
+        fastq_list = j['PairedRnaSeqAndDgeWorkflow.r1_files']
+    except KeyError:
+        # The chances of reaching this are very unlikely, but we are being extra careful here
+        return (False, "There is a bug")
+
+    # implemented_constraint is of type ImplementedConstraint and represents the base
+    # class for the actual constraint types which hold the *value* of the constraint.  
+    # Since we know we are applying an AnalysisUnitConstraint, we can access it with the lower-case name as below.
+    constraint_value = implemented_constraint.analysisunitconstraint.value
+
+    # finally we can check if the constraints are satisfied:
+    constraint_satisfied = len(fastq_list) <= constraint_value
+
+    message = ''
+    if not constraint_satisfied:
+        message = '%d paired fastq files were submitted for analysis, but only a maximum of %d are permitted.' % (len(
+fastq_list), constraint_value)
+
+    return (constraint_satisfied, message)
+
+```
+Here, we see that we simply check the length of the `r1_files` list that is part of the WDL inputs (`inputs.json`).  If there are more R1 FASTQ files than allowed, we return False and let the client know why their submission was rejected.  The message (second item in the returned tuple) ultimately is shown to the client, so it should be relatively informative so they can correct their mistake, e.g. by choosing fewer FASTQ files for a second attempt.
 
 <a id="submit-handlers"></a>
 ### Submit handlers
@@ -746,6 +806,77 @@ payload = {
 }
 ```
 Then, in the backend, our `gui.json` knows that the submitted data will arrive referenced by that `input_files` key.  Any backend handler scripts will extract that list of primary keys and perform the necessary manipulations to get the final input json in the correct format for WDL (in our case, checking the validity of those primary-keys and translating them to filepaths in the cloud-based storage system).
+
+#### Pre-analysis error-checking
+
+To prevent runtime errors due to malformed inputs, CNAP includes a generic mechanism for performing "pre-flight checks" on submitted analysis projects, if they exist and are enabled during project creation.  For instance, a RNA-seq differential gene expression analysis might require users to submit a special formatted table of clinical attributes; the pre-check would verify that this file is correctly formatted prior to performing any alignments, etc.  This prevents complex, multi-step pipelines from running through several time/cost-consuming steps only to fail due to formatting of user input.  
+
+To include pre-checks on your analysis, the developer simply needs to create a file named `pre_check.wdl` and include it in the repository.  If this file is present, CNAP will first run `pre_check.wdl` when a client submits an analysis.  If that WDL completes successfully, then it will subsequently submit the `main.wdl` to the Cromwell server.  If there is a problem encountered, then CNAP will *not* proceed to the main run, and will instead inform the client of their error.  If the admin has selected the option to allow users to restart following bad inputs, then clients can reset the project themselves and try again.
+
+The `pre_check.wdl` must have the same workflow name and accept the same inputs as the `main.wdl`.  Therefore, the `inputs.json` submitted to both WDL files is the same.  Any problems you detect should issue non-zero exit codes so that Cromwell is aware that an error has occurred.  
+ 
+One of the benefits of the pre-check is that it allows clients to fix problems themselves without involving a CNAP admin.  To take full advantage of this, the various tasks performed as part of the `pre_check.wdl` should write any errors to STDERR.  By default, Cromwell will "find" those strings sent to STDERR and write them to log files.  Upon completion of the pre-check (assuming a pre-check failure) CNAP will automatically read those log files and show any error messages to the client.  
+
+As a small example, consider the following `pre_check.wdl`, which could be part of some RNA-seq process which only takes single-end FASTQ files:
+```
+workflow RnaSeqWorkflow {
+    
+    Array[File] r1_files
+
+    scatter(fastq in r1_files){
+
+        call assert_valid_fastq {
+            input:
+                r1_file = fastq        }
+    }
+}
+
+task assert_valid_fastq {
+
+    File r1_file
+    Int disk_size = 50
+
+    command <<<
+        python3 /opt/software/precheck/check_fastq.py ${r1_file}
+    >>>
+
+    runtime {
+        docker: "docker.io/blawney/my_image:v1"
+        cpu: 2
+        memory: "6 G"
+        disks: "local-disk " + disk_size + " HDD"
+        preemptible: 0
+    }
+}
+```
+
+Inside the hypothetical `docker.io/blawney/my)image:v1` Docker image, there is a Python script at `/opt/software/precheck/check_fastq.py` which might look like:
+```
+import sys
+
+def check_fastq(filepath):
+    ... <Your logic goes here>...
+    ... If there is an error, raise an Exception...
+
+if __name__ == '__main__':
+    r1_filepath = sys.argv[1]
+    try:
+        check_fastq(r1_filepath)
+    except Exception:
+        sys.stderr.write('Your fastq file named (%s) was invalid.  Please correct this and try again.' % r1_filepath)
+        sys.exit(1)
+```
+Of course, your pre-check does not need to be a Python script-- it can be any process you can call from the WDL.  As mentioned above, we issue a non-zero exit code (e.g. `sys.exit(1)` for Python) so that Cromwell recognizes this as a failure.  The write operation to STDERR will allow Cromwell to get the human-readable error explanation.
+
+If there are multiple errors, you can delimit them with a special character string, so that those multiple error messages are clearly displayed to the client as distinct errors.  The delimiter is given in the CNAP `settings.py` file under the `settings.CROMWELL_STDERR_DELIM` variable.  For example, if `settings.CROMWELL_STDERR_DELIM = "#####"` and you collect your error strings in a list (`error_list`), then your Python script above might write to the logs like:
+
+```
+...
+sys.stderr.write('#####'.join(error_list))
+...
+```
+
+As a general comment, the level of error-checking performed in a `pre_check.wdl` is up to the developer, but is typically used to check the validity of FASTQ files, the formatting of annotation files, and similarly common problems. 
 
 #### Additional notes
 

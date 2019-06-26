@@ -1,19 +1,29 @@
-### This document describes setting up the CNAP
+## CNAP Setup
 
 ---
+###Contents
+[Getting started with GCP](#gcp)
+[Configuring the main host](#main-host)
+[Starting CNAP](#starting-app)
+[Cromwell server setup](#cromwell-setup)
+[Appendix A- Registering with storage providers](#appendixA)
+[Appendix B- Gmail integration](#email)
+[Appendix C- Additional notes and remarks](#additional-notes)
+
 
 ### Getting the VMs started
 
+<a id="gcp"></a>
 **Google Cloud Platform**
 Starting from a new Google Cloud Platform account, create a billing account and a new project to use for the CNAP and associated resources.  Creation of a separate project allows all costs to be isolated from other cloud resources you may use.
 
-For the standard setup, you will need to create two instances.  One is the server that will run the main application and the other will host the Cromwell server.
+For the standard setup, you will need to create two instances.  One is the server that will run the main application and the other will host the Cromwell server.  It is also possible to both servers from the same host, but we will not cover that here.
 
 For the application server, only a modest machine is needed.  On GCP, we chose a `n1-standard-1` instance running Debian (stretch), with 100GB persistent disk. We allow full access to all cloud APIs, and enable http/https traffic.
 
 Once the machine is running, navigate to VPC Network -> external IP addresses.  There you will see the ephemeral external IP that was assigned to the main host machine.  In the dropdown, you can change that to "static", at which point it will ask you to name that static IP.  Pick something memorable so you can easily tell this as the IP which points at your "main" application.  
 
-Similarly, we start a VM that will host the Cromwell server, although we did not reserve a static IP for this instance.  You may of course reserve a static IP, but the ephemeral IP will not change unless the machine is restarted.  We still allow full access to all cloud APIs but we do *NOT* enable http/https traffic (it is enabled by default).  The size of the persistent disk was chosen to be smaller here (30Gb).  Note that the Cromwell development team recommends a modest amount of RAM (e.g. > 6Gb), so choose the machine specification accordingly.  
+Similarly, we start a VM that will host the Cromwell server, although we did not reserve a static IP for this instance.  You may of course reserve a static IP, but the ephemeral IP will not change unless the machine is restarted.  We still allow full access to all cloud APIs but we do *NOT* enable http/https traffic (which is enabled by default).  The size of the persistent disk was chosen to be smaller here (30Gb), although Cromwell creates significantly large logs by default.  Note that the Cromwell development team recommends a modest amount of RAM (e.g. > 6Gb), so choose the machine specification accordingly.  
 
 **Securing Cromwell**
 For security reasons, we chose to prevent public access to the Cromwell server; above, we deselected the options for allowing inbound http/https traffic.  To allow the main application to submit jobs to our Cromwell server, we must allow communication between the two VMs.  There are multiple ways to accomplish this, but we chose to create a specific firewall rule.
@@ -44,7 +54,7 @@ Not implemented at this time.
 The storage providers (Dropbox, Google Drive), require domain names to perform authentication, and will generally not work with raw IP addresses.  Thus, acquire a domain and map it to the main application server at the static IP from earlier.  Testing has not been performed using localhost, although some providers will indeed allow that. 
 
 ---
-
+<a id="main-host"></a>
 #### Setting up the main server
 
 The application runs inside a Docker container, so minimal configuration is needed for the application server itself.  In short, we need a public-facing webserver (nginx here) and the ability to run Docker containers.  
@@ -164,10 +174,11 @@ If you encounter any errors about "Address already in use", run `netstat -tulpn`
 If you now visit the site in your browser, you should get a 502 bad gateway error, which is expected since the application server is not yet active.  Everything is setup on the host, but the application container is not yet running.
 
 ---
+<a id="starting-app"></a>
 #### Starting the application
 
 There are two ways to acquire the application:
-- Pull a docker image from Dockerhub 
+- Pull a CNAP Docker image from Dockerhub 
 - Clone the repository and build your own image locally
 
 
@@ -207,7 +218,7 @@ Enter your root password and then execute the following SQL statements:
 > grant all privileges on <DB_NAME>.* to <DB_USER>@localhost;
 > flush privileges;
 ```
-Now that the database is ready (but without any table schema), we have to provide those database details to Django.  Open the Django settings template file (`cnap/settings.template.py`) and edit the `DATABASES` variable:
+Now that the database is ready (but without any table schema), we have to provide those database details to Django.  This way, when the startup script runs, Django is able to connect to the database and create the schema and tables  Open the Django settings template file (`cnap/settings.template.py`) and edit the `DATABASES` variable:
 ```
 DATABASES = {
     'default': {
@@ -221,7 +232,7 @@ DATABASES = {
 }
 ```
 
-Now that Django is able to communicate with a database, we are technically able to start the server.  However, we first require various identifiers and keys to be entered in the appropriate places.  Since CNAP requires a number of external providers which require application keys/secrets, we include the startup script (`/opt/startup/startup_commands.sh`) to guide users in filling out configuration parameters.  Of course the parameters can be edited after the fact.
+Now that Django is able to communicate with a database, we are technically able to start the server.  However, we first require various identifiers and keys to be entered in the appropriate places.  Since CNAP requires a number of external providers which require application keys/secrets, we include the startup script (`/opt/startup/startup_commands.sh`) to guide users in filling out configuration parameters.  Of course the parameters can be edited after the fact, if desired.
 
 Note that prior to launching the startup script, you should decide which client storage providers (e.g. Dropbox, Google Drive) you will be using.  You must choose *at least* one.  Instructions for obtaining the necessary credentials are included in Appendix A.
 
@@ -240,11 +251,11 @@ As part of this process, you will be asked to create a superuser, which has full
 
 If all goes well, you should be able to navigate to your domain and view the application.
 
-As you might have noticed during the script, there was a prompt for optional Gmail integration.  To prevent abuse, Google Cloud blocks traffic on standard mail ports, so we use Gmail to send notification emails to CNAP users.  If you selected "yes" to the prompt, then you need to create a proper credentials file to authenticate with the Gmail API.  See the section below which covers this in detail.
+As you might have noticed during the script, there was a prompt for optional Gmail integration.  To prevent abuse, Google Cloud blocks traffic on standard mail ports, so we use Gmail to send notification emails to CNAP users.  If you selected "yes" to the prompt, then you need to create a proper credentials file to authenticate with the Gmail API.  See the [section below](#email) which covers this in detail.
 
 
 ---
-
+<a id="cromwell-setup"></a>
 ### Cromwell host machine setup
 
 This section covers the setup of a second machine which will act as the Cromwell server.  This server is responsible for handling job submissions from CNAP and performing all the orchestration of cloud-based resources (e.g. starting VMs, pulling data from storage buckets).
@@ -368,6 +379,7 @@ When running on GCP, Cromwell uses the Google Genomics API, which must be enable
 
 ### Appendix A:
 
+<a id="appendixA"></a>
 #### Register with storage providers
 
 
@@ -433,7 +445,7 @@ At the time of writing, application is placed in default "development" status.  
 ![alt text](api_keys.png)
 
 ---
-
+<a id="email"></a>
 ### Appendix B: Email functionality and Gmail integration
 
 As part of the prompts during container startup, we ask if you would like to enable email notifications.  This allows users to reset their own passwords if they forget, and also informs them of CNAP activity like completed analyses or file transfers.  Enabling email is **not** necessary, but would preclude such features.
@@ -474,8 +486,8 @@ EMAIL_CREDENTIALS_FILE = '/www/credentials/final_gmail_creds.json'
 ```
 Provided that `EMAIL_ENABLED=True`, Gmail integration is complete.
 
-#### Additional notes and remarks:
-
+<a id="additional-notes"></a>
+### Appendix C: Additional notes and remarks:
 **Storage hierarchy**
 
 All user files are held under the "root" bucket which was input as part of the setup prompts.  In that section, we indicated that the bucket should ideally be created *prior* to the application starts, so that one can ensure the bucket is not claimed by someone else in the interim (bucket names must be globally unique).
