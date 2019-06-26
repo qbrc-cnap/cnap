@@ -25,12 +25,18 @@ def take_inputs():
     if cloud_environment == 'google':
         google_project = input('Enter the Google project ID (NOT the numerical ID): ')
         google_project_number = input('Enter the Google project number: ')
-        google_zone = input('Enter the desired zone (e.g. "us-east1-b"): ')
+        google_zones_csv = input('Enter the desired zones, separated by commas, e.g. "us-east1-b,us-east1-c,us-central1-a".  '
+            'These will be the potential zones you may operate within.  The FIRST entry will be the default: ')
+
+        google_zones = [x.strip() for x in google_zones_csv.split(',')]
+        default_zone = google_zones[0]
+        
 
         params['cloud_environment'] = cloud_environment
         params['google_project_id'] = google_project 
         params['google_project_number'] = google_project_number 
-        params['google_zone'] = google_zone
+        params['available_google_zones'] = ','.join(google_zones)
+        params['default_google_zone'] = default_zone
 
     elif cloud_environment == 'aws':
         print('Have not implemented AWS config')

@@ -25,6 +25,7 @@ def kickoff_ingestion(pending_workflow_pk):
     except Exception as ex:
         pending_workflow.error = True
         reason = ''.join(traceback.format_exception(etype=type(ex), value=ex, tb=ex.__traceback__))
+        print(reason)
         pending_workflow.status = reason[:1000] if len(reason)>1000 else reason
     
     pending_workflow.complete = True

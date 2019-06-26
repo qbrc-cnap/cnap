@@ -16,6 +16,8 @@ RUN apt-get update \
     nano \
     git \
     curl \
+    mysql-server \
+    default-libmysqlclient-dev \
     pkg-config
 
 # Get gcloud manually, since we use gcloud beta commands:

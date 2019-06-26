@@ -31,7 +31,7 @@ from helpers.email_utils import notify_admins
 from transfer_app.base import GoogleBase, AWSBase
 from transfer_app import tasks as transfer_tasks
 import base.exceptions as exceptions
-from base.models import Resource, Issue
+from base.models import Resource, Issue, CurrentZone
 from transfer_app.models import Transfer, TransferCoordinator
 
 
@@ -564,9 +564,14 @@ class GoogleEnvironmentDownloader(EnvironmentSpecificDownloader, GoogleBase):
             target_disk_size = min_disk_size
 
         # fill out the template command:
+        current_zone = CurrentZone.objects.all()[0].zone
+        if current_zone.cloud_environment != settings.GOOGLE:
+            raise Exception('Incorrect configuration-- the current zone does not correspond to your cloud provider')
+        zone_str = current_zone.zone
+
         cmd = self.gcloud_cmd_template.format(gcloud=os.environ['GCLOUD'],
             google_project_id = settings.CONFIG_PARAMS['google_project_id'],
-            google_zone = settings.CONFIG_PARAMS['google_zone'],
+            google_zone = zone_str,
             instance_name = instance_name,
             scopes = custom_config['scopes'],
             machine_type = custom_config['machine_type'],
@@ -583,7 +588,7 @@ class GoogleEnvironmentDownloader(EnvironmentSpecificDownloader, GoogleBase):
         cmd += ' --container-arg="-url" --container-arg="%s"' % full_callback_url
         cmd += ' --container-arg="-path" --container-arg="%s"' % item['path']
         cmd += ' --container-arg="-proj" --container-arg="%s"' % settings.CONFIG_PARAMS['google_project_id']
-        cmd += ' --container-arg="-zone" --container-arg="%s"' % settings.CONFIG_PARAMS['google_zone']
+        cmd += ' --container-arg="-zone" --container-arg="%s"' % zone_str
         return cmd
 
 class AWSEnvironmentDownloader(EnvironmentSpecificDownloader, AWSBase):
@@ -609,7 +614,14 @@ class GoogleDropboxDownloader(GoogleEnvironmentDownloader):
             if cmd is not None:
                 cmd += ' --container-arg="-dropbox" --container-arg="%s"' % item['access_token']
                 cmd += ' --container-arg="-d" --container-arg="%s"' % custom_config['dropbox_destination_folderpath']
+                transfer_utils.check_for_transfer_availability(custom_config)
                 self.launcher.go(cmd)
+
+                # mark the Transfer as started
+                transfer_obj = Transfer.objects.get(pk = item['transfer_pk'])
+                transfer_obj.started=True
+                transfer_obj.save()
+
                 launch_count += 1
             else:
                 failed_pks.append(item['transfer_pk'])
@@ -633,7 +645,14 @@ class GoogleDriveDownloader(GoogleEnvironmentDownloader):
             cmd = self._prep_single_download(custom_config, i, item)
             if cmd is not None:
                 cmd += ' --container-arg="-access_token" --container-arg="%s"' % item['access_token'] # the oauth2 access token
+                transfer_utils.check_for_transfer_availability(custom_config)
                 self.launcher.go(cmd)
+                                
+                # mark the Transfer as started
+                transfer_obj = Transfer.objects.get(pk = item['transfer_pk'])
+                transfer_obj.started=True
+                transfer_obj.save()
+                
                 launch_count += 1
             else:
                 failed_pks.append(item['transfer_pk'])

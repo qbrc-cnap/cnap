@@ -14,6 +14,12 @@ urlpatterns = [
     # a view where users can restart an AnalysisProject if they input bad data
     path('projects/<uuid:analysis_uuid>/restart/', views.AnalysisRestartView.as_view(), name='analysis-project-restart'),
 
+    # a view where admins can reset a failed run
+    path('projects/reset/', views.AnalysisResetView.as_view(), name='analysis-project-reset'),
+
+    # a view where admins can kill a job that is currently running
+    path('projects/kill/', views.AnalysisKillView.as_view(), name='analysis-project-kill'),
+
     # a view where users can actually execute an AnalysisProject, which is different than 
     # the API view given above
     path('projects/<uuid:analysis_uuid>/', views.AnalysisView.as_view(), name='analysis-project-execute'),

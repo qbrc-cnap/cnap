@@ -91,8 +91,12 @@ WSGI_APPLICATION = 'cnap_v2.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': '',
+        'USER': '',
+        'PASSWORD': '',
+        'HOST': 'localhost',
+        'PORT': '3306',
     }
 }
 
@@ -137,7 +141,7 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
 # the location (relative to the host directory that is mounted in the container) where
 # static files are served from.
-STATIC_LOC = {{static_host_dir}}
+STATIC_LOC = '{{static_host_dir}}'
 
 
 # Settings specific to REST framework:

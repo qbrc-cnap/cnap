@@ -49,8 +49,17 @@ function create_post(payload){
             success: function(response){
                 console.log('Success!');
 
-                // reload the page, which will show the job status
-                window.location.href = window.location.href;
+                // if this was a test-case, simply clear the contents 
+                // of the UI, and show the inputs.json result
+                if (response.hasOwnProperty("test")){
+                    var json = response["message"];
+                    var markup = `<p>The final inputs.json file would be: </p><pre>${json}</pre>`
+                    $("#main-container").empty().append(markup);
+                } else {
+                    // reload the page, which will show the job status
+                    window.location.href = window.location.href;
+                }
+
             },
             error: function(xhr, status, err){
                 console.log('Error!');

@@ -169,15 +169,43 @@ def validate_workflow_dir(workflow_obj):
     else:
         return False
 
+
+def prep_frontend_data_for_job(request, data, workflow_obj):
+
+    workflow_dir = workflow_obj.workflow_location
+    location = os.path.join(settings.BASE_DIR, workflow_dir)
+    data[analysis_tasks.WORKFLOW_LOCATION] = location
+
+    # for cases where we are simply testing, we do not have an analysis_uuid which we can use to determine the project
+    # and the workflow.  In the situation where we DO have a project, we just never use this:
+    data[analysis_tasks.WORKFLOW_PK] = workflow_obj.pk
+
+    data[analysis_tasks.USER_PK] = request.user.pk
+
+    return data
+
+
 def start_job_on_gcp(request, data, workflow_obj):
     '''
     Starts the process of instantiating the workflow  
 
     `data` is a dictionary of the payload POST'd from the frontend
     '''
-    workflow_dir = workflow_obj.workflow_location
-    location = os.path.join(settings.BASE_DIR, workflow_dir)
-    data[analysis_tasks.WORKFLOW_LOCATION] = location
-    data[analysis_tasks.USER_PK] = request.user.pk
+    data = prep_frontend_data_for_job(request, data, workflow_obj)
     analysis_tasks.prep_workflow.delay(data)
+
+
+def test_workflow(request, data, workflow_obj):
+    '''
+    Runs through the same process as the actual workflow execution, 
+    except that it does not end up submitting the job to Cromwell.
+    Rather, it returns the inputs.json so an admin can review that
+    all the elements of the workflow were properly executed.  
+
+    `data` is a dictionary of the payload POST'd from the frontend
+    '''
+    data = prep_frontend_data_for_job(request, data, workflow_obj)
+    wdl_input_dict = analysis_tasks.prep_workflow(data)
+    return wdl_input_dict
+
 

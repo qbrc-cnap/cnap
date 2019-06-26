@@ -22,14 +22,14 @@ class Resource(models.Model):
     source = models.CharField(max_length=100, null=False)
 
     # if the file was uploaded from Dropbox, Drive, etc. what was the "source" used to locate it?
-    source_path = models.CharField(max_length=1000, null=True, blank=True, default='')
+    source_path = models.CharField(max_length=200, null=True, blank=True, default='')
 
     # the location (e.g. URL) where the Resource lives, relative to source
     # e.g. gs://bucket/dir/object.txt for google buckets
-    path = models.CharField(max_length=1000, null=False, unique=True)
+    path = models.CharField(max_length=200, null=False, unique=True)
     
     # a human-readable name for the UI
-    name = models.CharField(max_length=1000, null=False)
+    name = models.CharField(max_length=200, null=False)
 
     # the file size in bytes.  For display, this will be converted
     # to human-readable form  
@@ -99,5 +99,32 @@ class Issue(models.Model):
     This class is used when analyses have errors, etc.  Anytime an email is sent to an admin, a
     row will be added to log that entry.  This way, we can see all the errors in one place.
     '''
-    message = models.CharField(max_length=5000)
+    message = models.TextField(max_length=5000)
     time = models.DateTimeField(auto_now=True)
+
+
+class AvailableZones(models.Model):
+    '''
+    This class is used to hold the information about the available operation zones for the cloud
+    provider.  It is essentially a lookup table of what is available.  
+    '''
+
+    # the cloud provider.  Must match the provider that is selected during setup (e.g. google, aws)
+    cloud_environment = models.CharField(max_length=20)
+
+    # the name of the zone.  Must exactly match (including case) those used in the cloud environment.  e.g. "us-east1-b"
+    zone = models.CharField(max_length=20, unique=True)
+
+    def __str__(self):
+        return '%s' % self.zone
+
+class CurrentZone(models.Model):
+    '''
+    This tracks the current zone by providing a foreign key to the table of available zones
+    '''
+
+    # the actual zone.
+    zone = models.ForeignKey('AvailableZones', on_delete=models.CASCADE)
+
+    def __str__(self):
+        return '%s' % self.zone.zone

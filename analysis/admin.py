@@ -22,7 +22,7 @@ class WorkflowAdmin(admin.ModelAdmin):
 
 
 class AnalysisProjectAdmin(admin.ModelAdmin):
-    list_display = ('analysis_uuid', 'owner', 'started', 'completed')
+    list_display = ('analysis_uuid', 'workflow', 'owner', 'started', 'completed')
     list_editable = ()
     list_display_links = ('analysis_uuid',)
 

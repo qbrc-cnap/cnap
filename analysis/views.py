@@ -2,6 +2,8 @@ import os
 import json
 import random
 import string
+import requests
+from jinja2 import Template
 
 from django.conf import settings
 from django.shortcuts import render
@@ -22,10 +24,12 @@ from rest_framework import generics, permissions, status
 from rest_framework.views import APIView
 from django_filters.rest_framework import DjangoFilterBackend
 
+from helpers import utils
 from helpers.email_utils import notify_admins
 import analysis.models
 from analysis.models import Workflow, \
     AnalysisProject, \
+    SubmittedJob, \
     OrganizationWorkflow, \
     PendingWorkflow, \
     AnalysisProjectResource, \
@@ -44,9 +48,12 @@ from .serializers import WorkflowSerializer, \
 from .view_utils import query_workflow, \
     validate_workflow_dir, \
     fill_context, \
-    start_job_on_gcp
+    start_job_on_gcp, \
+    test_workflow
 from helpers.email_utils import send_email
 from helpers.utils import get_jinja_template
+
+THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 
 class AnalysisQueryException(Exception):
     pass
@@ -454,21 +461,17 @@ class AnalysisView(View):
         # if a specific analysis was requested
         if analysis_project:
             if analysis_project.started:
-                if not analysis_project.completed:
-                    # in progress, return status page
-                    context = {}
-                    context['job_status'] = analysis_project.status
-                    if analysis_project.start_time is not None:
-                        context['start_time'] = analysis_project.start_time
-                    else:
-                        context['start_time'] = '-'
-                    if analysis_project.error:
-                        context['error'] = True
-                    else:
-                        context['error'] = False
-                    return render(request, 'analysis/in_progress.html', context)
-                else: # started AND complete
-                    if not analysis_project.error:
+                if not analysis_project.error:
+                    if not analysis_project.completed:
+                        # in progress, return status page
+                        context = {}
+                        context['job_status'] = analysis_project.status
+                        if analysis_project.start_time is not None:
+                            context['start_time'] = analysis_project.start_time
+                        else:
+                            context['start_time'] = '-'
+                        return render(request, 'analysis/in_progress.html', context)
+                    else: # started, no error, completed
                         # return a success page
                         context = {}
                         if analysis_project.finish_time is not None:
@@ -476,17 +479,16 @@ class AnalysisView(View):
                         else:
                             context['finish_time'] = '-'
                         return render(request, 'analysis/complete_success.html', context)
-                    elif analysis_project.error:
-                        # return a page indicating error
-                        if analysis_project.restart_allowed:
-                            context = {}
-                            client_errors = JobClientError.objects.filter(project=analysis_project)
-                            context['status'] = analysis_project.status
-                            context['errors'] = client_errors
-                            context['restart_url'] = reverse('analysis-project-restart', args=[analysis_project.analysis_uuid,])
-                            return render(request, 'analysis/recoverable_error.html', context)
-                        else:
-                            return render(request, 'analysis/complete_error.html',{})
+                else: # analysis project had error
+                    if analysis_project.restart_allowed:
+                        context = {}
+                        client_errors = JobClientError.objects.filter(project=analysis_project)
+                        context['status'] = analysis_project.status
+                        context['errors'] = client_errors
+                        context['restart_url'] = reverse('analysis-project-restart', args=[analysis_project.analysis_uuid,])
+                        return render(request, 'analysis/recoverable_error.html', context)
+                    else:
+                        return render(request, 'analysis/complete_error.html',{})
 
         # if we are here, we have a workflow object from the database.
         # We can use that to find the appropriate workflow directory where
@@ -525,7 +527,7 @@ class AnalysisView(View):
                     'analysis_uuid': analysis_project.analysis_uuid
                 }
             )
-        else:
+        else: # if just "testing" the workflow (stopping short of actually executing WDL)
             context_dict['submit_url'] = reverse('workflow_version_view', 
                 kwargs={
                     'workflow_id': workflow_obj.workflow_id, 
@@ -549,29 +551,30 @@ class AnalysisView(View):
         except Exception as ex:
             return HttpResponseBadRequest('Some unexpected error has occurred.')
 
-
-        if analysis_project is None:
-            return JsonResponse({'message': 'No action taken since workflow was not assigned to a project.'})
-
-        if analysis_project.started:
+        if analysis_project and analysis_project.started:
             return HttpResponseBadRequest('Analysis was already started/run.')
 
-        if request.user != analysis_project.owner:
+        if analysis_project and (request.user != analysis_project.owner):
             return HttpResponseForbidden('You do not own this project, so you may not initiate an analysis')
 
         # parse the payload from the POST request and make a dictionary
         data = request.POST.get('data')
         j = json.loads(data)
-        j['analysis_uuid'] = analysis_project.analysis_uuid
-
         try:
-            analysis_project.started = True
-            analysis_project.status = 'Preparing workflow'
-            analysis_project.save()
-            start_job_on_gcp(request, j, workflow_obj)
-            return JsonResponse({'message': '''
-            Your analysis has been submitted.  You may return to this page to check on the status of the job.  
-            If it has been enabled, an email will be sent upon completion'''})
+            if analysis_project:
+                analysis_project.started = True
+                analysis_project.status = 'Preparing workflow'
+                analysis_project.save()
+                j['analysis_uuid'] = analysis_project.analysis_uuid
+                start_job_on_gcp(request, j, workflow_obj)
+                return JsonResponse({'message': '''
+                    Your analysis has been submitted.  You may return to this page to check on the status of the job.  
+                    If it has been enabled, an email will be sent upon completion'''})
+            else:
+                j['analysis_uuid'] = None
+                wdl_input_dict = test_workflow(request, j, workflow_obj)
+                return JsonResponse({'message': json.dumps(wdl_input_dict, indent=4), 'test': True})
+
         except Exception as ex:
             message = 'There was a problem instantiating an analysis.  Project was %s.\n' % str(analysis_project.analysis_uuid)
             message += 'Payload sent to backend was: %s' % json.dumps(j)
@@ -597,12 +600,11 @@ class AnalysisRestartView(View):
             message = str(ex)
             return HttpResponseBadRequest(message)
 
-        # check that it was completed and had an error:
+        # check that it had an error:
         error = analysis_project.error
-        completed = analysis_project.completed
         restart_allowed = analysis_project.restart_allowed
 
-        if error and completed and restart_allowed:
+        if error and restart_allowed:
             analysis_project.error = False
             analysis_project.completed = False
             analysis_project.started = False
@@ -617,4 +619,82 @@ class AnalysisRestartView(View):
             return redirect('analysis-project-execute', analysis_uuid=analysis_project.analysis_uuid)
         else:
             return HttpResponseBadRequest('Cannot perform this action.')
-            
+
+
+class AnalysisResetView(View):
+    '''
+    This is used when an admin wishes to reset a project that has a failed status.  
+    Allows users to submit their analysis again.  Most often used if the workflow encounters an error
+    that is outside of the client's control (aka a bug in the workflow).
+    '''
+    def post(self, request, *args, **kwargs):
+
+        if not request.user.is_staff:
+            return HttpResponseForbidden()
+        try:
+            payload = request.POST
+            analysis_uuid = payload['cnap_uuid']
+            analysis_project = AnalysisProject.objects.get(analysis_uuid = analysis_uuid)
+        except analysis.models.AnalysisProject.DoesNotExist as ex:
+            return HttpResponseBadRequest('Could not find a project with that UUID')
+
+        if analysis_project.error:
+            analysis_project.error = False
+            analysis_project.completed = False
+            analysis_project.started = False
+            analysis_project.message = ''
+            analysis_project.status ='' 
+            analysis_project.save()
+            return JsonResponse({'message': 'Analysis project was reset.'})
+        else:
+            return JsonResponse({'message': 'Analysis project did not have an error.  Did NOT reset.'})
+
+
+class AnalysisKillView(View):
+    '''
+    This is used when an admin wishes to kill a project that is currently running.
+    '''
+    def post(self, request, *args, **kwargs):
+
+        if not request.user.is_staff:
+            return HttpResponseForbidden()
+        try:
+            payload = request.POST
+            analysis_uuid = payload['cnap_uuid']
+            analysis_project = AnalysisProject.objects.get(analysis_uuid = analysis_uuid)
+        except analysis.models.AnalysisProject.DoesNotExist as ex:
+            return HttpResponseBadRequest('Could not find a project with that UUID')
+
+        # now have a project, but to kill the job, we need a SubmittedJob
+        try:
+            sj = SubmittedJob.objects.get(project=analysis_project)
+            cromwell_id = sj.job_id
+
+            # send Cromwell a message to abort the job:
+            # read config to get the names/locations/parameters for job submission
+            config_path = os.path.join(THIS_DIR, 'wdl_job_config.cfg')
+            config_dict = utils.load_config(config_path)
+
+            # pull together the components of the POST request to the Cromwell server
+            abort_endpoint_str = config_dict['abort_endpoint']
+            abort_url_template = Template(settings.CROMWELL_SERVER_URL + abort_endpoint_str)
+            abort_url = abort_url_template.render({'job_id': cromwell_id})
+            r = requests.post(abort_url)
+            if r.status_code != 200:
+                return HttpResponseBadRequest('Did not return a proper response code from Cromwell.  Reason was: %s' % r.text)
+            else:
+                # reset the project attributes
+                analysis_project.error = False
+                analysis_project.completed = False
+                analysis_project.started = False
+                analysis_project.message = ''
+                analysis_project.status ='' 
+                analysis_project.save()
+
+                # finally, delete the submitted job
+                sj.delete()
+
+                return JsonResponse({'message': 'Job has been aborted.'})
+
+        except analysis.models.SubmittedJob.DoesNotExist:
+            return HttpResponseBadRequest('Could not find a running job for project %s' % analysis_project.analysis_uuid)

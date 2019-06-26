@@ -12,7 +12,7 @@
                 var pattern1 = /\s+/g;
                 val = val.replace(pattern1, '_');
                 var pattern2 = /^[\-_a-zA-Z0-9]+$/;
-                if (!val.match(pattern2)){
+                if (!val.match(pattern2) && val.length > {{min_length}} ){
                     form_problems.push("The value of \""+ val  +"\" was unexpected.  Please enter a value with only letters, numbers, underscores (\"_\"), and dashes (\"-\")");
                     return;
                 }

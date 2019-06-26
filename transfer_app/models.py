@@ -69,6 +69,9 @@ class Transfer(models.Model):
     # stopped trying to transfer it
     completed = models.BooleanField(null=False, default=False)
 
+    # has the Transfer started?
+    started = models.BooleanField(null=False, default=False)
+
     # This marks whether the transfer was successful
     success = models.BooleanField(null=False, default=False)
 

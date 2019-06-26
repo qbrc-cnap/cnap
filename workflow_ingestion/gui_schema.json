@@ -67,7 +67,7 @@
                     "name": "min_length",
                     "type": "int",
                     "required": false,
-                    "default": 1
+                    "default": 0
                 },
                 {
                     "name": "normalize_input",
@@ -77,6 +77,31 @@
                 }
             ]
 
+        },
+        "numeric": {
+            "html_source": "html_elements/numeric_input.html",
+            "js_source": "js/numeric_input.js",
+            "submit_handler": "js/numeric_input_submit.js",
+            "parameters": [
+                {
+                    "name": "label",
+                    "type": "string",
+                    "required": false,
+                    "default": ""
+                },
+                {
+                    "name": "description",
+                    "type": "string",
+                    "required": false,
+                    "default": ""
+                },
+                {
+                    "name": "default_value",
+                    "type": "number",
+                    "required": false,
+                    "default": 0
+                }
+            ]
         },
         "select": {
             "html_source": "html_elements/select_input.html",

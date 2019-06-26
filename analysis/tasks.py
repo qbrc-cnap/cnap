@@ -30,13 +30,15 @@ from analysis.models import Workflow, \
     CompletedJob, \
     JobClientError, \
     ProjectConstraint
-from base.models import Resource, Issue
+from base.models import Resource, Issue, CurrentZone
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 ZIPNAME = 'depenencies.zip'
 WDL_INPUTS = 'inputs.json'
 WORKFLOW_LOCATION = 'location'
+WORKFLOW_PK = 'workflow_primary_key'
 USER_PK = 'user_pk'
+VERSIONING_FILE = 'workflow_version.%s.txt'
 
 MAX_COPY_ATTEMPTS = 5
 SLEEP_PERIOD = 60 # in seconds.  how long to sleep between copy attempts.
@@ -128,7 +130,7 @@ def fill_wdl_input(data):
             if target[settings.NAME] in data:
                 unmapped_data = data[target[settings.NAME]]
 
-                # unmapped_data could effectively be anything.  Its format
+                # The data referenced by data[target[settings.NAME]] could effectively be anything.  Its format
                 # is dictated by some javascript code.  For example, a file chooser
                 # could send data to the backend in a variety of formats, and that format
                 # is determined solely by the author of the workflow.  We need to have custom
@@ -139,11 +141,14 @@ def fill_wdl_input(data):
                 if os.path.isfile(handler_path):
                     # we have a proper file.  Call that to map our unmapped_data
                     # to the WDL inputs
+                    print('Using handler code in %s to map GUI inputs to WDL inputs' % handler_path)
                     module_name = target[settings.HANDLER][:-len(settings.PY_SUFFIX)]
                     module_location = create_module_dot_path(absolute_workflow_dir)
                     module_name = module_location + '.' + module_name
                     mod = import_module(module_name)
-                    map_dict = mod.map_inputs(user, unmapped_data, target[settings.TARGET_IDS])
+                    print('Imported module %s' % module_name)
+                    map_dict = mod.map_inputs(user, data, target[settings.NAME], target[settings.TARGET_IDS])
+                    print('Result of input mapping: %s' % map_dict)
                     for key, val in map_dict.items():
                         if key in wdl_input_dict:
                             wdl_input_dict[key] = val
@@ -240,9 +245,9 @@ def prep_workflow(data):
         )
 
     else:
+        workflow_obj = Workflow.objects.get(pk=data[WORKFLOW_PK])
         staging_dir = os.path.join(settings.JOB_STAGING_DIR, 
-            'test', 
-            'test_workflow_name', 
+            'test_%s' % workflow_obj.workflow_name, 
             date_str
         )
         analysis_project = MockAnalysisProject()
@@ -280,35 +285,40 @@ def prep_workflow(data):
         json.dump(wdl_input_dict, fout)
     
     # check that any applied constraints are not violated:
-    constraints_satisfied, problem, constraint_violation_messages = check_constraints(analysis_project, data[WORKFLOW_LOCATION], wdl_input_path)
-    if problem:
-        print('Was problem with constraints!')
-        analysis_project.status = '''
-            An unexpected error occurred on job submission.  An administrator has been automatically notified of this error.
-            Thank you for your patience.
-            '''
-        analysis_project.error = True
-        analysis_project.save()
-        return
-    elif not constraints_satisfied:
-        analysis_project.status = 'The constraints imposed on this project were violated.'
-        analysis_project.error = True
-        analysis_project.completed = True
-        analysis_project.success = False
-        analysis_project.save()
+    if data['analysis_uuid']:
+        print('check constraints')
+        constraints_satisfied, problem, constraint_violation_messages = check_constraints(analysis_project, data[WORKFLOW_LOCATION], wdl_input_path)
+        print('done checking constraints')
+        if problem:
+            print('Was problem with constraints!')
+            analysis_project.status = '''
+                An unexpected error occurred on job submission.  An administrator has been automatically notified of this error.
+                Thank you for your patience.
+                '''
+            analysis_project.error = True
+            analysis_project.save()
+            return
+        elif not constraints_satisfied:
+            print('constraints violated')
+            analysis_project.status = 'The constraints imposed on this project were violated.'
+            analysis_project.error = True
+            analysis_project.completed = False
+            analysis_project.success = False
+            analysis_project.save()
 
-        for m in constraint_violation_messages:
-            jc = JobClientError(project=analysis_project, error_text=m)
-            jc.save()
-        return
+            for m in constraint_violation_messages:
+                jc = JobClientError(project=analysis_project, error_text=m)
+                jc.save()
+            return
 
     # Go start the workflow:
     if data['analysis_uuid']:
-
+        print('had UUID')
         # we are going to start the workflow-- check if we should run a pre-check
         # to examine user input:
         run_precheck = False
         if os.path.exists(os.path.join(staging_dir, settings.PRECHECK_WDL)):
+            print('should run precheck')
             run_precheck = True
 
         execute_wdl(analysis_project, staging_dir, run_precheck)
@@ -316,6 +326,7 @@ def prep_workflow(data):
         print('View final staging dir at %s' % staging_dir)
         print('Would post the following:\n')
         print('Data: %s\n' % data)
+        return wdl_input_dict
 
 
 def execute_wdl(analysis_project, staging_dir, run_precheck=False):
@@ -338,16 +349,27 @@ def execute_wdl(analysis_project, staging_dir, run_precheck=False):
         'workflowTypeVersion': config_dict['workflow_type_version']
     }
 
+    # load the options file so we can fill-in the zones:
+    options_json = {}
+    try:
+        current_zone = CurrentZone.objects.all()[0]
+    except IndexError:
+        message = 'A current zone has not set.  Please check that a single zone has been selected in the database'
+        handle_exception(None, message=message)
+
+    options_json['default_runtime_attributes'] = {'zones': current_zone.zone.zone}
+    options_json_str = json.dumps(options_json)
+    options_io = io.BytesIO(options_json_str.encode('utf-8'))
+
+    files = {
+        'workflowOptions': options_io, 
+        'workflowInputs': open(wdl_input_path,'rb')
+    }
+    
     if run_precheck:
-        files = {
-            'workflowSource': open(os.path.join(staging_dir, settings.PRECHECK_WDL), 'rb'), 
-            'workflowInputs': open(wdl_input_path,'rb')
-        }
+        files['workflowSource'] = open(os.path.join(staging_dir, settings.PRECHECK_WDL), 'rb')
     else:
-        files = {
-            'workflowSource': open(os.path.join(staging_dir, settings.MAIN_WDL), 'rb'), 
-            'workflowInputs': open(wdl_input_path,'rb')
-        }
+        files['workflowSource'] =  open(os.path.join(staging_dir, settings.MAIN_WDL), 'rb')
 
     zip_archive = os.path.join(staging_dir, ZIPNAME)
     if os.path.exists(zip_archive):
@@ -557,6 +579,73 @@ def register_outputs(job):
         message += str(ex)
         raise JobOutputsException(message)
 
+
+def copy_pipeline_components(job):
+    '''
+    This copies the inputs.json to the output directory.  Together with the WDL files, that can be used
+    to recreate everything  
+
+    Also creates a file that indicates the repository and commit ID for the workflow version
+    '''
+    additional_files = []
+
+    # where the submitted files were placed:
+    staging_dir = job.job_staging_dir
+    wdl_input_path = os.path.join(staging_dir, WDL_INPUTS)
+    additional_files.append(wdl_input_path)
+
+    # write the git versioning file to that staging dir:
+    version_file = os.path.join(staging_dir, VERSIONING_FILE % job.job_id)
+    git_url = job.project.workflow.git_url
+    git_commit = job.project.workflow.git_commit_hash
+    d = {
+        'git_repository': git_url,
+        'git_commit': git_commit
+    }
+    with open(version_file, 'w') as fout:
+        fout.write(json.dumps(d))
+    additional_files.append(version_file)
+
+    environment = settings.CONFIG_PARAMS['cloud_environment']
+    storage_client = storage.Client()
+
+    for p in additional_files:
+        stat_info = os.stat(p)
+        size_in_bytes = stat_info.st_size
+
+        destination_bucket = settings.CONFIG_PARAMS['storage_bucket_prefix']
+        object_name = os.path.join( str(job.project.owner.user_uuid), \
+            str(job.project.analysis_uuid), \
+            job.job_id, \
+            os.path.basename(p)
+        )
+
+        # perform the upload to the bucket:
+        bucket_name = destination_bucket[len(settings.CONFIG_PARAMS['google_storage_gs_prefix']):]
+        bucket = storage_client.get_bucket(bucket_name)
+        blob = bucket.blob(object_name)
+        blob.upload_from_filename(p)
+
+        # add the Resource to the database:
+        full_destination_with_prefix = '%s/%s' % ( 
+            destination_bucket, \
+            object_name \
+        )
+        r = Resource(
+            source = environment,
+            path = full_destination_with_prefix,
+            name = os.path.basename(p),
+            owner = job.project.owner,
+            size = size_in_bytes
+        )
+        r.save()
+
+        # add a ProjectResource to the database, so we can tie the Resource created above with the analysis project:
+        apr = AnalysisProjectResource(analysis_project=job.project, resource=r)
+        apr.save()
+
+
+
 def handle_success(job):
     '''
     This is executed when a WDL job has completed and Cromwell has indicated success
@@ -569,6 +658,8 @@ def handle_success(job):
         # between AnalysisProject and a complete job, that's enough to track history
     
         register_outputs(job)
+
+        copy_pipeline_components(job)
 
         # update the AnalysisProject instance to reflect the success:
         project = job.project
@@ -616,6 +707,7 @@ def handle_success(job):
         cj = CompletedJob(project=project, 
             job_id = job.job_id, 
             job_status=job.job_status, 
+            success = True,
             job_staging_dir=job.job_staging_dir)
         cj.save()
         job.delete()
@@ -630,12 +722,13 @@ def handle_failure(job):
     cj = CompletedJob(project=project, 
         job_id = job.job_id, 
         job_status=job.job_status, 
+        success = False,
         job_staging_dir=job.job_staging_dir)
     cj.save()
     job.delete()
 
     # update the AnalysisProject instance to reflect the failure:
-    project.completed = True
+    project.completed = False
     project.success = False
     project.error = True
     project.status = 'The job submission has failed.  An administrator has been notified.'
@@ -733,7 +826,7 @@ def handle_precheck_failure(job):
 
         # update the AnalysisProject instance:
         project = job.project
-        project.completed = True
+        project.completed = False
         project.success = False
         project.error = True
         project.status = 'Issue encountered with inputs.'
@@ -802,12 +895,7 @@ def handle_precheck_success(job):
     project = job.project
     staging_dir = job.job_staging_dir
 
-    # create a CompletedJob and remove the old job object
-    cj = CompletedJob(project=job.project, 
-        job_id = job.job_id, 
-        job_status=job.job_status, 
-        job_staging_dir=job.job_staging_dir)
-    cj.save()
+    # Remove the old job object
     job.delete()
 
     # execute the main wdl file:
