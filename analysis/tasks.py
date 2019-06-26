@@ -38,7 +38,7 @@ WDL_INPUTS = 'inputs.json'
 WORKFLOW_LOCATION = 'location'
 WORKFLOW_PK = 'workflow_primary_key'
 USER_PK = 'user_pk'
-VERSIONING_FILE = 'workflow_version.txt'
+VERSIONING_FILE = 'workflow_version.%s.txt'
 
 MAX_COPY_ATTEMPTS = 5
 SLEEP_PERIOD = 60 # in seconds.  how long to sleep between copy attempts.
@@ -595,7 +595,7 @@ def copy_pipeline_components(job):
     additional_files.append(wdl_input_path)
 
     # write the git versioning file to that staging dir:
-    version_file = os.path.join(staging_dir, VERSIONING_FILE)
+    version_file = os.path.join(staging_dir, VERSIONING_FILE % job.job_id)
     git_url = job.project.workflow.git_url
     git_commit = job.project.workflow.git_commit_hash
     d = {
