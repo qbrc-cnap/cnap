@@ -29,7 +29,8 @@ from analysis.models import Workflow, \
     Warning, \
     CompletedJob, \
     JobClientError, \
-    ProjectConstraint
+    ProjectConstraint, \
+    WorkflowContainer
 from base.models import Resource, Issue, CurrentZone
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -38,7 +39,7 @@ WDL_INPUTS = 'inputs.json'
 WORKFLOW_LOCATION = 'location'
 WORKFLOW_PK = 'workflow_primary_key'
 USER_PK = 'user_pk'
-VERSIONING_FILE = 'workflow_version.%s.txt'
+VERSIONING_FILE = 'workflow_details.txt'
 
 MAX_COPY_ATTEMPTS = 5
 SLEEP_PERIOD = 60 # in seconds.  how long to sleep between copy attempts.
@@ -223,6 +224,34 @@ def check_constraints(project, absolute_workflow_dir, inputs_json):
     return (all(constraint_passes), False, messages)
 
 
+def get_docker_digests(workflow_obj):
+    '''
+    Using a Workflow instance, get the docker images that execute this workflow
+    and query dockerhub to get the digest.  This way, we know JUST PRIOR to the run
+    what the exact image was.  This is more robust than using the image tag, which is mutable
+
+    Returns a dictionary where the keys are the images ('docker.io/userA/imageB:tagC') and
+    the values are the digests
+    '''
+
+    containers = WorkflowContainer.objects.filter(workflow = workflow_obj)
+    d = {}
+    for c in containers:
+        image_tag = c.image_tag
+        current_digest = utils.query_for_digest(image_tag)
+        original_digest = c.hash_string
+        if current_digest != original_digest:
+            # this means the docker container has a different hash since
+            # the ingestion was performed.  This is not necessarily an error, but
+            # one might choose to issue a warning here.
+            print('The digest hash for docker image %s has changed since '
+                ' the workflow was first ingested.')
+            print('Original digest: %s' % original_digest)
+            print('Current digest: %s' % current_digest)
+        d[image_tag] = current_digest
+    return d
+
+
 @task(name='prep_workflow')
 def prep_workflow(data):
     '''
@@ -235,6 +264,7 @@ def prep_workflow(data):
 
     print('Workflow submitted with data: %s' % data)
     date_str = datetime.datetime.now().strftime('%H%M%S_%m%d%Y')
+    workflow_obj = Workflow.objects.get(pk=data[WORKFLOW_PK])
     if data['analysis_uuid']:
         staging_dir = os.path.join(settings.JOB_STAGING_DIR, 
             str(data['analysis_uuid']), 
@@ -245,7 +275,6 @@ def prep_workflow(data):
         )
 
     else:
-        workflow_obj = Workflow.objects.get(pk=data[WORKFLOW_PK])
         staging_dir = os.path.join(settings.JOB_STAGING_DIR, 
             'test_%s' % workflow_obj.workflow_name, 
             date_str
@@ -283,6 +312,20 @@ def prep_workflow(data):
     wdl_input_path = os.path.join(staging_dir, WDL_INPUTS)
     with open(wdl_input_path, 'w') as fout:
         json.dump(wdl_input_dict, fout)
+
+    # create a versioning file, which will provide details like git commit
+    # and docker digests
+    version_file = os.path.join(staging_dir, VERSIONING_FILE)
+    git_url = workflow_obj.git_url
+    git_commit = workflow_obj.git_commit_hash
+    docker_digest_dict = get_docker_digests(workflow_obj)
+    d = {
+        'git_repository': git_url,
+        'git_commit': git_commit,
+        'docker': docker_digest_dict
+    }
+    with open(version_file, 'w') as fout:
+        fout.write(json.dumps(d))
     
     # check that any applied constraints are not violated:
     if data['analysis_uuid']:
@@ -590,20 +633,15 @@ def copy_pipeline_components(job):
     additional_files = []
 
     # where the submitted files were placed:
-    staging_dir = job.job_staging_dir
+    staging_dir = job.job_staging_dir # something like /www/tmp_staging/<UUID>/<timestamp>
+
+    # the inputs.json that was ultimately submitted to cromwell
     wdl_input_path = os.path.join(staging_dir, WDL_INPUTS)
     additional_files.append(wdl_input_path)
 
-    # write the git versioning file to that staging dir:
-    version_file = os.path.join(staging_dir, VERSIONING_FILE % job.job_id)
-    git_url = job.project.workflow.git_url
-    git_commit = job.project.workflow.git_commit_hash
-    d = {
-        'git_repository': git_url,
-        'git_commit': git_commit
-    }
-    with open(version_file, 'w') as fout:
-        fout.write(json.dumps(d))
+    # the versioning file, which has the git info and the docker container
+    # information.  Inside the staging folder, it's simply VERSIONING_FILE
+    version_file = os.path.join(staging_dir, VERSIONING_FILE)
     additional_files.append(version_file)
 
     environment = settings.CONFIG_PARAMS['cloud_environment']

@@ -184,6 +184,21 @@ class AnalysisProject(models.Model):
         return '%s (id: %s, client: %s)' % (self.workflow.workflow_name, str(self.analysis_uuid), self.owner)
 
 
+class WorkflowContainer(models.Model):
+    '''
+    This class allows us to track the containers that comprise a workflow.  During ingestion, we get 
+    all the containers necessary to run a workflow.  We save those details in this table
+    '''
+    # foreign key to the Workflow
+    workflow = models.ForeignKey('Workflow', on_delete=models.CASCADE)
+
+    # the full tag ID, such as "docker.io/user/image:tag"
+    image_tag = models.CharField(max_length=255, blank=False)
+
+    # the digest/hash of the container, obtained by querying dockerhub
+    hash_string = models.CharField(max_length=255, blank=False)
+
+
 class AnalysisProjectResource(models.Model):
     '''
     This class is used to tie Resource instances to AnalysisProject instances so 

@@ -27,6 +27,7 @@ from inspect import signature
 import requests
 
 import workflow_ingestion.gui_utils as gui_utils
+from analysis.models import WorkflowContainer
 
 # for easy reference, determine the directory we are currently in, and
 # also the base directory for the entire project (one level up)
@@ -88,11 +89,13 @@ class GuiSpecFileException(Exception):
     '''
     pass
 
+
 class MissingHandlerException(Exception):
     '''
     This is raised if we cannot locate a handler or find a default
     '''
     pass
+
 
 class HandlerConfigException(Exception):
     '''
@@ -101,6 +104,7 @@ class HandlerConfigException(Exception):
     '''
     pass
 
+
 class MissingWdlInputTemplateException(Exception):
     '''
     This is raised if the inputs template for the WDL
@@ -108,18 +112,11 @@ class MissingWdlInputTemplateException(Exception):
     '''
     pass
 
+
 class RuntimeDockerException(Exception):
     '''
     This is raised if there is a discrepancy between the number of tasks
     in a WDL file and the number of runtime sections defined in the WDL file
-    '''
-    pass
-
-
-class DockerRegistryQueryException(Exception):
-    '''
-    This is raised if there was a problem when querying the docker registry
-    for the appropriate tag
     '''
     pass
 
@@ -609,31 +606,6 @@ def check_runtime(wdl_text):
     return set(docker_runtimes)
 
 
-def perform_query(query_url):
-    '''
-    This performs the actual request and handles retries
-    If it fails MAX_TRIES times, it gives up.
-
-    If query is successful, returns a dictionary
-    '''
-    # how many times do we try to contact the registry before giving up:
-    MAX_TRIES = 5
-
-    success = False
-    tries = 0
-    while (not success) and (tries < MAX_TRIES):
-        response = requests.get(query_url)
-        if response.status_code == 200:
-            success = True
-            return response.json()
-        else:
-            tries += 1
-    # exited the loop.  if success is still False, exit
-    if not success:
-        raise DockerRegistryQueryException('After %d tries, could not get '
-        'a successful response from url: %s' % (MAX_TRIES, query_url))
-
-
 def query_for_tag(query_url, tag):
     '''
     This function parses the JSON response received from the registry server (e.g. dockerhub)
@@ -643,7 +615,7 @@ def query_for_tag(query_url, tag):
     '''
 
     # make the initial request to the registry:
-    response_json = perform_query(query_url)
+    response_json = utils.perform_get_query(query_url)
 
     total_tags = response_json['count']
     running_index = 0
@@ -657,7 +629,7 @@ def query_for_tag(query_url, tag):
         # are there more pages of results?
         next_url = response_json['next']
         if next_url:
-            response_json = perform_query(next_url)
+            response_json = utils.perform_get_query(next_url)
     return False
 
 
@@ -688,6 +660,7 @@ def check_runtime_docker_containers(staging_dir):
 
     # now we have a set of the images we will be using, such as {'docker.io/user/imageA:tag1', 'docker.io/user/imageB:tag2'}
     # Check that they exist
+    digest_dict = {}
     for image_str in image_set:
         image, tag = image_str.split(':') # image='docker.io/user/imageA', tag='tag1'
         image_contents = image.split('/') # ['docker.io', 'user', 'imageA']
@@ -698,6 +671,26 @@ def check_runtime_docker_containers(staging_dir):
         if not tag_found:
             raise RuntimeDockerException('Could not locate the repository at %s.' % image_str)
 
+        # given that the tag was found, issue another query to get the digest string:
+        digest = utils.query_for_digest(image_str)
+        digest_dict[image_str] = digest
+    return digest_dict
+
+
+def add_containers_to_db(workflow, container_digest_dict):
+    '''
+    This function takes a workflow object and a dictionary mapping
+    the docker image (string) to the hash.  It adds the containers
+    to the database so we can check integrity
+    '''
+    for image_str, digest in container_digest_dict.items():
+        wc = WorkflowContainer(
+            workflow=workflow,
+            image_tag = image_str,
+            hash_string = digest
+        )
+        wc.save()
+        
 
 def add_workflow_to_db(workflow_name, destination_dir, clone_url, commit_hash):
     '''
@@ -977,7 +970,7 @@ def ingest_main(clone_dir, clone_url, commit_hash):
 
     # As a safeguard, check that the docker images used in the workflow are properly 
     # versioned and already exist in the docker registry
-    check_runtime_docker_containers(staging_dir)
+    container_digest_dict = check_runtime_docker_containers(staging_dir)
 
     # above, it was just names of files, not paths.  Create paths, and add them
     # to the dictionary of files that will be copied to the final workflow dir
@@ -1002,6 +995,9 @@ def ingest_main(clone_dir, clone_url, commit_hash):
 
     # add the workflow to the database
     workflow = add_workflow_to_db(workflow_name, destination_dir, clone_url, commit_hash)
+
+    # add the containers (e.g. name, hash) to the database
+    add_containers_to_db(workflow, container_digest_dict)
 
     # link the html template so Django can find it
     link_django_template(WORKFLOWS_DIR, destination_dir, settings.HTML_TEMPLATE_NAME)

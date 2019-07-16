@@ -1,6 +1,7 @@
 import os
 import configparser
 from jinja2 import Environment, FileSystemLoader
+import requests
 
 from django.conf import settings
 
@@ -74,3 +75,56 @@ def read_general_config(config_filepath, additional_sections=[]):
     config_dict.update(load_config(config_filepath, [compute_env,]))
 
     return config_dict
+
+
+def perform_get_query(query_url, headers=None):
+    '''
+    This performs a get request, handling retries if required.
+    If it fails MAX_TRIES times, it gives up.
+
+    If query is successful, returns a dictionary
+    '''
+    # how many times do we try to contact the registry before giving up:
+    MAX_TRIES = 5
+
+    success = False
+    tries = 0
+    while (not success) and (tries < MAX_TRIES):
+        if headers:
+            response = requests.get(query_url, headers=headers)
+        else:
+            response = requests.get(query_url)
+        if response.status_code == 200:
+            success = True
+            return response.json()
+        else:
+            tries += 1
+    # exited the loop.  if success is still False, exit
+    if not success:
+        raise Exception('After %d tries, could not get '
+        'a successful response from url: %s' % (MAX_TRIES, query_url))
+
+
+def query_for_digest(image_w_tag):
+    '''
+    This function constructs the queries for the digest of a particular container
+    Returns the hash string
+
+    `image_w_tag` is something like 'docker.io/userA/foo:v0.1'
+    '''
+
+    image_name, tag = image_w_tag.split(':')
+
+    # first need to query for a token, which is needed for hitting the registry URL
+    auth_url = 'https://auth.docker.io/token?scope=repository:%s:pull&service=registry.docker.io' % image_name
+    j1 = perform_get_query(auth_url)
+    auth_token = j1['token']
+
+    # with that token, query for the digest:
+    h = {}
+    h['Accept'] = 'application/vnd.docker.distribution.manifest.v2+json'
+    h['Authorization'] = 'Bearer %s' % auth_token
+    digest_url = 'https://registry-1.docker.io/v2/%s/manifests/%s' % (image_name, tag)
+    j2 = perform_get_query(digest_url, headers=h)
+    image_digest = j2['config']['digest']
+    return image_digest
