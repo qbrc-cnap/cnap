@@ -98,6 +98,7 @@ def perform_get_query(query_url, headers=None):
             success = True
             return response.json()
         else:
+            print('Query failed: %s' % response.text)
             tries += 1
     # exited the loop.  if success is still False, exit
     if not success:
@@ -114,6 +115,7 @@ def query_for_digest(image_w_tag):
     '''
 
     image_name, tag = image_w_tag.split(':')
+    image_name = '/'.join(image_name.split('/')[1:])
 
     # first need to query for a token, which is needed for hitting the registry URL
     auth_url = 'https://auth.docker.io/token?scope=repository:%s:pull&service=registry.docker.io' % image_name

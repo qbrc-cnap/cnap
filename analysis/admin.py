@@ -13,7 +13,8 @@ from analysis.models import Workflow, \
     JobClientError, \
     WorkflowConstraint, \
     ProjectConstraint, \
-    ImplementedConstraint
+    ImplementedConstraint, \
+    WorkflowContainer
 
 class WorkflowAdmin(admin.ModelAdmin):
     list_display = ('workflow_name', 'workflow_id', 'version_id', 'is_default', 'is_active', 'workflow_title', 'workflow_short_description', 'workflow_long_description')
@@ -63,6 +64,11 @@ class ProjectConstraintAdmin(admin.ModelAdmin):
     list_display = ('project', 'constraint')
 
 
+class WorkflowContainerAdmin(admin.ModelAdmin):
+    list_display = ('workflow', 'image_tag', 'hash_string')
+    list_display_links = ('image_tag',)
+    
+
 # use an auto-register for the constraint fields that are children of the 
 # ImplementedConstraint class.  This way we can see the constraints in the 
 # admin interface, but do not have to continuously update this module
@@ -84,6 +90,7 @@ for c in constraint_classnames:
 
 
 admin.site.register(Workflow, WorkflowAdmin)
+admin.site.register(WorkflowContainer, WorkflowContainerAdmin)
 admin.site.register(ProjectConstraint, ProjectConstraintAdmin)
 #admin.site.register(ImplementedConstraint, ImplementedConstraintAdmin)
 admin.site.register(WorkflowConstraint, WorkflowConstraintAdmin)
