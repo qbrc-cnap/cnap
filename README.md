@@ -13,16 +13,21 @@ The CNAP application (a) handles the ingestion of workflows (b), the transfer of
 
 #### Screenshots
 
+
 **Home**
+
 <img src="docs/cnap_home.png" width="80%">
 
 **Uploads**
+
 <img src="docs/uploads_tab_2.png" width="80%">
 
 **Available analyses**
+
 <img src="docs/analyses_tab.png" width="80%">
 
 **Example analysis GUI**
+
 <img src="docs/example_analysis_gui_merge.png" width="80%">
 
 
