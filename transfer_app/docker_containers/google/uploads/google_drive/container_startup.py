@@ -87,6 +87,17 @@ def send_to_bucket(local_filepath, params, logger):
 		logger.log_text('Error with upload process.')
 		raise Exception('Could not create or upload the blob with name %s' % object_name)
 
+	# calculate the hash in storage:
+	storage_client = build('storage', 'v1')
+	try:
+		response = storage_client.objects().list(bucket=bucket_name, prefix=object_name).execute()
+		object_hash = response['items'][0]['md5Hash']
+		logger.log_text('Hash from within bucket: %s' % object_hash)
+	except:
+		logger.log_text('Error with querying hash in the bucket.')
+		object_hash = None
+	return object_hash
+
 
 def download_to_disk(params, logger):
 	'''
@@ -108,6 +119,24 @@ def download_to_disk(params, logger):
 
 	logger.log_text('Download completed.')
 	return local_path
+
+
+def get_local_hash(local_path, logger):
+	'''
+	Given the local path, uses gsutil to calculate the hash and returns that
+	If the hash fails, just continue, returning None
+	'''
+	cmd = 'gsutil hash -m %s | grep md5' % local_path
+	p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+	stdout,stderr = p.communicate()
+	if p.returncode != 0:
+		logger.log_text('Calculating local hash did not succeed.')
+		h = None
+	else:
+		s = stdout.decode('utf-8')
+		h = s.strip().split('\t')[-1]
+		logger.log_text('Local hash: %s' % h)
+	return h
 
 
 def get_hostname():
@@ -160,11 +189,24 @@ if __name__ == '__main__':
 		os.mkdir(WORKING_DIR)
 		logger = create_logger()
 		local_filepath = download_to_disk(params, logger)
-		send_to_bucket(local_filepath, params, logger)
-		notify_master(params, logger)
-		kill_instance(params)
+		local_hash = get_local_hash(local_filepath, logger)
+		hash_in_bucket = send_to_bucket(local_filepath, params, logger)
+		if local_hash and hash_in_bucket:
+			# if both hashes were successfully acquired, compare
+			if local_hash == hash_in_bucket:
+				notify_master(params, logger)
+			else:
+				# we were able to get both hashes and they do NOT match, so error
+				logger.log_text('Hashes did not match!')
+				notify_master(params, logger, error=True)
+		else:
+			# missing one of the hashes, so just continue on as if no error
+			notify_master(params, logger)
+
 	except Exception as ex:
 		logger.log_text('Caught some unexpected exception.')
 		logger.log_text(str(type(ex)))
 		logger.log_text(str(ex))
 		notify_master(params, logger, error=True)
+	
+	kill_instance(params)
