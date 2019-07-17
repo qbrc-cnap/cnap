@@ -2,7 +2,7 @@
 
 The **C**loud **N**ative **A**nalysis **P**latform is a web-application platform for reproducible, cloud-based data analysis.  CNAP enforces reproducibility in both the application and the computing environment through required git integration and containerization.  It integrates with consumer storage providers such as Dropbox and Google Drive for convenient and rapid data transfer.  
 
-- To learn more about how CNAP enforces reproducible analyses [see here].(https://github.com/qbrc-cnap/cnap/blob/master/docs/reproducibility.md)
+- To learn more about how CNAP enforces reproducible analyses [see here](https://github.com/qbrc-cnap/cnap/blob/master/docs/reproducibility.md).
 
 - For details on setting up the CNAP platform on the Google Cloud platform, [see the documentation here](https://github.com/qbrc-cnap/cnap/blob/master/docs/cnap_setup.md).
 
