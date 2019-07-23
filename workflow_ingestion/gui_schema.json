@@ -96,6 +96,12 @@
                     "default": ""
                 },
                 {
+                    "name": "step",
+                    "type": "number or string",
+                    "required": false,
+                    "default": "any"
+                },
+                {
                     "name": "default_value",
                     "type": "number",
                     "required": false,
