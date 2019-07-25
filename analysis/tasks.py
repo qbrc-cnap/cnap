@@ -488,6 +488,8 @@ def parse_outputs(obj):
         for key, val in obj.items():
             if type(val) == str: # if simple string output, just a single file:
                 all_outputs.append(val)
+            elif type(val) == bool:
+                continue
             elif val is not None: # covers dict and list
                 all_outputs.extend(parse_outputs(val))
             else:
@@ -496,6 +498,8 @@ def parse_outputs(obj):
         for item in obj:
             if type(item) == str:
                 all_outputs.append(item)
+            elif type(item) == bool:
+                continue
             elif item is not None:
                 all_outputs.extend(parse_outputs(item))
             else:
@@ -727,6 +731,7 @@ def handle_success(job):
 
     except Exception as ex:
         # Set the project parameters so that clients will know what is going on:
+        project = job.project
         project.status = 'Analysis completed.  Error encountered when preparing final output.  An administrator has been notified'
         project.error = True
         project.success = False
