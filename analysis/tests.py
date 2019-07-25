@@ -13,7 +13,8 @@ from django.contrib.auth import get_user_model
 
 from analysis.models import Workflow, \
     AnalysisProject, \
-    SubmittedJob
+    SubmittedJob, \
+    CompletedJob
 from base.models import Resource, AvailableZones, CurrentZone
 
 THIS_DIR = os.path.realpath(os.path.abspath(os.path.dirname(__file__)))
@@ -533,11 +534,12 @@ class TasksTestCase(TestCase):
         all_jobs = SubmittedJob.objects.all()
         self.assertTrue(len(all_jobs) == 1)
 
+    @mock.patch('analysis.tasks.copy_pipeline_components')
     @mock.patch('analysis.tasks.shutil')
     @mock.patch('analysis.tasks.register_outputs')
     @mock.patch('analysis.tasks.send_email')
     @mock.patch('analysis.tasks.requests')
-    def test_successful_job_triggers_downstream_actions(self, mock_requests, mock_email_send, mock_register_outputs, mock_shutil):
+    def test_successful_job_triggers_downstream_actions(self, mock_requests, mock_email_send, mock_register_outputs, mock_shutil, mock_copy_pipeline_components):
         '''
         This covers the case where we check on a job that is successful.  Ensure
         the follow-up actions are followed
@@ -545,6 +547,10 @@ class TasksTestCase(TestCase):
         project_pk = self.analysis_project.pk
         project = AnalysisProject.objects.get(pk=project_pk)
         self.assertFalse(project.completed)
+
+        # assert that there were no completed jobs for this project
+        cj = CompletedJob.objects.filter(project=project)
+        self.assertEqual(len(cj),0)
 
         self._create_submission()
         mock_requests.get.return_value = self._mock_response(200, status_str='Succeeded')
@@ -557,6 +563,10 @@ class TasksTestCase(TestCase):
         self.assertTrue(project.completed)
         self.assertTrue(project.success)
         self.assertFalse(project.error)
+
+        # assert that there were no completed jobs for this project
+        cj = CompletedJob.objects.filter(project=project)
+        self.assertEqual(len(cj),1)
 
         # ensure the SubmittedJob item was cleaned up
         all_jobs = SubmittedJob.objects.all()
@@ -572,16 +582,24 @@ class TasksTestCase(TestCase):
         project_pk = self.analysis_project.pk
         project = AnalysisProject.objects.get(pk=project_pk)
 
+        # assert that there were no completed jobs for this project
+        cj = CompletedJob.objects.filter(project=project)
+        self.assertEqual(len(cj),0)
+
         self._create_submission()
         mock_requests.get.return_value = self._mock_response(200, status_str='Failed')
         check_job()
 
-        # check that the success method was called:
+        # check that the follow-up method was called:
         self.assertTrue(mock_admin_email.called)
         project = AnalysisProject.objects.get(pk=project_pk)
-        self.assertTrue(project.completed)
+        self.assertFalse(project.completed) # the project was NOT completed, only error
         self.assertFalse(project.success)
         self.assertTrue(project.error)
+
+        # check that a CompletedJob was added to database:
+        cj = CompletedJob.objects.filter(project=project)
+        self.assertEqual(len(cj),1)
 
         # ensure the SubmittedJob item was cleaned up
         all_jobs = SubmittedJob.objects.all()
@@ -607,13 +625,13 @@ class TasksTestCase(TestCase):
         self.assertFalse(project.started)
 
         # "start" it...
-        prep_workflow(self.data)
+        execute_wdl(project, self.valid_staging_dir)
 
         # ensure that the proper objects were created in the db:
         submitted_job = SubmittedJob.objects.get(job_id=mock_uuid)
         self.assertTrue(submitted_job.project.analysis_uuid == self.data['analysis_uuid'])
 
-        # check that the project was marked as stated in the db
+        # check that the project was marked as started in the db
         project = AnalysisProject.objects.get(analysis_uuid=self.analysis_uuid)
         self.assertTrue(project.started)
 
