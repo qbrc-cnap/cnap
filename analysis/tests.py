@@ -14,7 +14,7 @@ from django.contrib.auth import get_user_model
 from analysis.models import Workflow, \
     AnalysisProject, \
     SubmittedJob
-from base.models import Resource
+from base.models import Resource, AvailableZones, CurrentZone
 
 THIS_DIR = os.path.realpath(os.path.abspath(os.path.dirname(__file__)))
 TEST_UTILS_DIR = os.path.join(THIS_DIR, 'test_utils')
@@ -40,6 +40,7 @@ from .tasks import fill_wdl_input, \
     MissingDataException, \
     InputMappingException, \
     WORKFLOW_LOCATION, \
+    WORKFLOW_PK, \
     USER_PK, \
     JobOutputsException, \
     JobOutputCopyException
@@ -57,6 +58,13 @@ class TasksTestCase(TestCase):
 
         self.admin_user = get_user_model().objects.create_user(email=settings.ADMIN_TEST_EMAIL, password='abcd123!', is_staff=True)
         self.regular_user = get_user_model().objects.create_user(email=settings.REGULAR_TEST_EMAIL, password='abcd123!')
+
+        # create available/current zones (does not matter what they are, just that the database returns something
+        avail_zone = AvailableZones.objects.create(
+            cloud_environment = 'something',
+            zone = 'us-east-X'
+        )
+        current_zone = CurrentZone.objects.create(zone=avail_zone)
 
         # create a couple of resources owned by the regular user:
         self.r1 = Resource.objects.create(
@@ -99,6 +107,7 @@ class TasksTestCase(TestCase):
         # create a 'data' dict that we can use repeatedly:
         self.data = {
             'analysis_uuid': self.analysis_uuid,
+            WORKFLOW_PK: w1.pk,
             WORKFLOW_LOCATION: w1.workflow_location,
             USER_PK: self.regular_user.pk,
             'input_files': [self.r1.pk, self.r2.pk],
@@ -433,7 +442,6 @@ class TasksTestCase(TestCase):
         This covers where the requests.post receives a 400 from the cromwell server
         '''
         mock_requests.post.return_value = self._mock_response(400)
-        prep_workflow(self.data)
         execute_wdl(self.analysis_project, self.valid_staging_dir)
         self.assertTrue(mock_handle_ex.called)
 
