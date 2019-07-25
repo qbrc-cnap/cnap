@@ -37,7 +37,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     """
     Custom model
     """
-    email = models.EmailField(_('email address'), unique=True, null=False, max_length=255)
+    email = models.EmailField(_('email address'), unique=True, null=False, max_length=100)
     user_uuid = models.UUIDField(primary_key=False, default=uuid.uuid4, editable=True)
     is_staff = models.BooleanField(
         _('staff status'),
