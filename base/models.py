@@ -22,14 +22,14 @@ class Resource(models.Model):
     source = models.CharField(max_length=100, null=False)
 
     # if the file was uploaded from Dropbox, Drive, etc. what was the "source" used to locate it?
-    source_path = models.CharField(max_length=200, null=True, blank=True, default='')
+    source_path = models.CharField(max_length=100, null=True, blank=True, default='')
 
     # the location (e.g. URL) where the Resource lives, relative to source
     # e.g. gs://bucket/dir/object.txt for google buckets
     path = models.CharField(max_length=200, null=False, unique=True)
     
     # a human-readable name for the UI
-    name = models.CharField(max_length=200, null=False)
+    name = models.CharField(max_length=100, null=False)
 
     # the file size in bytes.  For display, this will be converted
     # to human-readable form  
