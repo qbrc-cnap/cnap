@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from django.http import HttpResponseForbidden, JsonResponse
+from django.http import HttpResponseForbidden, JsonResponse, HttpResponseNotAllowed
 from django.urls import reverse
 from django.conf import settings
 
@@ -32,11 +32,14 @@ def dashboard_index(request):
             c.started = started
             c.failed = p.error
             if started and not p.error: # still running
-                sj = SubmittedJob.objects.filter(project=p)
-                print(p)
-                sj = sj[0]
-                c.cromwell_uuid = str(sj.job_id)
-                c.status = sj.job_status
+                try:
+                    sj = SubmittedJob.objects.filter(project=p)
+                    sj = sj[0]
+                    c.cromwell_uuid = str(sj.job_id)
+                    c.status = sj.job_status
+                except Exception as ex:
+                    c.cromwell_uuid = 'Project completion steps may have failed, or database may be corrupted.'
+                    c.status = '-'
             else:
                 c.cromwell_uuid = None
                 c.status = None
@@ -101,6 +104,9 @@ def add_new_workflow(request):
         context = {'message': message}
         #return render(request, 'dashboard/add_new_workflow.html', context)
         return JsonResponse(context)
+    else:
+        return HttpResponseNotAllowed(['POST'])
+
 
 def change_region(request):
     user = request.user
