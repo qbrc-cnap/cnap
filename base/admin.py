@@ -19,7 +19,7 @@ class AvailableZonesAdmin(admin.ModelAdmin):
 
 class CurrentZoneAdmin(admin.ModelAdmin):
     list_display = ('zone',)
-    list_editable = ('zone',)
+
 
 admin.site.register(Resource, ResourceAdmin)
 admin.site.register(Issue, IssueAdmin)
