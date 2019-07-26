@@ -1,0 +1,54 @@
+.analysis-form{
+    width: 90%;
+    margin-top: 20px;
+    margin-bottom: 20px;
+}
+
+#submit-form{
+    margin-top:20px;    
+}
+
+/* more developer-specific CSS will go here */
+
+/* START CSS for dynamic grid element */
+.dynamic-grid-outer-wrapper{
+    display: flex;
+    justify-content: center;
+    flex-direction: row;
+}
+
+.dynamic-grid-inner-wrapper{
+    width: 75%
+}
+
+.dynamic-grid-col-wrapper {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-around;
+    flex-wrap: wrap;
+}
+
+.dynamic-grid-col {
+    display: flex;
+    flex-direction: column;
+    margin-bottom:30px;
+}
+
+.dynamic-grid-add-more{
+    display:flex;
+    justify-content: flex-end;
+}
+
+.dynamic-grid-add-more i{
+   cursor: pointer;
+}
+
+.dynamic-grid-input-row {
+    margin-top:15px;
+}
+
+.remove-dynamic-input-grid-row{
+    margin-left: 5px;
+   cursor: pointer;
+}
+/* END CSS for dynamic grid element */

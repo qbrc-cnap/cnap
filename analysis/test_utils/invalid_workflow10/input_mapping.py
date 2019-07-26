@@ -1,6 +1,6 @@
 from base.models import Resource
 
-def map_inputs(user, unmapped_data, id_list):
+def map_inputs(user, all_data, data_name, id_list):
     '''
     `user` is a User instance (or subclass).  This gives us
     the option of applying user-specific logic to the mapping.
@@ -36,6 +36,7 @@ def map_inputs(user, unmapped_data, id_list):
     are then held in a list.  We return a dict:
     {"TestWorkflow.inputs": ["fileA.txt", "fileB.txt"]}
     '''
+    unmapped_data = all_data[data_name]
     path_list = []
     for pk in unmapped_data:
         r = Resource.objects.get(pk=pk)
@@ -43,5 +44,5 @@ def map_inputs(user, unmapped_data, id_list):
             path_list.append(r.path)
         else:
             raise Exception('The user %s is not the owner of Resource with primary key %s.' % (user, pk))
-    raise Exception('Something went wrong')
+    raise Exception('Mock that something went wrong')
     return

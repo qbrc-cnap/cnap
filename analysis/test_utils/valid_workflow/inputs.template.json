@@ -1,5 +1,5 @@
 {
-  "TestWorkflow.outputFilename": "String",
-  "TestWorkflow.inputs": "Array[File]"
+  "Main.z": "String",
+  "Main.other": "String"
 }
 

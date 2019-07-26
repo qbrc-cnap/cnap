@@ -643,7 +643,7 @@ class TasksTestCase(TestCase):
         This covers a case where the Cromwell server responds to a workflow submission with 201,
         but has an unexpected status payload
         '''
-        mock_uuid = 'e442e52a-9de1-47f0-8b4f-e6e565008cf1'
+        mock_uuid = 'e442e52a-9de1-47f0-8b4f-e6e565008cf1' # the UUID from cromwell, not the project UUID
         mock_return = mock.MagicMock()
         mock_return.status_code = 201
         mock_return.text = json.dumps({'id': mock_uuid,
@@ -652,7 +652,8 @@ class TasksTestCase(TestCase):
         mock_requests.post.return_value = mock_return
 
         # "start" it...
-        prep_workflow(self.data)
+        project = AnalysisProject.objects.get(analysis_uuid=self.analysis_uuid)
+        execute_wdl(project, self.valid_staging_dir)
 
         # check that everything was unchanged:
         self.assertTrue(mock_handle_ex.called) # notification was sent
@@ -998,40 +999,40 @@ class ViewUtilsTest(TestCase):
         payload = {}
         payload[USER_PK] = self.regular_user.pk
         payload[WORKFLOW_LOCATION] = valid_workflow.workflow_location
+        # missing the 'Main.z' and 'Main.other' param AND the workflow PK
         with self.assertRaises(MissingDataException):
             fill_wdl_input(payload)
 
         # now try a payload where the primary keys are good, but missing the string param:
-        r1_pk = self.r1.pk
-        r2_pk = self.r2.pk
         payload = {}
         payload[USER_PK] = self.regular_user.pk
         payload[WORKFLOW_LOCATION] = valid_workflow.workflow_location
-        payload['input_files'] = [r1_pk, r2_pk]
+        payload[WORKFLOW_PK] = valid_workflow.pk
+        # missing the 'Main.z' param
+        payload['other_input'] = 'other'
         with self.assertRaises(MissingDataException):
             fill_wdl_input(payload)
 
     def test_fill_wdl_template_case2(self):
         '''
         Here, the data sent from the front-end does is not necessary as an
-        input to the WDL input.  Should just ignore it.  Receiving extra ddata
+        input to the WDL input.  Should just ignore it.  Receiving extra data
         from the front end is distinct from any custom mapping code that ends up
         providing an incorrect data object to the WDL input
         '''
         mock_request = mock.MagicMock(user=self.regular_user)
 
         # create a correct dict and assert that's ok:
-        r1_pk = self.r1.pk
-        r2_pk = self.r2.pk
         payload = {}
         valid_workflow = Workflow.objects.get(workflow_id=1, version_id=1)
         payload[USER_PK] = self.regular_user.pk
         payload[WORKFLOW_LOCATION] = valid_workflow.workflow_location
-        payload['input_files'] = [r1_pk, r2_pk]
-        payload['TestWorkflow.outputFilename'] = 'output.txt'
+        payload[WORKFLOW_PK] = valid_workflow.pk
+        payload['Main.z'] = 'xyz'
+        payload['other_input'] = 'abc'
         expected_dict = {}
-        expected_dict['TestWorkflow.outputFilename'] = 'output.txt'
-        expected_dict['TestWorkflow.inputs'] = [self.r1.path, self.r2.path]
+        expected_dict['Main.z'] = 'xyz'
+        expected_dict['Main.other'] = 'ABC' # the dummy workflow capitalizes the string
         returned_dict = fill_wdl_input(payload)
         self.assertEqual(returned_dict, expected_dict)
 
@@ -1050,19 +1051,21 @@ class ViewUtilsTest(TestCase):
         '''
         mock_request = mock.MagicMock(user=self.regular_user)
 
-        # create a correct dict and assert that's ok:
+        # get the workflow:
+        wf = Workflow.objects.get(workflow_id=14, version_id=1)
         r1_pk = self.r1.pk
         r2_pk = self.r2.pk
         payload = {}
-        payload[WORKFLOW_ID] = 14
-        payload[VERSION_ID] = 1
+        payload[USER_PK] = self.regular_user.pk
+        payload[WORKFLOW_LOCATION] = wf.workflow_location
+        payload[WORKFLOW_PK] = wf.pk
         payload['input_files'] = [r1_pk, r2_pk]
         payload['TestWorkflow.outputFilename'] = 'output.txt'
         expected_dict = {}
         expected_dict['TestWorkflow.outputFilename'] = 'output.txt'
         expected_dict['TestWorkflow.inputs'] = [self.r1.path, self.r2.path]
-        with self.assertRaises(Exception):
-            fill_wdl_input(mock_request, payload)
+        with self.assertRaises(InputMappingException):
+            fill_wdl_input(payload)
 
     def test_fill_wdl_template_case9(self):
         '''

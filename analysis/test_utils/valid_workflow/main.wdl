@@ -1,35 +1,42 @@
-workflow TestWorkflow {
-    
-    Array[File] inputs
-    String outputFilename
+workflow Main {
+    String z
+    String other
 
-    call concat{
-        input: myfiles=inputs,
-            outFilename=outputFilename
+    call sleep {
+        input:
+            z = z
     }
 
     output {
-        File outFile = concat.fout
+        File output = sleep.my_output
     }
 
     meta {
-        workflow_title : "Concatenation flow"
-        workflow_short_description : "For concatenating..."
-        workflow_long_description : "Use this workflow for concatenating a number of files into a single file."
-
+        workflow_title : "Dummy workflow"
+        workflow_short_description : "For testing..."
+        workflow_long_description : "For testing"
     }
 }
 
-task concat {
-    Array[File] myfiles
-    String outFilename
+task sleep {
 
-    command{
-        cat ${sep=" " myfiles} > ${outFilename}
-    }  
-
-    output {
-        File fout = "${outFilename}"
+    String z
+    Int disk_size = 10
+    command {
+        echo "start"
+        echo ${z} >> "something.txt"
+        echo "stop"
     }
 
+    output {
+         File my_output = "something.txt"        
+    }
+
+    runtime {
+        docker: "docker.io/blawney/basic_debian:v0.1"
+        cpu: 2
+        memory: "2 G"
+        disks: "local-disk " + disk_size + " HDD"
+        preemptible: 0
+    }
 }

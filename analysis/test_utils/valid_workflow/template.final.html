@@ -1,75 +1,79 @@
-{% extends 'base.html' %}
-{% block content %}
 
-        <form id="analysis-creation-form" action="">
+{% extends 'base.html' %}
+{% load static %}
+
+
+
+{% block page_specific_css %}
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
+    <link rel="stylesheet" href="{{form_css}}"></script>
+{% endblock %}
+
+
+
+{% block content%}
+
+
+<div class="analysis-form">
+        <h3>
+        
+            {{workflow_title}}
+        
+        </h3>
+        <p>
+        
+            {{workflow_long_description}}
+        
+        </p>
+        <div id="analysis-creation-form" submit_url="{{submit_url}}" >
 		
 		{% csrf_token %}
 		
-                <input type="hidden" id="workflow_id" name="workflow_id" value="" dataTarget="workflow_id">
-                <input type="hidden" id="version_id" name="version_id" value="" dataTarget="version_id">
 
 		<!-- Form elements are inserted here -->
 		
-			<h3>
-    Input files:
-</h3>
-<p>
-    Choose files to concatenate
-</p>
-<table id="chooser-table-0" class="custom-table"
-    
-    multiple-select-enabled
-    
-    dataTarget="input_files"
->
-    <thead>
-        <tr>
-            <th>
-                
-                <input 
-                    class="select-all-checkbox" 
-                    table-target="chooser-table-0" 
-                    type="checkbox"/>
-                
-
-            </th>
-            <th>Filename</th>
-            <th>File size</th>
-        </tr>
-    </thead>
-    <tbody>
-        
-        {% for resource in user_resources %}
-        <tr>
-            <td>
-                <input class="download-selector" type="checkbox" target="{{resource.id}}"/>
-            </td>
-            <td>
-                {{resource.name}}
-            </td>
-            <td>
-                {{resource.human_readable_size}}
-            </td>
-        </tr>`
-        {% endfor %}
-        
-    </tbody>
-</table>
-		
 			<div class="form-group">
-    <label for="1">Output filename:</label>
+    <h4><label for="0">Text entry:</label></h4>
+    <p>
+        Just enter some text
+    </p>
     <input type="text" 
         class="form-control" 
-        name="TestWorkflow.outputFilename" 
-        id="1"  
+        name="Main.z" 
+        id="text-0"  
         placeholder=""
-        maxlength="" 
-        minlength="" 
-        required 
-        dataTarget="TestWorkflow.outputFilename"
+        maxlength="1000" 
+        minlength="0" 
+        dataTarget="Main.z"
+        input_textbox
     >
 </div>
 		
-		<button id="submit-form" class="btn btn-primary">Next</button>			
-        </form>{% endblock%}
+			<div class="form-group">
+    <h4><label for="1">More text entry:</label></h4>
+    <p>
+        Just enter some more text.  This text will be capitalized.
+    </p>
+    <input type="text" 
+        class="form-control" 
+        name="other_input" 
+        id="text-1"  
+        placeholder=""
+        maxlength="1000" 
+        minlength="0" 
+        dataTarget="other_input"
+        input_textbox
+    >
+</div>
+		
+		<button id="submit-form" class="btn btn-primary">Analyze</button>			
+        </div>
+</div>
 
+{% endblock %}
+
+
+
+{% block page_specific_js %}
+    <script type="text/javascript" src="{{form_javascript}}"></script>
+{% endblock %}
