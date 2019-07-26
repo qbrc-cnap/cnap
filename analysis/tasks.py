@@ -148,7 +148,11 @@ def fill_wdl_input(data):
                     module_name = module_location + '.' + module_name
                     mod = import_module(module_name)
                     print('Imported module %s' % module_name)
-                    map_dict = mod.map_inputs(user, data, target[settings.NAME], target[settings.TARGET_IDS])
+                    try:
+                        map_dict = mod.map_inputs(user, data, target[settings.NAME], target[settings.TARGET_IDS])
+                    except Exception as ex:
+                        raise InputMappingException('An exception as raised when attempting to map the frontend data.  '
+                            'Module name was %s, inputs were: %s\n%s\n%s' % (module_name, data,  target[settings.NAME], target[settings.TARGET_IDS]))
                     print('Result of input mapping: %s' % map_dict)
                     for key, val in map_dict.items():
                         if key in wdl_input_dict:
