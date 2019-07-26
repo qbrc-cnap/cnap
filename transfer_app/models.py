@@ -62,7 +62,7 @@ class Transfer(models.Model):
     resource = models.ForeignKey(Resource, on_delete=models.CASCADE)
 
     # where the Resource is going (e.g. a URL)
-    destination = models.CharField(null=False, max_length=1000)
+    destination = models.TextField(null=False, max_length=1000)
 
     # has the Transfer completed?  This does NOT indicate success.  
     # A Transfer can be marked complete if it has tried and we have 
