@@ -233,8 +233,10 @@ class GoogleEnvironmentDownloadTestCase(TestCase):
         a proper download.
         '''
         downloader_cls = downloaders.get_downloader(self.destination)
-        originator_pk = 2
-        resource_pks = [1,2]
+        originator_pk = self.regular_user.pk
+        all_resources = Resource.objects.filter(owner=originator_pk, is_active=True, originated_from_upload=False)
+        resource_subset = [all_resources[0], all_resources[1]]
+        resource_pks = [x.pk for x in resource_subset]
         expected_return = [
             {
                 'resource_pk':x,  
@@ -348,11 +350,14 @@ class GoogleEnvironmentDownloadTestCase(TestCase):
         '''
 
         downloader_cls = downloaders.get_downloader(self.destination)
+
+        # get two Resources owned by the regular user:
+        owner = self.regular_user
+        all_user_resources = Resource.objects.filter(owner=owner, is_active=True, originated_from_upload=False)
         
         # create a Transfer that is ongoing:
         tc = TransferCoordinator.objects.create()
-        resource_pk = 1
-        resource = Resource.objects.get(pk=resource_pk)
+        resource = all_user_resources[0]
         t = Transfer.objects.create(
             download=True,
             resource = resource,
@@ -363,8 +368,8 @@ class GoogleEnvironmentDownloadTestCase(TestCase):
 
         # prep the download info as is usually performed:
         originator_pk = self.regular_user.pk
-        resource_pks = [1,2] # note that we are requesting the same transfer with pk=1
-
+        other_resource = all_user_resources[1]
+        resource_pks = [resource.pk,other_resource.pk] # note that we are requesting the same transfer
         download_info, errors = downloader_cls.check_format(resource_pks, originator_pk)
         self.assertTrue(len(download_info) == 1)
         self.assertTrue(len(errors) == 1)
@@ -376,11 +381,15 @@ class GoogleEnvironmentDownloadTestCase(TestCase):
         '''
 
         downloader_cls = downloaders.get_downloader(self.destination)
-        
+
+        # get two Resources owned by the regular user:
+        owner = self.regular_user
+        all_user_resources = Resource.objects.filter(owner=owner, is_active=True, originated_from_upload=False)
+
         # create a Transfer that is ongoing:
         tc = TransferCoordinator.objects.create()
-        resource_pk = 1
-        resource = Resource.objects.get(pk=resource_pk)
+        resource = all_user_resources[0]
+        resource_pk = resource.pk
         t = Transfer.objects.create(
             download=True,
             resource = resource,
@@ -391,7 +400,8 @@ class GoogleEnvironmentDownloadTestCase(TestCase):
 
         # prep the download info as is usually performed:
         originator_pk = self.admin_user.pk
-        resource_pks = [1,2] # note that we are requesting the same transfer with pk=1
+        other_resource = all_user_resources[1]
+        resource_pks = [resource.pk,other_resource.pk] # note that we are requesting the same transfer
 
         download_info, errors = downloader_cls.check_format(resource_pks, originator_pk)
         self.assertTrue(len(download_info) == 2)
@@ -667,8 +677,12 @@ class GoogleDriveDownloadTestCase(GoogleEnvironmentDownloadTestCase):
         mock_httplib, \
         mock_google_credentials_module, \
         mock_build):
-        download_info = [{'resource_pk':1, 'owner':2},{'resource_pk':2, 'owner':2}]
 
+        reguser = get_user_model().objects.get(email=settings.REGULAR_TEST_EMAIL)
+        resources = Resource.objects.filter(owner=reguser, originated_from_upload=False)
+        download_info = []
+        for r in resources:
+            download_info.append({'resource_pk':r.pk, 'owner':reguser.pk})
         mock_parser = mock.MagicMock()
         content = b'{"access_token": "foo"}' # a json-format string
         mock_parser.request.return_value = (None, content)

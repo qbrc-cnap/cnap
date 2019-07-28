@@ -972,17 +972,17 @@ class ViewUtilsTest(TestCase):
         '''
         mock_request = mock.MagicMock(user=self.regular_user)
 
-        r1_pk = self.r1.pk
-        r2_pk = self.r2.pk
-        valid_workflow = Workflow.objects.get(workflow_id=1, version_id=1)
+        # create a correct dict and assert that's ok:
         payload = {}
+        valid_workflow = Workflow.objects.get(workflow_id=1, version_id=1)
         payload[USER_PK] = self.regular_user.pk
         payload[WORKFLOW_LOCATION] = valid_workflow.workflow_location
-        payload['input_files'] = [r1_pk, r2_pk]
-        payload['TestWorkflow.outputFilename'] = 'output.txt'
+        payload[WORKFLOW_PK] = valid_workflow.pk
+        payload['Main.z'] = 'xyz'
+        payload['other_input'] = 'abc'
         expected_dict = {}
-        expected_dict['TestWorkflow.outputFilename'] = 'output.txt'
-        expected_dict['TestWorkflow.inputs'] = [self.r1.path, self.r2.path]
+        expected_dict['Main.z'] = 'xyz'
+        expected_dict['Main.other'] = 'ABC' # the dummy workflow capitalizes the string
         returned_dict = fill_wdl_input(payload)
         self.assertEqual(returned_dict, expected_dict)
 

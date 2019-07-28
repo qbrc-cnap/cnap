@@ -19,6 +19,7 @@ from django.http import HttpResponseRedirect, HttpResponse, JsonResponse
 from django.urls import reverse
 from django.contrib.sites.models import Site
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ObjectDoesNotExist
 from rest_framework.exceptions import MethodNotAllowed
 
 import dropbox.dropbox as dropbox_module
