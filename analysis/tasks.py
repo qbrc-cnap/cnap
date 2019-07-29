@@ -692,9 +692,8 @@ def copy_pipeline_components(job):
         stat_info = os.stat(p)
         size_in_bytes = stat_info.st_size
 
-        destination_bucket = settings.CONFIG_PARAMS['storage_bucket_prefix']
-        object_name = os.path.join( str(job.project.owner.user_uuid), \
-            str(job.project.analysis_uuid), \
+        destination_bucket = '%s-%s' % (settings.CONFIG_PARAMS['storage_bucket_prefix'], str(job.project.owner.user_uuid))
+        object_name = os.path.join( str(job.project.analysis_uuid), \
             job.job_id, \
             os.path.basename(p)
         )
