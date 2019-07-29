@@ -15,7 +15,7 @@ from celery.decorators import task
 from django.urls import reverse
 from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
-from googleapiclient.discovery import build as google_api_build
+import google
 from google.cloud import storage
 
 from helpers import utils
@@ -376,6 +376,19 @@ def prep_workflow(data):
         return wdl_input_dict
 
 
+def get_zone_as_string():
+    '''
+    Returns the current zone as a string
+    '''
+    try:
+        current_zone = CurrentZone.objects.all()[0]
+        return current_zone.zone.zone
+    except IndexError:
+        message = 'A current zone has not set.  Please check that a single zone has been selected in the database'
+        handle_exception(None, message=message)
+        return None
+
+
 def execute_wdl(analysis_project, staging_dir, run_precheck=False):
     '''
     This function performs the actual work of submitting the job
@@ -398,13 +411,10 @@ def execute_wdl(analysis_project, staging_dir, run_precheck=False):
 
     # load the options file so we can fill-in the zones:
     options_json = {}
-    try:
-        current_zone = CurrentZone.objects.all()[0]
-    except IndexError:
-        message = 'A current zone has not set.  Please check that a single zone has been selected in the database'
-        handle_exception(None, message=message)
+    current_zone = get_zone_as_string()
+    if current_zone:
+        options_json['default_runtime_attributes'] = {'zones': current_zone}
 
-    options_json['default_runtime_attributes'] = {'zones': current_zone.zone.zone}
     options_json_str = json.dumps(options_json)
     options_io = io.BytesIO(options_json_str.encode('utf-8'))
 
@@ -520,46 +530,71 @@ def get_resource_size(path):
     TODO: abstract this for different cloud providers!!
     '''
     if settings.CONFIG_PARAMS['cloud_environment'] == settings.GOOGLE:
-        client = google_api_build('storage', 'v1')
+        storage_client = storage.Client()
         bucket_prefix = settings.CONFIG_PARAMS['google_storage_gs_prefix']
         p = path[len(bucket_prefix):]
         bucketname = p.split('/')[0]
         objectname = '/'.join(p.split('/')[1:])
-        response = client.objects().get(bucket=bucketname, object=objectname).execute()
-        return int(response['size'])
+        bucket_obj = storage_client.get_bucket(bucketname)
+        blob = bucket_obj.get_blob(objectname)
+        size = blob.size
+        if size:
+            return size
+        else:
+            return 0
     else:
         raise Exception('Have not implemented for this cloud provider yet')
 
 
-def move_resource_to_user_bucket(storage_client, job, resource_path):
+def move_resource_to_user_bucket(job, resource_path):
     '''
     Copies the final job output from the cromwell bucket to the user's bucket/folder
     '''
-    # move the resource into the user's bucket:
-    destination_bucket = settings.CONFIG_PARAMS[ \
+    storage_client = storage.Client()
+
+    # Creates the necessary items for the destination of this file
+    # strip the prefix (e.g. "gs://")
+    destination_bucket_prefix = settings.CONFIG_PARAMS[ \
         'storage_bucket_prefix' \
         ][len(settings.CONFIG_PARAMS['google_storage_gs_prefix']):]
-    destination_object = os.path.join( str(job.project.owner.user_uuid), \
-        str(job.project.analysis_uuid), \
+    destination_bucket_name = '%s-%s' % (destination_bucket_prefix, str(job.project.owner.user_uuid)) # <prefix>-<uuid>
+    destination_object_name = os.path.join(str(job.project.analysis_uuid), \
         job.job_id, \
         os.path.basename(resource_path)
     )
     full_destination_with_prefix = '%s%s/%s' % (settings.CONFIG_PARAMS['google_storage_gs_prefix'], 
-        destination_bucket, \
-        destination_object \
+        destination_bucket_name, \
+        destination_object_name \
     )
+    # now that we have the paths/names, create the class objects representing these things:
+        
+    # typically this bucket would already exist due to a previous upload, but 
+    # we create the bucket if it does not exist 
+    try:
+        destination_bucket = storage_client.get_bucket(destination_bucket_name)
+    except google.api_core.exceptions.NotFound:
+        b = storage.Bucket(destination_bucket_name)
+        b.name = bucket_name
+        zone_str = get_zone_as_string() # if the zone is (somehow) not set, this will be None
+        # if zone_str was None, b.location=None, which is the default (and the created bucket is multi-regional)
+        b.location = '-'.join(z.split('-')[:-1]) # e.g. makes 'us-east4-c' into 'us-east4'
+        destination_bucket = storage_client.create_bucket(b)
+
+    # now handle the source side of things:
     full_source_location_without_prefix = resource_path[len(settings.CONFIG_PARAMS['google_storage_gs_prefix']):]
-    source_bucketname = full_source_location_without_prefix.split('/')[0]
-    source_objectname = '/'.join(full_source_location_without_prefix.split('/')[1:])
+    source_bucket_name = full_source_location_without_prefix.split('/')[0]
+    source_object_name = '/'.join(full_source_location_without_prefix.split('/')[1:])
+    source_bucket = storage_client.get_bucket(source_bucket_name)
+    source_blob = storage.Blob(source_object_name, source_bucket)
 
     copied = False
     attempts = 0
     while ((not copied) and (attempts < MAX_COPY_ATTEMPTS)):
         try:
-            response = storage_client.objects().copy(sourceBucket=source_bucketname, \
-                sourceObject=source_objectname, \
-                destinationBucket=destination_bucket, \
-                destinationObject=destination_object, body={}).execute()
+            source_bucket.copy_blob(source_blob, \
+                destination_bucket, \
+                new_name=destination_object_name \
+            )
             copied = True
         except Exception as ex:
             print('Copy failed.  Sleep and try again.')
@@ -598,11 +633,9 @@ def register_outputs(job):
             outputs = response_json['outputs']
             output_filepath_list = parse_outputs(outputs)
             environment = settings.CONFIG_PARAMS['cloud_environment']
-            storage_client = google_api_build('storage', 'v1')
             for p in output_filepath_list:
                 size_in_bytes = get_resource_size(p)
                 full_destination_with_prefix = move_resource_to_user_bucket(
-                    storage_client, 
                     job,  
                     p
                 )

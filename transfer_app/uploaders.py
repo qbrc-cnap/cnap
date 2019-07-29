@@ -311,9 +311,9 @@ class GoogleEnvironmentUploader(EnvironmentSpecificUploader, GoogleBase):
         # If the filenames are invalid, it throws an exception.
         path_list = [] # keep track of the destinations-- in case two files with the same name are selected (fringe case!)
         for item_dict in upload_info:
-            bucket_name = os.path.join(
+            bucket_name = os.path.join('%s-%s' % (
                 settings.CONFIG_PARAMS['storage_bucket_prefix'], 
-                str(item_dict['user_uuid']),
+                str(item_dict['user_uuid'])),
                 UPLOADS_FOLDER_NAME
                 )
             item_name = item_dict['name']
