@@ -16,7 +16,7 @@ google-auth==1.6.1
 google-auth-httplib2==0.0.3
 google-auth-oauthlib==0.2.0
 google-cloud-core==0.29.1
-google-cloud-storage==1.14.0
+google-cloud-storage==1.17.0
 google-resumable-media==0.3.2
 googleapis-common-protos==1.5.9
 gunicorn==19.9.0
