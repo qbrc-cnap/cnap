@@ -577,7 +577,8 @@ def move_resource_to_user_bucket(job, resource_path):
         b.name = bucket_name
         zone_str = get_zone_as_string() # if the zone is (somehow) not set, this will be None
         # if zone_str was None, b.location=None, which is the default (and the created bucket is multi-regional)
-        b.location = '-'.join(z.split('-')[:-1]) # e.g. makes 'us-east4-c' into 'us-east4'
+        if zone_str:
+            b.location = '-'.join(zone_str.split('-')[:-1]) # e.g. makes 'us-east4-c' into 'us-east4'
         destination_bucket = storage_client.create_bucket(b)
 
     # now handle the source side of things:
