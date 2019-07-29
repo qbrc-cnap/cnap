@@ -74,7 +74,10 @@ def send_to_bucket(local_filepath, params, logger):
 		logger.log_text('Bucket did not exist.  Creating now...')
 		# try to create the bucket:
 		try:
-			destination_bucket = storage_client.create_bucket(bucket_name)
+			b = storage.Bucket(bucket_name)
+			b.name = bucket_name
+			b.location = '-'.join(params['google_zone'].split('-')[:-1])
+			destination_bucket = storage_client.create_bucket(b)
 		except google.api_core.exceptions.BadRequest as ex2:
 			logger.log_text('Still could not create the bucket.  Error was %s' % ex2)
 			raise Exception('Could not find or create bucket.  Error was ' % ex2)
