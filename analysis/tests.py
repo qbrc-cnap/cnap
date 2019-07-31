@@ -13,6 +13,7 @@ from django.contrib.auth import get_user_model
 
 from analysis.models import Workflow, \
     AnalysisProject, \
+    AnalysisProjectResource, \
     SubmittedJob, \
     CompletedJob
 from base.models import Resource, AvailableZones, CurrentZone
@@ -321,7 +322,7 @@ class TasksTestCase(TestCase):
         mock_time.sleep.assert_not_called()
 
 
-    @mock.patch('analysis.tasks.google_api_build')
+    @mock.patch('analysis.tasks.move_resource_to_user_bucket')
     @mock.patch('analysis.tasks.parse_outputs')
     @mock.patch('analysis.tasks.get_resource_size')
     @mock.patch('analysis.tasks.handle_exception')
@@ -331,7 +332,7 @@ class TasksTestCase(TestCase):
         mock_handle_ex, 
         mock_resource_size,
         mock_output_parser,
-        mock_api_build
+        mock_move_resource_to_user_bucket
     ):
         '''
         This test covers the case when the job has finished.  After it has finished, 
@@ -354,11 +355,19 @@ class TasksTestCase(TestCase):
 
         mock_requests.get.return_value = mock_response
         
-        mock_storage_client = mock.MagicMock()
-        mock_api_build.return_value = mock_storage_client
+        user_bucket_path = 'prefix://user-bucket/xyz'
+        mock_move_resource_to_user_bucket.return_value = user_bucket_path
 
         register_outputs(mock_job)
+
+        # check that we have a Resource now:
         expected_resource = Resource.objects.get(name='foo.txt')
+        self.assertEqual(expected_resource.path, user_bucket_path)
+
+        # check that we also have an AnalysisResource:
+        a = AnalysisProjectResource.objects.get(analysis_project=mock_job.project, \
+            resource=expected_resource)
+
 
     def test_output_parser_case1(self):
         '''
