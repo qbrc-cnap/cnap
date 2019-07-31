@@ -311,8 +311,11 @@ class GoogleEnvironmentDownloadTestCase(TestCase):
         downloader_cls = downloaders.get_downloader(self.destination)
         
         # prep the download info as is usually performed:
-        originator_pk = 2
-        resource_pks = [1,2]
+        originator = self.regular_user
+        originator_pk = originator.pk
+        all_user_resources = Resource.objects.filter(owner=originator, is_active=True, originated_from_upload=False)
+        
+        resource_pks = [all_user_resources[i].pk for i in range(2) ]
         download_info = [
             {
                 'resource_pk':x,  
@@ -491,7 +494,12 @@ class GoogleDropboxDownloadTestCase(GoogleEnvironmentDownloadTestCase):
     @mock.patch('transfer_app.downloaders.httplib2')
     @mock.patch('transfer_app.downloaders.transfer_tasks')
     def test_download_finish_auth(self, mock_tasks, mock_httplib, mock_dropbox_mod):
-        download_info = [{'resource_pk':1, 'owner':2},{'resource_pk':2, 'owner':2}]
+
+        reguser = get_user_model().objects.get(email=settings.REGULAR_TEST_EMAIL)
+        resources = Resource.objects.filter(owner=reguser, originated_from_upload=False)
+        download_info = []
+        for r in resources:
+            download_info.append({'resource_pk':r.pk, 'owner':reguser.pk})
 
         mock_parser = mock.MagicMock()
         content = b'{"access_token": "foo"}' # a json-format string
