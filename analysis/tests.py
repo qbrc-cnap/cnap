@@ -193,26 +193,30 @@ class TasksTestCase(TestCase):
 
 
     @mock.patch('analysis.tasks.time')
-    def test_handle_error_with_resource_interbucket_copy(self, mock_time):
+    @mock.patch('analysis.tasks.storage')
+    def test_handle_error_with_resource_interbucket_copy(self, mock_storage, mock_time):
         '''
         This test covers the case where an inter-bucket copy fails due to some
         reason on google's end.  Test that we try multiple times and eventually
         gracefully fail.
         '''
-        mock_objects_func = mock.MagicMock()
-        mock_objects = mock.MagicMock()
-        mock_objects_func.return_value = mock_objects
+        # in the method, we instantiate storage.Client and storage.Blob instances
+        mock_client = mock.MagicMock()
+        mock_blob = mock.MagicMock()
+        mock_bucket = mock.MagicMock()
 
-        mock_copy = mock.MagicMock()
-        mock_that_raises_ex = mock.MagicMock(side_effect=Exception('Some backend ex!'))
-        mock_copy.execute = mock_that_raises_ex
-        mock_objects.copy.return_value = mock_copy
+        # we call the get_bucket method twice.  The first time is to retrieve
+        # a destination bucket, the second time is to get the source
+        # bucket.  We ultimately call the 'copy_blob' method on the
+        # source bucket, so we mock the return to contain a copy_blob
+        # method which raises some exception (faking a problem with the copy)
+        copy_ex = Exception('Some copy problem!')
+        mock_bucket.copy_blob.side_effect = copy_ex
 
-        class MockStorageClient(object):
-            def __init__(self, object_attr_mock):
-                self.objects = object_attr_mock
-
-        mock_storage_client = MockStorageClient(mock_objects_func)
+        # add the mocks to the callers:
+        mock_client.get_bucket.return_value = mock_bucket
+        mock_storage.Client.return_value = mock_client
+        mock_storage.Blob.return_value = mock_blob
 
         mock_time.sleep = mock.MagicMock()
 
@@ -223,7 +227,6 @@ class TasksTestCase(TestCase):
 
         with self.assertRaises(JobOutputCopyException):
             move_resource_to_user_bucket(
-                mock_storage_client, 
                 job, 
                 'gs://some-bucket/some-path.txt'
             )
