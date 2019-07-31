@@ -273,12 +273,14 @@ class TestWorkflowIngestion(TestCase):
             inspect_handler_module('/some/path/bar.py', 'myfunc', 1)
 
 
-    @mock.patch('workflow_ingestion.ingest_workflow.perform_query')
-    def test_docker_tag_correctly_found(self, mock_perform_query):
+    @mock.patch('workflow_ingestion.ingest_workflow.utils')
+    def test_docker_tag_correctly_found(self, mock_utils):
         '''
         This tests that an exception is raised if there is no docker
         image with the tag
         '''
+        mock_perform_query = mock.MagicMock()
+        mock_utils.perform_get_query = mock_perform_query
         mock_perform_query.return_value = {
             'count':3,
             'next': None,
@@ -290,12 +292,14 @@ class TestWorkflowIngestion(TestCase):
         }
         self.assertTrue(query_for_tag('url', 'v1.1'))
 
-    @mock.patch('workflow_ingestion.ingest_workflow.perform_query')
-    def test_docker_tag_correctly_found_case2(self, mock_perform_query):
+    @mock.patch('workflow_ingestion.ingest_workflow.utils')
+    def test_docker_tag_correctly_found_case2(self, mock_utils):
         '''
         This tests that an exception is raised if there is no docker
         image with the tag
         '''
+        mock_perform_query = mock.MagicMock()
+        mock_utils.perform_get_query = mock_perform_query
         mock_perform_query.return_value = {
             'count':1,
             'next': None,
@@ -305,12 +309,14 @@ class TestWorkflowIngestion(TestCase):
         }
         self.assertTrue(query_for_tag('url', 'v1.2'))
 
-    @mock.patch('workflow_ingestion.ingest_workflow.perform_query')
-    def test_reject_ingestion_if_no_docker_tag_case1(self, mock_perform_query):
+    @mock.patch('workflow_ingestion.ingest_workflow.utils')
+    def test_reject_ingestion_if_no_docker_tag_case1(self, mock_utils):
         '''
         This tests that an exception is raised if there is no docker
         image with the tag
         '''
+        mock_perform_query = mock.MagicMock()
+        mock_utils.perform_get_query = mock_perform_query
         mock_perform_query.return_value = {
             'count':3,
             'next': None,
