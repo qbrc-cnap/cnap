@@ -310,9 +310,12 @@ class GoogleEnvironmentDownloadTestCase(TestCase):
 
         downloader_cls = downloaders.get_downloader(self.destination)
         
+        originator_pk = self.regular_user.pk
+        all_resources = Resource.objects.filter(owner=originator_pk, is_active=True, originated_from_upload=False)
+        resource_subset = [all_resources[0], all_resources[1]]
+        resource_pks = [x.pk for x in resource_subset]
+
         # prep the download info as is usually performed:
-        originator_pk = 2
-        resource_pks = [1,2]
         download_info = [
             {
                 'resource_pk':x,  
