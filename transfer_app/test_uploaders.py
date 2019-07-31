@@ -11,7 +11,7 @@ from django.urls import reverse
 from django.contrib.auth import get_user_model
 from django.conf import settings
 
-from base.models import Resource
+from base.models import Resource, AvailableZones, CurrentZone
 from transfer_app.models import Transfer, TransferCoordinator
 import transfer_app.uploaders as uploaders
 import base.exceptions as exceptions
@@ -63,6 +63,13 @@ class DropboxGoogleUploadInitTestCase(TestCase):
         settings.CONFIG_PARAMS['cloud_environment'] = settings.GOOGLE
         self.bucket_name = 'gs://cnap-storage-bucket'
         settings.CONFIG_PARAMS['storage_bucket_prefix'] = self.bucket_name
+
+        # create available/current zones (does not matter what they are, just that the database returns something
+        avail_zone = AvailableZones.objects.create(
+            cloud_environment = settings.GOOGLE,
+            zone = 'us-east-X'
+        )
+        current_zone = CurrentZone.objects.create(zone=avail_zone)
 
     def test_reject_malformed_upload_request_for_dropbox_google_case1(self):
         '''
@@ -465,6 +472,13 @@ class DriveGoogleUploadInitTestCase(TestCase):
         self.bucket_name = 'gs://cnap-storage-bucket'
         settings.CONFIG_PARAMS['storage_bucket_prefix'] = self.bucket_name
 
+        # create available/current zones (does not matter what they are, just that the database returns something
+        avail_zone = AvailableZones.objects.create(
+            cloud_environment = settings.GOOGLE,
+            zone = 'us-east-X'
+        )
+        current_zone = CurrentZone.objects.create(zone=avail_zone)
+
     def test_reject_malformed_upload_request_for_drive_google_case1(self):
         '''
         This tests that improperly formatted requests are rejected
@@ -573,8 +587,8 @@ class DriveGoogleUploadInitTestCase(TestCase):
         upload_info = []
         upload_info.append({'file_id': 'abc123', 'name':'f1.txt', 'drive_token': 'fooToken'})
         upload_info.append({'file_id': 'def123', 'name':'f2.txt', 'drive_token': 'fooToken'})
-        user = get_user_model().objects.get(pk=1)
-        user_pk = 1
+        user = self.regular_user
+        user_pk = user.pk
         user_uuid = user.user_uuid
 
         # since the method below modifies the upload_info in-place, we need to copy the result
@@ -585,7 +599,7 @@ class DriveGoogleUploadInitTestCase(TestCase):
             edited_item['owner'] = user_pk
             edited_item['originator'] = user_pk
             edited_item['user_uuid'] = user_uuid
-            edited_item['destination'] = '%s/%s/%s/%s' % (self.bucket_name, 
+            edited_item['destination'] = '%s-%s/%s/%s' % (self.bucket_name, 
                 str(user_uuid), 
                 uploaders.UPLOADS_FOLDER_NAME, 
                 edited_item['name'])
@@ -604,7 +618,7 @@ class DriveGoogleUploadInitTestCase(TestCase):
         a list so that downstream methods can handle both cases consistently.
         '''
         upload_info = {'file_id': 'abc123', 'name':'f1.txt', 'drive_token': 'fooToken'}
-        user = get_user_model().objects.get(pk=1)
+        user = self.regular_user
         user_pk = user.pk
         user_uuid = user.user_uuid
 
@@ -617,7 +631,7 @@ class DriveGoogleUploadInitTestCase(TestCase):
             'originator': user_pk,
             'drive_token': 'fooToken',
             'user_uuid': user_uuid,
-            'destination': '%s/%s/%s/%s' % (self.bucket_name, 
+            'destination': '%s-%s/%s/%s' % (self.bucket_name, 
                 str(user_uuid), 
                 uploaders.UPLOADS_FOLDER_NAME, 
                 upload_info['name'])
@@ -635,7 +649,7 @@ class DriveGoogleUploadInitTestCase(TestCase):
         upload_info = []
         upload_info.append({'name':'f1.txt', 'token': 'fooToken'})
         upload_info.append({'file_id': 'def123', 'name':'f2.txt', 'drive_token': 'fooToken'})
-        user_pk = 1
+        user_pk = self.regular_user.pk
         with self.assertRaises(exceptions.ExceptionWithMessage):
             uploaders.DriveUploader.check_format(upload_info, user_pk)
 
@@ -646,7 +660,7 @@ class DriveGoogleUploadInitTestCase(TestCase):
         upload_info = []
         upload_info.append({'file_id': 'abc123', 'drive_token': 'fooToken'})
         upload_info.append({'file_id': 'def123', 'name':'f2.txt', 'drive_token': 'fooToken'})
-        user_pk = 1
+        user_pk = self.regular_user.pk
         with self.assertRaises(exceptions.ExceptionWithMessage):
             uploaders.DriveUploader.check_format(upload_info, user_pk)
 
@@ -657,9 +671,10 @@ class DriveGoogleUploadInitTestCase(TestCase):
         is making the request.  Since they are are not admin, they can only assign to themself
         '''
         upload_info = []
-        upload_info.append({'file_id': 'abc123', 'name':'f1.txt', 'drive_token': 'fooToken', 'owner':2})
-        upload_info.append({'file_id': 'def123', 'name':'f2.txt', 'drive_token': 'fooToken', 'owner':2})
-        user_pk = 3
+        other_user_pk = self.other_user.pk
+        upload_info.append({'file_id': 'abc123', 'name':'f1.txt', 'drive_token': 'fooToken', 'owner':other_user_pk})
+        upload_info.append({'file_id': 'def123', 'name':'f2.txt', 'drive_token': 'fooToken', 'owner':other_user_pk})
+        user_pk = self.regular_user.pk
         with self.assertRaises(exceptions.ExceptionWithMessage):
             uploaders.DriveUploader.check_format(upload_info, user_pk)
 
@@ -668,9 +683,11 @@ class DriveGoogleUploadInitTestCase(TestCase):
         Checks that cannot use the primary key of a non-existant user
         '''
         upload_info = []
-        upload_info.append({'file_id': 'abc123', 'name':'f1.txt', 'drive_token': 'fooToken', 'owner':5})
-        upload_info.append({'file_id': 'def123', 'name':'f2.txt', 'drive_token': 'fooToken', 'owner':5})
-        user_pk = 5
+        existing_pks = [x.pk for x in get_user_model().objects.all()]
+        nonexistent_pk = max(existing_pks) + 1
+        upload_info.append({'file_id': 'abc123', 'name':'f1.txt', 'drive_token': 'fooToken', 'owner':nonexistent_pk})
+        upload_info.append({'file_id': 'def123', 'name':'f2.txt', 'drive_token': 'fooToken', 'owner':nonexistent_pk})
+        user_pk = nonexistent_pk
         with self.assertRaises(exceptions.ExceptionWithMessage):
             uploaders.DriveUploader.check_format(upload_info, user_pk)
 
@@ -679,9 +696,9 @@ class DriveGoogleUploadInitTestCase(TestCase):
         Checks that self-assignment works when the request contains the user's pk
         '''
         upload_info = []
-        upload_info.append({'file_id': 'abc123', 'name':'f1.txt', 'drive_token': 'fooToken', 'owner':2})
-        upload_info.append({'file_id': 'def123', 'name':'f2.txt', 'drive_token': 'fooToken', 'owner':2})
-        user_pk = 2
+        user_pk = self.regular_user.pk
+        upload_info.append({'file_id': 'abc123', 'name':'f1.txt', 'drive_token': 'fooToken', 'owner':user_pk })
+        upload_info.append({'file_id': 'def123', 'name':'f2.txt', 'drive_token': 'fooToken', 'owner':user_pk })
         expected_dict = upload_info.copy()
         for item in expected_dict:
             item['originator'] = user_pk
@@ -693,13 +710,14 @@ class DriveGoogleUploadInitTestCase(TestCase):
         Here, an admin can assign ownership to someone else
         '''
         upload_info = []
-        upload_info.append({'file_id': 'abc123', 'name':'f1.txt', 'drive_token': 'fooToken', 'owner':2})
-        upload_info.append({'file_id': 'def123', 'name':'f2.txt', 'drive_token': 'fooToken', 'owner':2})
-        user_pk = 1
+        regular_user_pk = self.regular_user.pk
+        admin_pk = self.admin_user.pk
+        upload_info.append({'file_id': 'abc123', 'name':'f1.txt', 'drive_token': 'fooToken', 'owner':regular_user_pk})
+        upload_info.append({'file_id': 'def123', 'name':'f2.txt', 'drive_token': 'fooToken', 'owner':regular_user_pk})
         expected_dict = upload_info.copy()
         for item in expected_dict:
-            item['originator'] = user_pk
-        response = uploaders.DriveUploader.check_format(upload_info, user_pk)
+            item['originator'] = admin_pk
+        response = uploaders.DriveUploader.check_format(upload_info, admin_pk)
         self.assertEqual(response, expected_dict)
 
     @mock.patch.dict('transfer_app.uploaders.os.environ', {'GCLOUD': '/mock/bin/gcloud'})
@@ -712,11 +730,13 @@ class DriveGoogleUploadInitTestCase(TestCase):
         source = settings.GOOGLE_DRIVE
         uploader_cls = uploaders.get_uploader(source)
         self.assertEqual(uploader_cls, uploaders.GoogleDriveUploader)
+
         # prep the upload info as is usually performed:
+        user_pk = self.regular_user.pk
         upload_info = []
-        upload_info.append({'file_id': 'abc123', 'name':'f1.txt', 'drive_token': 'fooToken', 'owner':2})
-        upload_info.append({'file_id': 'def123', 'name':'f2.txt', 'drive_token': 'fooToken', 'owner':2})
-        upload_info, error_messages = uploader_cls.check_format(upload_info, 2)
+        upload_info.append({'file_id': 'abc123', 'name':'f1.txt', 'drive_token': 'fooToken', 'owner':user_pk})
+        upload_info.append({'file_id': 'def123', 'name':'f2.txt', 'drive_token': 'fooToken', 'owner':user_pk})
+        upload_info, error_messages = uploader_cls.check_format(upload_info, user_pk)
         
         # instantiate the class, but mock out the launcher.
         # Recall the launcher is the class that actually creates the worker VMs, which
@@ -745,14 +765,16 @@ class DriveGoogleUploadInitTestCase(TestCase):
         self.assertFalse(all_tc[0].completed) # the transfer coord is also not completed
 
     @mock.patch.dict('transfer_app.uploaders.os.environ', {'GCLOUD': '/mock/bin/gcloud'})
-    def test_drive_uploader_on_google_params_single(self):
+    @mock.patch('transfer_app.uploaders.transfer_utils')
+    def test_drive_uploader_on_google_params_single(self, mock_transfer_utils):
         
         source = settings.GOOGLE_DRIVE
         uploader_cls = uploaders.get_uploader(source)
         self.assertEqual(uploader_cls, uploaders.GoogleDriveUploader)
 
-        upload_info = {'file_id': 'abc123', 'name':'f1.txt', 'drive_token': 'fooToken', 'owner':2}
-        upload_info, error_messages = uploader_cls.check_format(upload_info, 2)
+        user_pk = self.regular_user.pk
+        upload_info = {'file_id': 'abc123', 'name':'f1.txt', 'drive_token': 'fooToken', 'owner':user_pk}
+        upload_info, error_messages = uploader_cls.check_format(upload_info, user_pk)
         
         uploader = uploader_cls(upload_info)
         m = mock.MagicMock()
@@ -773,24 +795,26 @@ class DriveGoogleUploadInitTestCase(TestCase):
         self.assertFalse(all_tc[0].completed) # the transfer coord is also not completed
 
     @mock.patch.dict('transfer_app.uploaders.os.environ', {'GCLOUD': '/mock/bin/gcloud'})
-    def test_drive_uploader_on_google_disk_sizing(self):
+    @mock.patch('transfer_app.uploaders.transfer_utils')
+    def test_drive_uploader_on_google_disk_sizing(self, mock_transfer_utils):
 
-        
+        mock_transfer_utils.check_for_transfer_availability.return_value = None
+
         source = settings.GOOGLE_DRIVE
         uploader_cls = uploaders.get_uploader(source)
         self.assertEqual(uploader_cls, uploaders.GoogleDriveUploader)
         
         upload_info = []
         filesize = 100e9 # 100GB
+        user_pk = self.regular_user.pk
         upload_info.append({
                         'file_id': 'abc123',
                         'drive_token': 'fooToken', 
                         'name':'f1.txt', 
-                        'owner':2, 
+                        'owner':user_pk, 
                         'size_in_bytes': filesize})
 
-        upload_info, error_messages = uploader_cls.check_format(upload_info, 2)
-        
+        upload_info, error_messages = uploader_cls.check_format(upload_info, user_pk)
         uploader = uploader_cls(upload_info)
         uploader.config_params['disk_size_factor'] = 3
         m = mock.MagicMock()
