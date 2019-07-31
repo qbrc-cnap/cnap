@@ -13,7 +13,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
 from django.conf import settings
 
-from base.models import Resource
+from base.models import Resource, AvailableZones, CurrentZone
 from transfer_app.models import Transfer, TransferCoordinator
 import transfer_app.downloaders as downloaders
 import base.exceptions as exceptions
@@ -36,6 +36,13 @@ class GoogleEnvironmentDownloadTestCase(TestCase):
         self.admin_user = get_user_model().objects.create_user(email=settings.ADMIN_TEST_EMAIL, password='abcd123!', is_staff=True)
         self.regular_user = get_user_model().objects.create_user(email=settings.REGULAR_TEST_EMAIL, password='abcd123!')
         self.other_user = get_user_model().objects.create_user(email=settings.OTHER_TEST_EMAIL, password='abcd123!')
+
+        # create available/current zones (does not matter what they are, just that the database returns something
+        avail_zone = AvailableZones.objects.create(
+            cloud_environment = 'google',
+            zone = 'us-east-X'
+        )
+        current_zone = CurrentZone.objects.create(zone=avail_zone)
 
         # create a couple of resources owned by the regular user:
         r1 = Resource.objects.create(
@@ -310,12 +317,13 @@ class GoogleEnvironmentDownloadTestCase(TestCase):
 
         downloader_cls = downloaders.get_downloader(self.destination)
         
-        # prep the download info as is usually performed:
         originator = self.regular_user
         originator_pk = originator.pk
-        all_user_resources = Resource.objects.filter(owner=originator, is_active=True, originated_from_upload=False)
-        
-        resource_pks = [all_user_resources[i].pk for i in range(2) ]
+        all_resources = Resource.objects.filter(owner=originator, is_active=True, originated_from_upload=False)
+        resource_subset = [all_resources[0], all_resources[1]]
+        resource_pks = [x.pk for x in resource_subset]
+
+        # prep the download info as is usually performed:
         download_info = [
             {
                 'resource_pk':x,  
