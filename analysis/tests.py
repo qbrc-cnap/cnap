@@ -233,29 +233,33 @@ class TasksTestCase(TestCase):
 
 
     @mock.patch('analysis.tasks.time')
-    def test_interbucket_copy_recovers_from_initial_failure(self, mock_time):
+    @mock.patch('analysis.tasks.storage')
+    def test_interbucket_copy_recovers_from_initial_failure(self, mock_storage, mock_time):
         '''
         This test covers the case where an inter-bucket copy fails due to some
         reason on google's end.  Eventually it works, however.
         '''
-        mock_objects_func = mock.MagicMock()
-        mock_objects = mock.MagicMock()
-        mock_objects_func.return_value = mock_objects
+        # in the method, we instantiate storage.Client and storage.Blob instances
+        mock_client = mock.MagicMock()
+        mock_blob = mock.MagicMock()
+        mock_bucket = mock.MagicMock()
 
-        mock_copy = mock.MagicMock()
-        mock_that_raises_ex = mock.MagicMock(side_effect=[
-            Exception('Some backend ex!'),
-            Exception('Some backend ex!'),
+        # we call the get_bucket method twice.  The first time is to retrieve
+        # a destination bucket, the second time is to get the source
+        # bucket.  We ultimately call the 'copy_blob' method on the
+        # source bucket, so we mock the return to contain a copy_blob
+        # method which raises some exception (faking a problem with the copy)
+        mock_error = mock.MagicMock(side_effect=[
+            Exception('Some copy problem!'),
+            Exception('Some copy problem!'),
             None
         ])
-        mock_copy.execute = mock_that_raises_ex
-        mock_objects.copy.return_value = mock_copy
+        mock_bucket.copy_blob = mock_error
 
-        class MockStorageClient(object):
-            def __init__(self, object_attr_mock):
-                self.objects = object_attr_mock
-
-        mock_storage_client = MockStorageClient(mock_objects_func)
+        # add the mocks to the callers:
+        mock_client.get_bucket.return_value = mock_bucket
+        mock_storage.Client.return_value = mock_client
+        mock_storage.Blob.return_value = mock_blob
 
         mock_time.sleep = mock.MagicMock()
 
@@ -265,14 +269,13 @@ class TasksTestCase(TestCase):
         )
 
         r = move_resource_to_user_bucket(
-            mock_storage_client, 
             job, 
             'gs://some-bucket/some-path.txt'
         )
         destination_bucket = settings.CONFIG_PARAMS[ \
             'storage_bucket_prefix' \
             ][len(settings.CONFIG_PARAMS['google_storage_gs_prefix']):]
-        expected_r = 'gs://%s/%s/%s/%s/some-path.txt' % (destination_bucket, \
+        expected_r = 'gs://%s-%s/%s/%s/some-path.txt' % (destination_bucket, \
             job.project.owner.user_uuid, 
             job.project.analysis_uuid,
             job.job_id
