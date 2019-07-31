@@ -158,8 +158,8 @@ class DropboxGoogleUploadInitTestCase(TestCase):
         upload_info = []
         upload_info.append({'source_path': 'https://dropbox-link.com/1', 'name':'f1.txt'})
         upload_info.append({'source_path': 'https://dropbox-link.com/2', 'name':'f2.txt'})
-        user_pk = 1
-        user = get_user_model().objects.get(pk=user_pk)
+        user = self.regular_user
+        user_pk = user.pk
         user_uuid = user.user_uuid
 
         # since the method below modifies the upload_info in-place, we need to copy the result
@@ -170,7 +170,7 @@ class DropboxGoogleUploadInitTestCase(TestCase):
             edited_item['owner'] = user_pk
             edited_item['originator'] = user_pk
             edited_item['user_uuid'] = user_uuid
-            edited_item['destination'] = '%s/%s/%s/%s' % (self.bucket_name, 
+            edited_item['destination'] = '%s-%s/%s/%s' % (self.bucket_name, 
                 str(user_uuid), 
                 uploaders.UPLOADS_FOLDER_NAME, 
                 edited_item['name']
@@ -190,8 +190,8 @@ class DropboxGoogleUploadInitTestCase(TestCase):
         a list so that downstream methods can handle both cases consistently.
         '''
         upload_info = {'source_path': 'https://dropbox-link.com/1', 'name':'f1.txt'}
-        user_pk = 1
-        user = get_user_model().objects.get(pk=user_pk)
+        user = self.regular_user
+        user_pk = user.pk
         user_uuid = user.user_uuid        
 
         # since the method below modifies the upload_info in-place, we need to copy the result
@@ -202,7 +202,7 @@ class DropboxGoogleUploadInitTestCase(TestCase):
             'owner': user_pk,
             'originator': user_pk,
             'user_uuid': user_uuid,
-            'destination': '%s/%s/%s/%s' % (self.bucket_name, 
+            'destination': '%s-%s/%s/%s' % (self.bucket_name, 
                 str(user_uuid), 
                 uploaders.UPLOADS_FOLDER_NAME, 
                 upload_info['name'])
@@ -225,12 +225,12 @@ class DropboxGoogleUploadInitTestCase(TestCase):
         mock_datetime.datetime.now.return_value = d
         expected_stamp = d.strftime('%m%d%Y-%H%M%S')
 
-        user_pk = 1
-        user = get_user_model().objects.get(pk=user_pk)
+        user = self.regular_user
+        user_pk = user.pk
         user_uuid = user.user_uuid
 
         # create a Resource
-        resource_path = '%s/%s/%s/%s' % (self.bucket_name, 
+        resource_path = '%s-%s/%s/%s' % (self.bucket_name, 
                 str(user_uuid), 
                 uploaders.UPLOADS_FOLDER_NAME, 
                 'f1.txt'
@@ -261,7 +261,7 @@ class DropboxGoogleUploadInitTestCase(TestCase):
         edited_item['owner'] = user_pk
         edited_item['originator'] = user_pk
         edited_item['user_uuid'] = user_uuid
-        edited_item['destination'] = '%s/%s/%s/%s' % (self.bucket_name, 
+        edited_item['destination'] = '%s-%s/%s/%s' % (self.bucket_name, 
             str(user_uuid), 
             uploaders.UPLOADS_FOLDER_NAME, 
             expected_new_name
@@ -280,7 +280,7 @@ class DropboxGoogleUploadInitTestCase(TestCase):
         upload_info = []
         upload_info.append({'name':'f1.txt'})
         upload_info.append({'source_path': 'https://dropbox-link.com/2', 'name':'f2.txt'})
-        user_pk = 1
+        user_pk = self.regular_user.pk
         with self.assertRaises(exceptions.ExceptionWithMessage):
             uploaders.DropboxUploader.check_format(upload_info, user_pk)
 
@@ -291,7 +291,7 @@ class DropboxGoogleUploadInitTestCase(TestCase):
         upload_info = []
         upload_info.append({'source_path': 'https://dropbox-link.com/1'})
         upload_info.append({'source_path': 'https://dropbox-link.com/2', 'name':'f2.txt'})
-        user_pk = 1
+        user_pk = self.regular_user.pk
         with self.assertRaises(exceptions.ExceptionWithMessage):
             uploaders.DropboxUploader.check_format(upload_info, user_pk)
 
@@ -301,32 +301,34 @@ class DropboxGoogleUploadInitTestCase(TestCase):
         Here, the request specifices the owner with pk=2.  However, someone with user_pk=3
         is making the request.  Since they are are not admin, they can only assign to themself
         '''
+        user_pk = self.regular_user.pk
+        other_pk = self.other_user.pk
         upload_info = []
-        upload_info.append({'source_path': 'https://dropbox-link.com/1', 'name':'f1.txt', 'owner':2})
-        upload_info.append({'source_path': 'https://dropbox-link.com/2', 'name':'f2.txt', 'owner':2})
-        user_pk = 3
+        upload_info.append({'source_path': 'https://dropbox-link.com/1', 'name':'f1.txt', 'owner':user_pk})
+        upload_info.append({'source_path': 'https://dropbox-link.com/2', 'name':'f2.txt', 'owner':user_pk})
         with self.assertRaises(exceptions.ExceptionWithMessage):
-            uploaders.DropboxUploader.check_format(upload_info, user_pk)
+            uploaders.DropboxUploader.check_format(upload_info, other_pk)
 
     def test_dropbox_upload_format_checker_rejects_owner_case2(self):
         '''
         Checks that cannot use the primary key of a non-existant user
         '''
+        existing_pks = [x.pk for x in get_user_model().objects.all()]
+        nonexistent_pk = max(existing_pks) + 1
         upload_info = []
-        upload_info.append({'source_path': 'https://dropbox-link.com/1', 'name':'f1.txt', 'owner':5})
-        upload_info.append({'source_path': 'https://dropbox-link.com/2', 'name':'f2.txt', 'owner':5})
-        user_pk = 5
+        upload_info.append({'source_path': 'https://dropbox-link.com/1', 'name':'f1.txt', 'owner':nonexistent_pk})
+        upload_info.append({'source_path': 'https://dropbox-link.com/2', 'name':'f2.txt', 'owner':nonexistent_pk})
         with self.assertRaises(exceptions.ExceptionWithMessage):
-            uploaders.DropboxUploader.check_format(upload_info, user_pk)
+            uploaders.DropboxUploader.check_format(upload_info, nonexistent_pk)
 
     def test_dropbox_upload_format_checker_accepts_owner(self):
         '''
         Checks that self-assignment works when the request contains the user's pk
         '''
+        user_pk = self.regular_user.pk
         upload_info = []
-        upload_info.append({'source_path': 'https://dropbox-link.com/1', 'name':'f1.txt', 'owner':2})
-        upload_info.append({'source_path': 'https://dropbox-link.com/2', 'name':'f2.txt', 'owner':2})
-        user_pk = 2
+        upload_info.append({'source_path': 'https://dropbox-link.com/1', 'name':'f1.txt', 'owner':user_pk})
+        upload_info.append({'source_path': 'https://dropbox-link.com/2', 'name':'f2.txt', 'owner':user_pk})
         expected_dict = upload_info.copy()
         for item in expected_dict:
             item['originator'] = user_pk
@@ -337,32 +339,36 @@ class DropboxGoogleUploadInitTestCase(TestCase):
         '''
         Here, an admin can assign ownership to someone else
         '''
+        user_pk = self.regular_user.pk
+        admin_pk = self.admin_user.pk
         upload_info = []
-        upload_info.append({'source_path': 'https://dropbox-link.com/1', 'name':'f1.txt', 'owner':2})
-        upload_info.append({'source_path': 'https://dropbox-link.com/2', 'name':'f2.txt', 'owner':2})
-        user_pk = 1
+        upload_info.append({'source_path': 'https://dropbox-link.com/1', 'name':'f1.txt', 'owner':user_pk})
+        upload_info.append({'source_path': 'https://dropbox-link.com/2', 'name':'f2.txt', 'owner':user_pk})
         expected_dict = upload_info.copy()
         for item in expected_dict:
-            item['originator'] = user_pk
-        response = uploaders.DropboxUploader.check_format(upload_info, user_pk)
+            item['originator'] = admin_pk
+        response = uploaders.DropboxUploader.check_format(upload_info, admin_pk)
         self.assertEqual(response, expected_dict)
 
     @mock.patch.dict('transfer_app.uploaders.os.environ', {'GCLOUD': '/mock/bin/gcloud'})
-    def test_dropbox_uploader_on_google_params(self):
+    @mock.patch('transfer_app.uploaders.transfer_utils')
+    def test_dropbox_uploader_on_google_params(self, mock_transfer_utils):
         '''
         This test takes a properly formatted request and checks that the database objects have been properly
         created.  
         '''
-        
+        mock_transfer_utils.check_for_transfer_availability.return_value = None
         source = settings.DROPBOX
         uploader_cls = uploaders.get_uploader(source)
         self.assertEqual(uploader_cls, uploaders.GoogleDropboxUploader)
+
+        user_pk = self.regular_user.pk
         
         # prep the upload info as is usually performed:
         upload_info = []
-        upload_info.append({'source_path': 'https://dropbox-link.com/1', 'name':'f1.txt', 'owner':2})
-        upload_info.append({'source_path': 'https://dropbox-link.com/2', 'name':'f2.txt', 'owner':2})
-        upload_info, error_messages = uploader_cls.check_format(upload_info, 2)
+        upload_info.append({'source_path': 'https://dropbox-link.com/1', 'name':'f1.txt', 'owner':user_pk})
+        upload_info.append({'source_path': 'https://dropbox-link.com/2', 'name':'f2.txt', 'owner':user_pk})
+        upload_info, error_messages = uploader_cls.check_format(upload_info, user_pk)
         
         # instantiate the class, but mock out the launcher.
         # Recall the launcher is the class that actually creates the worker VMs, which
@@ -389,15 +395,19 @@ class DropboxGoogleUploadInitTestCase(TestCase):
         self.assertFalse(all_tc[0].completed) # the transfer coord is also not completed
 
     @mock.patch.dict('transfer_app.uploaders.os.environ', {'GCLOUD': '/mock/bin/gcloud'})
-    def test_dropbox_uploader_on_google_params_single(self):
+    @mock.patch('transfer_app.uploaders.transfer_utils')
+    def test_dropbox_uploader_on_google_params_single(self, mock_transfer_utils):
         
+        mock_transfer_utils.check_for_transfer_availability.return_value = None
+
         source = settings.DROPBOX
         uploader_cls = uploaders.get_uploader(source)
         self.assertEqual(uploader_cls, uploaders.GoogleDropboxUploader)
 
-        upload_info = {'source_path': 'https://dropbox-link.com/1', 'name':'f1.txt', 'owner':2}
+        user_pk = self.regular_user.pk
+        upload_info = {'source_path': 'https://dropbox-link.com/1', 'name':'f1.txt', 'owner':user_pk}
 
-        upload_info, error_messages = uploader_cls.check_format(upload_info, 2)
+        upload_info, error_messages = uploader_cls.check_format(upload_info, user_pk)
         
         uploader = uploader_cls(upload_info)
         m = mock.MagicMock()
@@ -418,21 +428,24 @@ class DropboxGoogleUploadInitTestCase(TestCase):
         self.assertFalse(all_tc[0].completed) # the transfer coord is also not completed
 
     @mock.patch.dict('transfer_app.uploaders.os.environ', {'GCLOUD': '/mock/bin/gcloud'})
-    def test_dropbox_uploader_on_google_disk_sizing(self):
-        
+    @mock.patch('transfer_app.uploaders.transfer_utils')
+    def test_dropbox_uploader_on_google_disk_sizing(self, mock_transfer_utils):
+
+        mock_transfer_utils.check_for_transfer_availability.return_value = None
+
         source = settings.DROPBOX
         uploader_cls = uploaders.get_uploader(source)
         self.assertEqual(uploader_cls, uploaders.GoogleDropboxUploader)
-        
+        user_pk = self.regular_user.pk
         upload_info = []
         filesize = 100e9 # 100GB
         upload_info.append({
                         'source_path': 'https://dropbox-link.com/1', 
                         'name':'f1.txt', 
-                        'owner':2, 
+                        'owner':user_pk, 
                         'size_in_bytes': filesize})
 
-        upload_info, error_messages = uploader_cls.check_format(upload_info, 2)
+        upload_info, error_messages = uploader_cls.check_format(upload_info, user_pk)
         
         uploader = uploader_cls(upload_info)
         uploader.config_params['disk_size_factor'] = 3
@@ -849,6 +862,13 @@ class GoogleEnvironmentUploadInitTestCase(TestCase):
         self.bucket_name = 'gs://cnap-storage-bucket'
         settings.CONFIG_PARAMS['storage_bucket_prefix'] = self.bucket_name
 
+        # create available/current zones (does not matter what they are, just that the database returns something
+        avail_zone = AvailableZones.objects.create(
+            cloud_environment = settings.GOOGLE,
+            zone = 'us-east-X'
+        )
+        current_zone = CurrentZone.objects.create(zone=avail_zone)
+
     def test_reject_long_name_in_google(self):
         source = settings.DROPBOX
         uploader_cls = uploaders.get_uploader(source)
@@ -856,28 +876,34 @@ class GoogleEnvironmentUploadInitTestCase(TestCase):
         
         upload_info = []
         long_name = 'x'*2000 + '.txt'
-        upload_info.append({'source_path': 'https://dropbox-link.com/1', 'name':long_name, 'owner':2})
-        upload_info.append({'source_path': 'https://dropbox-link.com/2', 'name':'f2.txt', 'owner':2})
+        user_pk = self.regular_user.pk
+        upload_info.append({'source_path': 'https://dropbox-link.com/1', 'name':long_name, 'owner':user_pk})
+        upload_info.append({'source_path': 'https://dropbox-link.com/2', 'name':'f2.txt', 'owner':user_pk})
 
         with self.assertRaises(exceptions.FilenameException):
-            upload_info, error_messages = uploader_cls.check_format(upload_info, 2)
+            upload_info, error_messages = uploader_cls.check_format(upload_info, user_pk)
 
     @mock.patch.dict('transfer_app.uploaders.os.environ', {'GCLOUD': '/mock/bin/gcloud'})
-    def test_warn_of_conflict_case1(self):
+    @mock.patch('transfer_app.uploaders.transfer_utils')
+    def test_initiates_multiple_transfers_with_same_name(self, mock_transfer_utils):
         '''
         Here, we pretend that a user has previously started an upload that is still going.
-        Then they try to upload that same file again (and also add a new one).  Here, we check that we block appropriately.
+        Then they try to upload that same file again (and also add a new one).
+        The file just has a timestamp added to avoid overwrite 
         '''
-        
+        # ensure space exists in the 'VM queue' for uploads
+        mock_transfer_utils.check_for_transfer_availability.return_value = None
+
         source = settings.DROPBOX
         uploader_cls = uploaders.get_uploader(source)
         self.assertEqual(uploader_cls, uploaders.GoogleDropboxUploader)
         
         # prep the upload info as is usually performed:
         upload_info = []
-        upload_info.append({'source_path': 'https://dropbox-link.com/1', 'name':'f1.txt', 'owner':2})
-        upload_info.append({'source_path': 'https://dropbox-link.com/2', 'name':'f2.txt', 'owner':2})
-        upload_info, error_messages = uploader_cls.check_format(upload_info, 2)
+        user_pk = self.regular_user.pk
+        upload_info.append({'source_path': 'https://dropbox-link.com/1', 'name':'f1.txt', 'owner':user_pk})
+        upload_info.append({'source_path': 'https://dropbox-link.com/2', 'name':'f2.txt', 'owner':user_pk})
+        upload_info, error_messages = uploader_cls.check_format(upload_info, user_pk)
 
         self.assertEqual(len(upload_info), 2)
         self.assertEqual(len(error_messages), 0)
@@ -891,14 +917,17 @@ class GoogleEnvironmentUploadInitTestCase(TestCase):
 
         # mock launch of transfers, which creates the database objects
         uploader.upload()
+        self.assertTrue(m.go.called)
+        self.assertEqual(2, m.go.call_count)
 
         # prep the upload info as is usually performed:
+        user_pk = self.regular_user.pk
         additional_uploads = []
-        additional_uploads.append({'source_path': 'https://dropbox-link.com/3', 'name':'f3.txt', 'owner':2}) #new
-        additional_uploads.append({'source_path': 'https://dropbox-link.com/2', 'name':'f2.txt', 'owner':2}) # same as above- so reject!
-        processed_uploads, error_messages = uploader_cls.check_format(additional_uploads, 2)
-        self.assertEqual(len(processed_uploads), 1)
-        self.assertEqual(len(error_messages), 1)
+        additional_uploads.append({'source_path': 'https://dropbox-link.com/3', 'name':'f3.txt', 'owner':user_pk}) #new
+        additional_uploads.append({'source_path': 'https://dropbox-link.com/2', 'name':'f2.txt', 'owner':user_pk}) # same as above- so reject!
+        processed_uploads, error_messages = uploader_cls.check_format(additional_uploads, user_pk)
+        self.assertEqual(len(processed_uploads), 2)
+        self.assertEqual(len(error_messages), 0)
 
         uploader = uploader_cls(processed_uploads)
         m2 = mock.MagicMock()
@@ -906,77 +935,20 @@ class GoogleEnvironmentUploadInitTestCase(TestCase):
 
         uploader.upload()
         self.assertTrue(m2.go.called)
-        self.assertEqual(1, m2.go.call_count)
+        self.assertEqual(2, m2.go.call_count)
 
         # check database objects:
         all_transfers = Transfer.objects.all()
         all_resources = Resource.objects.all()
         all_tc = TransferCoordinator.objects.all()
-        self.assertTrue(len(all_transfers) == 3)
-        self.assertTrue(len(all_resources) == 3)
+        self.assertTrue(len(all_transfers) == 4)
+        self.assertTrue(len(all_resources) == 4)
         self.assertTrue(len(all_tc) == 2)
         self.assertTrue(all([not x.completed for x in all_transfers])) # no transfer is complete
         self.assertTrue(all([not tc.completed for tc in all_tc])) # no transfer_coordinators are complete
 
-    @mock.patch.dict('transfer_app.uploaders.os.environ', {'GCLOUD': '/mock/bin/gcloud'})
-    def test_warn_of_conflict_case2(self):
-        '''
-        Here, we pretend that a user has previously started an upload that is still going.
-        Then they try to upload the same files again
-        '''
-        
-        source = settings.DROPBOX
-        uploader_cls = uploaders.get_uploader(source)
-        self.assertEqual(uploader_cls, uploaders.GoogleDropboxUploader)
-        
-        # prep the upload info as is usually performed:
-        upload_info = []
-        upload_info.append({'source_path': 'https://dropbox-link.com/1', 'name':'f1.txt', 'owner':2})
-        upload_info.append({'source_path': 'https://dropbox-link.com/2', 'name':'f2.txt', 'owner':2})
-        upload_info, error_messages = uploader_cls.check_format(upload_info, 2)
-
-        self.assertEqual(len(upload_info), 2)
-        self.assertEqual(len(error_messages), 0)
-        
-        # instantiate the class, but mock out the launcher.
-        # Recall the launcher is the class that actually creates the worker VMs, which
-        # we do not want to do as part of the test
-        uploader = uploader_cls(upload_info)
-        m = mock.MagicMock()
-        uploader.launcher = m
-
-        # mock launch of transfers, which creates the database objects
-        uploader.upload()
-
-        # prep the upload info as is usually performed:
-        additional_uploads = []
-        additional_uploads.append({'source_path': 'https://dropbox-link.com/2', 'name':'f2.txt', 'owner':2}) # same as above- so reject!
-        additional_uploads.append({'source_path': 'https://dropbox-link.com/1', 'name':'f1.txt', 'owner':2})# same as above- reject
-        processed_uploads, error_messages = uploader_cls.check_format(additional_uploads, 2)
-
-        self.assertEqual(len(processed_uploads), 0)
-        self.assertEqual(len(error_messages), 2)
-
-        uploader = uploader_cls(processed_uploads)
-        m2 = mock.MagicMock()
-        uploader.launcher = m2
-
-        uploader.upload()
-        self.assertFalse(m2.go.called)
-
-        # check database objects:
-        all_transfers = Transfer.objects.all()
-        all_resources = Resource.objects.all()
-        all_tc = TransferCoordinator.objects.all()
-        self.assertTrue(len(all_transfers) == 2)
-        self.assertTrue(len(all_resources) == 2)
-        self.assertTrue(len(all_tc) == 1) # this means no NEW coordinators were created for the 'empty' case
-        self.assertTrue(all([not x.completed for x in all_transfers])) # no transfer is complete
-        self.assertTrue(all([not tc.completed for tc in all_tc])) # no transfer_coordinators are complete
-
-    @mock.patch.dict('transfer_app.uploaders.os.environ', {'GCLOUD': '/mock/bin/gcloud'})
     @mock.patch('transfer_app.uploaders.datetime')
-    def test_warn_of_conflict_case3(self, mock_datetime):
+    def test_followup_transfer(self, mock_datetime):
         '''
         Here, we initiate two transfers.  We mock one being completed, and THEN the user uploads another to the same
         as an overwrite.  We want to allow this.
@@ -986,10 +958,11 @@ class GoogleEnvironmentUploadInitTestCase(TestCase):
         self.assertEqual(uploader_cls, uploaders.GoogleDropboxUploader)
         
         # prep the upload info as is usually performed:
+        user_pk = self.regular_user.pk
         upload_info = []
-        upload_info.append({'source_path': 'https://dropbox-link.com/1', 'name':'f1.txt', 'owner':2})
-        upload_info.append({'source_path': 'https://dropbox-link.com/2', 'name':'f2.txt', 'owner':2})
-        upload_info, error_messages = uploader_cls.check_format(upload_info, 2)
+        upload_info.append({'source_path': 'https://dropbox-link.com/1', 'name':'f1.txt', 'owner':user_pk})
+        upload_info.append({'source_path': 'https://dropbox-link.com/2', 'name':'f2.txt', 'owner':user_pk})
+        upload_info, error_messages = uploader_cls.check_format(upload_info, user_pk)
 
         self.assertEqual(len(upload_info), 2)
         self.assertEqual(len(error_messages), 0)
@@ -1033,8 +1006,8 @@ class GoogleEnvironmentUploadInitTestCase(TestCase):
         expected_filename = 'f2.' + expected_stamp + '.txt'
 
         additional_uploads = []
-        additional_uploads.append({'source_path': 'https://dropbox-link.com/2', 'name':'f2.txt', 'owner':2}) # same as above
-        processed_uploads, error_messages = uploader_cls.check_format(additional_uploads, 2)
+        additional_uploads.append({'source_path': 'https://dropbox-link.com/2', 'name':'f2.txt', 'owner':user_pk}) # same as above
+        processed_uploads, error_messages = uploader_cls.check_format(additional_uploads, user_pk)
 
         self.assertEqual(len(processed_uploads), 1)
         self.assertEqual(len(error_messages), 0)

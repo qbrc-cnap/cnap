@@ -595,33 +595,33 @@ class CompletionMarkingTestCase(TestCase):
         self.regular_user = get_user_model().objects.create_user(email=settings.REGULAR_TEST_EMAIL, password='abcd123!')
 
         # create a couple of resources owned by the regular user:
-        r1 = Resource.objects.create(
+        self.r1 = Resource.objects.create(
             source='google_storage',
             path='gs://a/b/reg_owned1.txt',
             size=500,
             owner=self.regular_user,
         )
-        r2 = Resource.objects.create(
+        self.r2 = Resource.objects.create(
             source='google_storage',
             path='gs://a/b/reg_owned2.txt',
             size=500,
             owner=self.regular_user,
         )
 
-        tc1 = TransferCoordinator.objects.create()
+        self.tc1 = TransferCoordinator.objects.create()
 
-        t1 = Transfer.objects.create(
+        self.t1 = Transfer.objects.create(
             download=True,
-            resource = r1,
+            resource = self.r1,
             destination = 'dropbox',
-            coordinator = tc1,
+            coordinator = self.tc1,
             originator = self.regular_user
         )
-        t2 = Transfer.objects.create(
+        self.t2 = Transfer.objects.create(
             download=True,
-            resource = r2,
+            resource = self.r2,
             destination = 'dropbox',
-            coordinator = tc1,
+            coordinator = self.tc1,
             originator = self.regular_user
         )
 
@@ -631,7 +631,8 @@ class CompletionMarkingTestCase(TestCase):
         have completed, so the TransferCoordinator stays incomplete
         '''
         # query the database and get the TransferCoordinator and its Transfer instances:
-        tc = TransferCoordinator.objects.get(pk=1)
+        tc_pk = self.tc1.pk
+        tc = TransferCoordinator.objects.get(pk=tc_pk)
         transfers = Transfer.objects.filter(coordinator = tc)
 
         d = {}
@@ -640,8 +641,8 @@ class CompletionMarkingTestCase(TestCase):
         enc_token = obj.encrypt(token)
         b64_str = base64.encodestring(enc_token)
         d['token'] = b64_str
-        d['transfer_pk'] = 1
-        d['coordinator_pk'] = 1
+        d['transfer_pk'] = self.t1.pk
+        d['coordinator_pk'] = tc_pk
         d['success'] = True
 
         client = APIClient()
@@ -651,10 +652,11 @@ class CompletionMarkingTestCase(TestCase):
 
         # query database to see that the Transfer was marked complete, but the
         # coordinator is still incomplete
-        t = Transfer.objects.get(pk=1)
+        t = Transfer.objects.get(pk=self.t1.pk)
         self.assertTrue(t.completed)
-        tc = TransferCoordinator.objects.get(pk=1)
+        tc = TransferCoordinator.objects.get(pk=tc_pk)
         self.assertEqual(tc.completed, False)
+
 
     @mock.patch('transfer_app.views.utils')
     def test_full_completion_signal(self, mock_utils):
@@ -665,7 +667,8 @@ class CompletionMarkingTestCase(TestCase):
         mock_utils.post_completion = mock.MagicMock()
 
         # query the database and get the TransferCoordinator and its Transfer instances:
-        tc = TransferCoordinator.objects.get(pk=1)
+        tc_pk = self.tc1.pk
+        tc = TransferCoordinator.objects.get(pk=tc_pk)
         transfers = Transfer.objects.filter(coordinator = tc)
 
         token = settings.CONFIG_PARAMS['token']
@@ -675,14 +678,14 @@ class CompletionMarkingTestCase(TestCase):
 
         d1 = {}
         d1['token'] = b64_str
-        d1['transfer_pk'] = 1
-        d1['coordinator_pk'] = 1
+        d1['transfer_pk'] = self.t1.pk
+        d1['coordinator_pk'] = tc_pk
         d1['success'] = True
 
         d2 = {}
         d2['token'] = b64_str
-        d2['transfer_pk'] = 2
-        d2['coordinator_pk'] = 1
+        d2['transfer_pk'] = self.t2.pk
+        d2['coordinator_pk'] = tc_pk
         d2['success'] = True
 
         client = APIClient()
@@ -693,11 +696,11 @@ class CompletionMarkingTestCase(TestCase):
         self.assertEqual(response2.status_code, 200)
 
         # query database to see that the Transfer was marked complete
-        t1 = Transfer.objects.get(pk=1)
+        t1 = Transfer.objects.get(pk=self.t1.pk)
         self.assertTrue(t1.completed)
-        t2 = Transfer.objects.get(pk=2)
+        t2 = Transfer.objects.get(pk=self.t2.pk)
         self.assertTrue(t2.completed)
-        tc = TransferCoordinator.objects.get(pk=1)
+        tc = TransferCoordinator.objects.get(pk=tc_pk)
         self.assertTrue(tc.completed)
 
     def test_completion_signal_with_wrong_token_is_rejected(self):
@@ -705,7 +708,7 @@ class CompletionMarkingTestCase(TestCase):
         This tests where a bad token is sent.  Should reject with 404
         '''
         # query the database and get the TransferCoordinator and its Transfer instances:
-        tc = TransferCoordinator.objects.get(pk=1)
+        tc = TransferCoordinator.objects.get(pk=self.tc1.pk)
         transfers = Transfer.objects.filter(coordinator = tc)
 
         bad_token = 'xxxxYYYY'
@@ -729,7 +732,7 @@ class CompletionMarkingTestCase(TestCase):
         This tests where an incorrect pk is given for the transfer
         '''
         # query the database and get the TransferCoordinator and its Transfer instances:
-        tc = TransferCoordinator.objects.get(pk=1)
+        tc = TransferCoordinator.objects.get(pk=self.tc1.pk)
         transfers = Transfer.objects.filter(coordinator = tc)
 
         d = {}
@@ -751,7 +754,7 @@ class CompletionMarkingTestCase(TestCase):
         This tests where required info is missing in the request
         '''
         # query the database and get the TransferCoordinator and its Transfer instances:
-        tc = TransferCoordinator.objects.get(pk=1)
+        tc = TransferCoordinator.objects.get(pk=self.tc1.pk)
         transfers = Transfer.objects.filter(coordinator = tc)
 
         d = {}
