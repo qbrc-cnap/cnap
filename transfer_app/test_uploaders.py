@@ -926,8 +926,8 @@ class GoogleEnvironmentUploadInitTestCase(TestCase):
         additional_uploads.append({'source_path': 'https://dropbox-link.com/3', 'name':'f3.txt', 'owner':user_pk}) #new
         additional_uploads.append({'source_path': 'https://dropbox-link.com/2', 'name':'f2.txt', 'owner':user_pk}) # same as above- so reject!
         processed_uploads, error_messages = uploader_cls.check_format(additional_uploads, user_pk)
-        self.assertEqual(len(processed_uploads), 2)
-        self.assertEqual(len(error_messages), 0)
+        self.assertEqual(len(processed_uploads), 1)
+        self.assertEqual(len(error_messages), 1)
 
         uploader = uploader_cls(processed_uploads)
         m2 = mock.MagicMock()
@@ -935,14 +935,14 @@ class GoogleEnvironmentUploadInitTestCase(TestCase):
 
         uploader.upload()
         self.assertTrue(m2.go.called)
-        self.assertEqual(2, m2.go.call_count)
+        self.assertEqual(1, m2.go.call_count)
 
         # check database objects:
         all_transfers = Transfer.objects.all()
         all_resources = Resource.objects.all()
         all_tc = TransferCoordinator.objects.all()
-        self.assertTrue(len(all_transfers) == 4)
-        self.assertTrue(len(all_resources) == 4)
+        self.assertTrue(len(all_transfers) == 3)
+        self.assertTrue(len(all_resources) == 3)
         self.assertTrue(len(all_tc) == 2)
         self.assertTrue(all([not x.completed for x in all_transfers])) # no transfer is complete
         self.assertTrue(all([not tc.completed for tc in all_tc])) # no transfer_coordinators are complete
@@ -951,7 +951,7 @@ class GoogleEnvironmentUploadInitTestCase(TestCase):
     def test_followup_transfer(self, mock_datetime):
         '''
         Here, we initiate two transfers.  We mock one being completed, and THEN the user uploads another to the same
-        as an overwrite.  We want to allow this.
+        as an overwrite.  We want to allow this transfer.  However, a timestamp is added to the Resource path
         '''
         source = settings.DROPBOX
         uploader_cls = uploaders.get_uploader(source)

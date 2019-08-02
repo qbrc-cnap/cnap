@@ -11,9 +11,10 @@ from rest_framework import status
 from django.urls import reverse
 from django.contrib.auth import get_user_model
 from django.conf import settings
+from django.core.exceptions import ObjectDoesNotExist
 
 from base.models import Resource
-from transfer_app.models import Transfer, TransferCoordinator
+from transfer_app.models import Transfer, TransferCoordinator, FailedTransfer
 
 # a method for creating a reasonable test dataset:
 def create_data(testcase_obj):
@@ -625,6 +626,39 @@ class CompletionMarkingTestCase(TestCase):
             originator = self.regular_user
         )
 
+        # create a couple of resources owned by the regular user representing 
+        # uploaded objects
+        self.r3 = Resource.objects.create(
+            source='dropbox',
+            path='gs://a/b/reg_owned3.txt',
+            size=500,
+            owner=self.regular_user,
+            is_active = False
+        )
+        self.r4 = Resource.objects.create(
+            source='dropbox',
+            path='gs://a/b/reg_owned4.txt',
+            size=500,
+            owner=self.regular_user,
+            is_active = False
+        )
+        self.tc2 = TransferCoordinator.objects.create()
+
+        self.t3 = Transfer.objects.create(
+            download=False,
+            resource = self.r3,
+            destination = 'gs://a/b/reg_owned3.txt',
+            coordinator = self.tc2,
+            originator = self.regular_user
+        )
+        self.t4 = Transfer.objects.create(
+            download=False,
+            resource = self.r4,
+            destination = 'gs://a/b/reg_owned4.txt',
+            coordinator = self.tc2,
+            originator = self.regular_user
+        )
+
     def test_single_worker_completion_signal(self):
         '''
         This tests where one of many workers has completed.  Not ALL 
@@ -702,6 +736,81 @@ class CompletionMarkingTestCase(TestCase):
         self.assertTrue(t2.completed)
         tc = TransferCoordinator.objects.get(pk=tc_pk)
         self.assertTrue(tc.completed)
+
+
+    @mock.patch('transfer_app.views.utils')
+    def test_failed_transfer_cleans_up_rseource(self, mock_utils):
+        '''
+        This tests where both of two workers have completed.  One has failed.  We test that
+        the Resource object corresponding to the failed transfer is removed and that we 
+        log the failed transfer in the database.  ALL transfers
+        have completed, so the TransferCoordinator becomes complete also
+        '''
+        mock_utils.post_completion = mock.MagicMock()
+
+        # query the database and get the TransferCoordinator
+        tc_pk = self.tc2.pk
+        tc = TransferCoordinator.objects.get(pk=tc_pk)
+
+        # check that we do not have any failedtransfers so far:
+        ft = FailedTransfer.objects.all()
+        self.assertTrue(len(ft) == 0)
+
+        # get the primary key for the Resource which will fail to transfer:
+        failed_resource = self.r3
+        failed_resource_pk = failed_resource.pk
+        failed_resource_path = failed_resource.path
+
+        token = settings.CONFIG_PARAMS['token']
+        obj=DES.new(settings.CONFIG_PARAMS['enc_key'], DES.MODE_ECB)
+        enc_token = obj.encrypt(token)
+        b64_str = base64.encodestring(enc_token)
+
+        # make the first Transfer fail
+        d1 = {}
+        d1['token'] = b64_str
+        d1['transfer_pk'] = self.t3.pk
+        d1['coordinator_pk'] = tc_pk
+        d1['success'] = False
+
+        # this transfer was a success:
+        d2 = {}
+        d2['token'] = b64_str
+        d2['transfer_pk'] = self.t4.pk
+        d2['coordinator_pk'] = tc_pk
+        d2['success'] = True
+
+        # mock the worker machines communicating back:
+        client = APIClient()
+        url = reverse('transfer-complete')
+        response1 = client.post(url, d1, format='json')
+        self.assertEqual(response1.status_code, 200)
+        response2 = client.post(url, d2, format='json')
+        self.assertEqual(response2.status_code, 200)
+
+        # query database to see that the second Transfer was marked complete
+        t = Transfer.objects.get(pk=self.t4.pk)
+        self.assertTrue(t.completed)
+        
+        # check that the resource was marked active since it succeeded:
+        r = self.t4.resource
+        self.assertTrue(r.is_active)
+        
+        # check that we added a FailedTransfer to the database:
+        ft = FailedTransfer.objects.all()
+        self.assertTrue(len(ft) == 1)
+        ft = ft[0]
+        self.assertEqual(ft.intended_path, failed_resource_path)
+
+        # check that the failed transfer led to the resource
+        # being removed
+        with self.assertRaises(ObjectDoesNotExist):
+            r = Resource.objects.get(pk=failed_resource_pk)
+
+        # check that the TransferCoordinator was marked complete.
+        tc = TransferCoordinator.objects.get(pk=tc_pk)
+        self.assertTrue(tc.completed)
+        
 
     def test_completion_signal_with_wrong_token_is_rejected(self):
         '''

@@ -326,7 +326,7 @@ class GoogleEnvironmentUploader(EnvironmentSpecificUploader, GoogleBase):
             # check that the file with the same name does not already exist.  If so, add a timestamp:
             is_unique = False
             while not is_unique:
-                r = Resource.objects.filter(path=full_item_name)
+                r = Resource.objects.filter(path=full_item_name, is_active=True)
                 duplicate_name = full_item_name in path_list
                 if len(r) >= 1 or duplicate_name:
                     # TODO: message admins if >1? 

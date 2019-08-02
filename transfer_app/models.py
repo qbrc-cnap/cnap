@@ -106,3 +106,21 @@ class Transfer(models.Model):
         if self.finish_time:
             self.duration = self.finish_time - self.start_time
         super().save(*args, **kwargs)
+
+
+class FailedTransfer(models.Model):
+    '''
+    This tracks failed transfers for auditing/performance purposes
+    '''
+    # if a download or upload
+    was_download = models.BooleanField(null=False)
+
+    # where was it supposed to go?  if upload, this would be the bucket path
+    # is a download, just says which storage service it was supposed to go to.
+    intended_path = models.TextField(null=False, max_length=1000)
+
+    # When the transfer was started-
+    start_time = models.DateTimeField(null=False)
+
+    # when the Transfer failed.
+    finish_time = models.DateTimeField(null=False, auto_now_add=True)

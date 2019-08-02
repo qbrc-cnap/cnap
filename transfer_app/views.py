@@ -18,7 +18,7 @@ from rest_framework.views import exception_handler, APIView
 from django_filters.rest_framework import DjangoFilterBackend
 from django.contrib.auth import get_user_model
 
-from transfer_app.models import Transfer, TransferCoordinator
+from transfer_app.models import Transfer, TransferCoordinator, FailedTransfer
 from transfer_app.serializers import TransferSerializer, \
      TransferCoordinatorSerializer, \
      TransferredResourceSerializer
@@ -216,6 +216,9 @@ class TransferComplete(APIView):
                     transfer_obj.finish_time = now
                     transfer_obj.save()
 
+                    # get the transfer coordinator primary key.
+                    tc_pk = transfer_obj.coordinator.pk
+
                     if success:
                         if transfer_obj.download:
                             resource = transfer_obj.resource
@@ -230,12 +233,26 @@ class TransferComplete(APIView):
                             resource = transfer_obj.resource
                             resource.is_active = True
                             resource.save()
+                    else: # failed the transfer process somehow
+                        # note this failed transfer:
+                        ft = FailedTransfer(
+                            was_download = transfer_obj.download,
+                            intended_path = transfer_obj.destination,
+                            start_time = transfer_obj.start_time
+                        )
+                        ft.save()
+
+                        if not transfer_obj.download:
+                            # if upload, we need to clean up the Resource since it was previously
+                            # saved as a placeholder.  
+                            resource = transfer_obj.resource
+                            resource.delete()
 
                     # now check if all the Transfers belonging to this TransferCoordinator are complete:
                     try:
-                        tc = transfer_obj.coordinator
+                        tc = TransferCoordinator.objects.get(pk=tc_pk)
                     except ObjectDoesNotExist as ex:
-                        raise exceptions.RequestError('TransferCoordinator with pk=%d did not exist' % coordinator_pk)
+                        raise exceptions.RequestError('TransferCoordinator with pk=%d did not exist' % tc_pk)
                     all_transfers = Transfer.objects.filter(coordinator = tc)
                     if all([x.completed for x in all_transfers]):
                         tc.completed = True
