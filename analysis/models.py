@@ -158,7 +158,7 @@ class AnalysisProject(models.Model):
     def save(self, *args, **kwargs):
 
         if self._state.adding: # if creating, NOT updating
-            bucketname = '%s/%s/%s' % (settings.CONFIG_PARAMS['storage_bucket_prefix'], \
+            bucketname = '%s-%s/%s' % (settings.CONFIG_PARAMS['storage_bucket_prefix'], \
                 str(self.owner.user_uuid), \
                 self.analysis_uuid)
             self.analysis_bucketname = bucketname
