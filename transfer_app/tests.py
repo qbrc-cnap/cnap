@@ -739,7 +739,7 @@ class CompletionMarkingTestCase(TestCase):
 
 
     @mock.patch('transfer_app.views.utils')
-    def test_failed_transfer_cleans_up_rseource(self, mock_utils):
+    def test_failed_transfer_cleans_up_resource(self, mock_utils):
         '''
         This tests where both of two workers have completed.  One has failed.  We test that
         the Resource object corresponding to the failed transfer is removed and that we 
@@ -793,7 +793,8 @@ class CompletionMarkingTestCase(TestCase):
         self.assertTrue(t.completed)
         
         # check that the resource was marked active since it succeeded:
-        r = self.t4.resource
+        r_pk = self.t4.resource.pk
+        r = Resource.objects.get(pk=r_pk)
         self.assertTrue(r.is_active)
         
         # check that we added a FailedTransfer to the database:
