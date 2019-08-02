@@ -84,10 +84,12 @@ def send_to_bucket(local_filepath, params, logger):
 	try:
 		logger.log_text('Upload %s to %s' % (local_filepath, object_name))
 		destination_blob = destination_bucket.blob(object_name)
+		logger.log_text('Just before upload...')
 		destination_blob.upload_from_filename(local_filepath)
 		logger.log_text('Successful upload to bucket')
 	except Exception as ex:
 		logger.log_text('Error with upload process.')
+		logger.log_text(ex)
 		raise Exception('Could not create or upload the blob with name %s' % object_name)
 
 	# calculate the hash in storage:
