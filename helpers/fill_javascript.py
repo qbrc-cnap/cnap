@@ -97,6 +97,7 @@ def get_urls():
     url_dict['download_url'] = reverse('download-transfer-initiation')
     url_dict['logout_url'] = reverse('logout')
     url_dict['analysis_list_endpoint'] = reverse('analysis-project-list')
+    url_dict['resource_rename_endpoint'] = reverse('resource-rename')
 
     # for the project URLs, the only way to get the 'form' of the url is to submit a
     # dummy uuid and strip it off

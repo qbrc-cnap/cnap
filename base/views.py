@@ -13,6 +13,20 @@ from base.models import Resource, Organization
 from base.serializers import ResourceSerializer, OrganizationSerializer, TreeObjectSerializer
 from analysis.models import AnalysisProjectResource
 
+
+from django.views import View
+from django.http import JsonResponse
+class FileRenameView(View):
+    def post(self, request, *args, **kwargs):
+        print(request)
+        print(request.POST)
+        print(args)
+        print(kwargs)
+        new_name = request.POST['new_name']
+        print('NEWNAME: %s' % new_name)
+        return JsonResponse({'message': 'thanks'})
+
+
 class TreeObject(object):
     '''
     This is used to structure data for the front-end when we display files/resources for selection.  

@@ -707,8 +707,105 @@ $("#delete-files").click(function(){
     }
 });
 
+function generateRenamingMarkup(pk_list, original_namelist, element_id){
+    // pk_list has the primary keys of the resources
+    // original_namelist has the names of those files as they were.  These
+    // will be put into textboxes for the user to edit
+    // returns html markup which will be inserted into a div
+    var markup = `<div id="${element_id}">`;
+    markup += '<p>Rename the files below.  Note that if the </p>'
+    for(var i in pk_list){
+        var pk = pk_list[i];
+        var name = original_namelist[i];
+        markup += `<input type="text" pk=${pk} value=${name} class="form-control file-rename">`;
+    }
+    markup += "</div>";
+    return markup;
+}
+
+
+function performRename(pk_list, name_list){
+
+    var count = pk_list.length;
+    var all_done = $.Deferred();
+
+    for(var i in pk_list){
+        var pk = pk_list[i];
+        var newname = name_list[i];
+        var payload = {"new_name":newname};
+        $.ajax({
+            url:"{{resource_rename_endpoint}}" + pk + "/",
+            method:"POST",
+            data: payload,
+            headers:{"X-CSRFToken": csrfToken},
+            success:function(response){
+                console.log('renamed!');
+                count--;
+                if(count === 0){
+                    all_done.resolve();
+                }
+            },
+            error:function(response){
+                console.log('Error with rename.');
+                console.log(response);
+                //var jsonResponse = response['responseJSON'];
+                //showErrorDialog(jsonResponse['errors']);
+                showErrorDialog(['Could not rename this.', 'Could not rename that either']);
+            }
+        });
+    }
+    return all_done.promise();
+}
+
+
+function do_rename(pk_list, elementID){
+    var children = $("#" + elementID).children("input");
+    var name_list = [];
+    for(var c=0; c<children.length; c++){
+        var child = children[c];
+        var val = $(child).val();
+        name_list.push(val);
+        console.log('pk=' + pk_list[c] + ", new name=" + val);
+    }
+    performRename(pk_list, name_list).done(
+        function(){
+            showCurrentFiles();
+        }
+    );
+}
+
+$("#rename-files").click(function(){
+
+    var selected = $("#current-files-tree").treeview('getSelected');
+    var selectedPks = [];
+    var selectedFilenames = [];
+    for(var i in selected){
+        var pk = selected[i].pk;
+        var filename = selected[i].filename;
+        if((pk !== undefined) & (filename !== undefined)){
+            selectedPks.push(pk);
+            selectedFilenames.push(filename);
+        }
+    }
+    if(selectedPks.length > 0){
+        console.log('Change names of:');
+        console.log(selectedFilenames);
+        var elementID = "file-renaming-section"; //used for identifying the area in the dialog where the user will enter the new filenames
+        var confirm_rename_action = function(pks, element_id){
+            return function(){
+		do_rename(pks, element_id);
+            }
+        }(selectedPks, elementID);
+
+        confirmation_actions['confirm'] = confirm_rename_action;
+        content = generateRenamingMarkup(selectedPks, selectedFilenames, elementID);
+        showConfirmationDialog(content);
+    } else {
+        showErrorDialog(["You have not selected any files to rename."]);
+    }
+});
+
 $("#current-files-refresh").click(function(){
     $("#current-files-tree").empty();
     showCurrentFiles();
 });
-
