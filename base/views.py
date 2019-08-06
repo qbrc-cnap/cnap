@@ -17,6 +17,7 @@ from analysis.models import AnalysisProjectResource
 from django.views import View
 from django.http import JsonResponse
 class FileRenameView(View):
+
     def post(self, request, *args, **kwargs):
         print(request)
         print(request.POST)
@@ -24,7 +25,46 @@ class FileRenameView(View):
         print(kwargs)
         new_name = request.POST['new_name']
         print('NEWNAME: %s' % new_name)
-        return JsonResponse({'message': 'thanks'})
+        try:
+            pk = int(kwargs['pk'])
+        except Exception as ex:
+            return JsonResponse({'error': 'Please ensure the payload includes an integer primary key addressed by "pk"'}, status=400)
+
+        r = Resource.objects.get(pk=pk)
+        if request.user != r.get_owner():
+            return JsonResponse({'error': 'The resource, if it exists, does not belong to the requester.'}, status=404)
+
+        current_filename = r.name
+        current_path = r.path
+        new_path = os.path.join( 
+            os.path.dirname(current_path),
+            current_filename
+        )
+
+        #TODO: check that name will be valid on the cloud storage system, regardless
+        # of the requirement that the path in the database is unique
+
+        # need to ensure we are not violating uniqueness:
+        try:
+            conflicting_resource = Resource.objects.get(path=new_path)
+            return JsonResponse({'error': 'Our records show that there is already a file with this name.  If you would like to overwrite, please delete the other file first.'}, status=400)
+        except ObjectDoesNotExist as ex:
+            # this means we are OK-- the database did not have such a record-- go ahead and rename
+            # need to rename the object in storage:
+            current_bucketname = current_path.split('/')[0][len(settings.CONFIG_PARAMS['storage_bucket_prefix']):]
+            storage_client = storage.Client()
+            try:
+                bucket = storage_client.get_bucket(current_bucketname)
+                blob = bucket.get_blob(current_path.split('/')[-1])
+                bucket.rename_blob(blob, new_name)
+            except Exception as ex:
+                return JsonResponse({'error': 'Could not perform the rename operation.'}, status=500)
+              
+            # now we can update the database:
+            r.path = new_path
+            r.name = new_name
+            r.save()
+            return JsonResponse({})
 
 
 class TreeObject(object):

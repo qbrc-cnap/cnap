@@ -713,7 +713,7 @@ function generateRenamingMarkup(pk_list, original_namelist, element_id){
     // will be put into textboxes for the user to edit
     // returns html markup which will be inserted into a div
     var markup = `<div id="${element_id}">`;
-    markup += '<p>Rename the files below.  Note that if the </p>'
+    markup += '<p>Rename the files below</p>'
     for(var i in pk_list){
         var pk = pk_list[i];
         var name = original_namelist[i];
@@ -748,9 +748,9 @@ function performRename(pk_list, name_list){
             error:function(response){
                 console.log('Error with rename.');
                 console.log(response);
-                //var jsonResponse = response['responseJSON'];
-                //showErrorDialog(jsonResponse['errors']);
-                showErrorDialog(['Could not rename this.', 'Could not rename that either']);
+                var jsonResponse = response['responseJSON'];
+                var err = jsonResponse['error'];
+                return all_done.reject(err);
             }
         });
     }
@@ -767,8 +767,17 @@ function do_rename(pk_list, elementID){
         name_list.push(val);
         console.log('pk=' + pk_list[c] + ", new name=" + val);
     }
-    performRename(pk_list, name_list).done(
+    var p = performRename(pk_list, name_list)
+
+    p.done(
         function(){
+            showCurrentFiles();
+        }
+    );
+
+    p.fail(
+        function(err){
+            showErrorDialog([err]); //expects a list
             showCurrentFiles();
         }
     );

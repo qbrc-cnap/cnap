@@ -339,11 +339,15 @@ a{
     flex-direction: column;
 }
 
-#delete-files-wrapper {
+#delete-files-wrapper, #rename-files-wrapper{
     display:flex;
     justify-content: flex-end;
     margin-top: 15px;
     margin-bottom: 15px;
+}
+
+.file-rename {
+    margin-top: 15px;    
 }
 
 /* For large screens */
