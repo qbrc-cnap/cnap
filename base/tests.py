@@ -1,4 +1,5 @@
 import unittest.mock as mock
+import os
 
 from django.test import TestCase
 from rest_framework.test import APIClient
@@ -412,3 +413,222 @@ class ResourceExpirationTestCase(TestCase):
             settings.EXPIRATION_REMINDER_DAYS[1]: ['f5.txt',],
         }
         mock_reminder.assert_called_with(self.regular_user, expected_data)
+
+
+class ResourceRenamingTestCase(TestCase):
+
+    def setUp(self):
+        create_data(self)
+
+    def test_cannot_rename_others_files(self):
+        other_client = APIClient()
+        other_client.login(email=settings.OTHER_TEST_EMAIL, password='abcd123!')
+
+        # get a resource owned by the 'regular' user:
+        resources = Resource.objects.filter(owner=self.regular_user)
+        r = resources[0]
+        pk = r.pk
+        original_name = r.name
+        original_path = r.path
+        data = {'new_name': 'foo.txt'}
+        url = reverse('resource-rename', args=[pk,])
+        response = other_client.post(url, data, format='json')
+        self.assertEqual(response.status_code, 404)
+
+        # query to ensure that nothing was changed:
+        r2 = Resource.objects.get(pk=pk)
+        self.assertEqual(r2.path, original_path)
+        self.assertEqual(r2.name, original_name)
+
+    def test_bad_pk_issues_error(self):
+        '''
+        The primary key is part of the URL, but if it does not exist, issue error
+        '''
+        client = APIClient()
+        client.login(email=settings.REGULAR_TEST_EMAIL, password='abcd123!')
+
+        # get all resources
+        all_resources = Resource.objects.all()
+        all_pks = [x.pk for x in all_resources]
+        nonexistent_pk = max(all_pks) + 1
+
+        data = {'new_name': 'foo.txt'}
+        url = reverse('resource-rename', args=[nonexistent_pk,])
+        response = client.post(url, data, format='json')
+        self.assertEqual(response.status_code, 400)
+
+
+    def test_returns_error_if_name_violates_length_constraint_case1(self):
+        '''
+        If the name is too long for the storage service, return an error
+        '''
+        client = APIClient()
+        client.login(email=settings.REGULAR_TEST_EMAIL, password='abcd123!')
+
+        # get all resources owned by the regular user
+        all_user_resources = Resource.objects.filter(owner = self.regular_user)
+        pk = all_user_resources[0].pk
+
+        # for google, length needs to be 1-1024 bytes when UTF-8 encoded
+        N = 2000
+        very_long_name = ''.join([random.choice(string.ascii_lowercase) for x in range(N)])
+        data = {'new_name': very_long_name}
+        url = reverse('resource-rename', args=[pk,])
+        response = client.post(url, data, format='json')
+        self.assertEqual(response.status_code, 400)
+
+
+    def test_returns_error_if_name_violates_length_constraint_case2(self):
+        '''
+        If the name is too short/empty for the storage service, return an error
+        '''
+        client = APIClient()
+        client.login(email=settings.REGULAR_TEST_EMAIL, password='abcd123!')
+
+        # get all resources owned by the regular user
+        all_user_resources = Resource.objects.filter(owner = self.regular_user)
+        pk = all_user_resources[0].pk
+
+        url = reverse('resource-rename', args=[pk,])
+
+        # for google, length needs to be 1-1024 bytes when UTF-8 encoded
+        data = {'new_name': 'a'}
+        response = client.post(url, data, format='json')
+        self.assertEqual(response.status_code, 400)
+
+        data = {'new_name': ''}
+        response = other_client.post(url, data, format='json')
+        self.assertEqual(response.status_code, 400)
+
+
+    def test_returns_error_if_name_is_not_alnum(self):
+        '''
+        If the name has non-alphanumeric chars, issue error
+        '''
+        client = APIClient()
+        client.login(email=settings.REGULAR_TEST_EMAIL, password='abcd123!')
+
+        # get all resources owned by the regular user
+        all_user_resources = Resource.objects.filter(owner = self.regular_user)
+        pk = all_user_resources[0].pk
+
+        url = reverse('resource-rename', args=[pk,])
+
+        data = {'new_name': 'a+.txt'}
+        response = client.post(url, data, format='json')
+        self.assertEqual(response.status_code, 400)
+
+
+    def test_normalizes_path(self):
+        '''
+        Tests cases where users put space in the name-- make them underscores
+        '''
+        client = APIClient()
+        client.login(email=settings.REGULAR_TEST_EMAIL, password='abcd123!')
+
+        # get all resources owned by the regular user
+        all_user_resources = Resource.objects.filter(owner = self.regular_user)
+        pk = all_user_resources[0].pk
+        original_name = all_user_resources[0].name 
+        original_path = all_user_resources[0].path 
+
+        url = reverse('resource-rename', args=[pk,])
+
+        data = {'new_name': 'some name.txt'}
+        response = client.post(url, data, format='json')
+        self.assertEqual(response.status_code, 200)
+
+        # check that rename happened with normalization:
+        r = Resource.objects.get(pk=pk)
+        new_name = r.name 
+        new_path = r.path
+        expected_new_name = 'some_name.txt'
+        expected_new_path = os.path.join(os.path.dirname(original_path), expected_new_name)
+        self.assertEqual(new_name, expected_new_name)
+        self.assertEqual(new_path, expected_new_path)
+
+
+    def test_nonunique_path_issues_error(self):
+        '''
+        If the name already exists, issue error
+        '''
+        client = APIClient()
+        client.login(email=settings.REGULAR_TEST_EMAIL, password='abcd123!')
+
+        # get all resources owned by the regular user
+        all_user_resources = Resource.objects.filter(owner = self.regular_user)
+        resource1 = all_user_resources[0]
+        resource2 = all_user_resources[1]
+        pk = resource1.pk
+        # sort of a meta-test: for the test to work properly, both resources need to have
+        # the same bucket
+        self.assertEqual(os.path.dirname(resource1.path), os.path.dirname(resource2.path))
+
+        # now that we know both resources have the same bucket, pretend the user
+        # is renaming resource1 and it will exactly match resource2
+        new_name = resource2.name
+
+        # for google, length needs to be 1-1024 bytes when UTF-8 encoded
+        url = reverse('resource-rename', args=[pk,])
+
+        data = {'new_name': new_name}
+        response = client.post(url, data, format='json')
+        self.assertEqual(response.status_code, 400)
+
+        # ensure nothing changed:
+        r = Resource.objects.get(pk=pk)
+        self.assertEqual(r.name, resource1.name)
+        self.assertEqual(r.path, resource1.path)
+
+
+    def test_successful_change(self):
+        '''
+        Tests that the database objects change appropriately
+        ''' 
+        client = APIClient()
+        client.login(email=settings.REGULAR_TEST_EMAIL, password='abcd123!')
+
+        # get all resources owned by the regular user
+        all_user_resources = Resource.objects.filter(owner = self.regular_user)
+        all_names = [x.name for x in all_user_resources]
+        proposed_new_name = 'abcefgh.txt'
+        self.assertTrue(all([proposed_new_name not in all_names]) # another "meta-test" --need to ensure we are, in fact, proposing a unique name
+
+        pk = all_user_resources[0].pk
+        original_name = all_user_resources[0].name 
+        original_path = all_user_resources[0].path 
+
+        url = reverse('resource-rename', args=[pk,])
+
+        data = {'new_name': proposed_new_name}
+        response = client.post(url, data, format='json')
+        self.assertEqual(response.status_code, 200)
+
+        # check that rename happened:
+        r = Resource.objects.get(pk=pk)
+        new_name = r.name 
+        new_path = r.path
+        expected_new_name = proposed_new_name
+        expected_new_path = os.path.join(os.path.dirname(original_path), expected_new_name)
+        self.assertEqual(new_name, expected_new_name)
+        self.assertEqual(new_path, expected_new_path)
+
+
+    def test_bad_payload_issues_error(self):
+        '''
+        Tests the case where the payload is missing
+        some data
+        '''
+        client = APIClient()
+        client.login(email=settings.REGULAR_TEST_EMAIL, password='abcd123!')
+
+        # get all resources owned by the regular user
+        all_user_resources = Resource.objects.filter(owner = self.regular_user)
+        pk = all_user_resources[0].pk
+
+        url = reverse('resource-rename', args=[pk,])
+
+        # mess-up the payload:
+        data = {'new_nameXYZ': 'a.txt'}
+        response = client.post(url, data, format='json')
+        self.assertEqual(response.status_code, 400)

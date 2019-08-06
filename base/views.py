@@ -19,30 +19,46 @@ from django.http import JsonResponse
 class FileRenameView(View):
 
     def post(self, request, *args, **kwargs):
-        print(request)
-        print(request.POST)
-        print(args)
-        print(kwargs)
-        new_name = request.POST['new_name']
-        print('NEWNAME: %s' % new_name)
+
+        try:
+            new_name = request.POST['new_name']
+        except KeyError as ex:
+            return JsonResponse({'error': 'Please ensure the payload includes a "new_name" key'}, status=400)
         try:
             pk = int(kwargs['pk'])
         except Exception as ex:
-            return JsonResponse({'error': 'Please ensure the payload includes an integer primary key addressed by "pk"'}, status=400)
+            return JsonResponse({'error': 'Please ensure the URL includes an integer primary key'}, status=400)
 
-        r = Resource.objects.get(pk=pk)
+        try:
+            r = Resource.objects.get(pk=pk)
+        except ObjectDoesNotExist as ex:
+            return JsonResponse({'error': 'Resource not found.'}, status=404)
+
         if request.user != r.get_owner():
             return JsonResponse({'error': 'The resource, if it exists, does not belong to the requester.'}, status=404)
 
+        # check that the name is relatively normal (only letters, numbers, etc.).  Also normalize spaces to be underscores
+        new_name = new_name.replace(' ', '_') # first normalize
+        m = re.fullmatch('[a-zA-z0-9\.\-\_]*', new_name)
+        if m is None:
+            return JsonResponse({'error': 'Please ensure your filenames only contain letters, numbers, dashes, underscores, and periods.'}, status=400)
+
         current_filename = r.name
         current_path = r.path
+        current_bucketname = current_path[len(settings.CONFIG_PARAMS['google_storage_gs_prefix']):].split('/')[0]
         new_path = os.path.join( 
             os.path.dirname(current_path),
-            current_filename
+            new_name
         )
+        new_object_name = new_path[(len(settings.CONFIG_PARAMS['google_storage_gs_prefix']) + len(current_bucketname))+1:]
 
         #TODO: check that name will be valid on the cloud storage system, regardless
         # of the requirement that the path in the database is unique
+        byte_length = len(new_object_name.encode('utf-8'))
+        if byte_length >= 1024:
+            return JsonResponse({'error': 'The file name was too long.  Try again.'}, status=400)
+        if byte_length <= 1:
+            return JsonResponse({'error': 'The file name was too short.  Try again.'}, status=400)
 
         # need to ensure we are not violating uniqueness:
         try:
@@ -51,7 +67,7 @@ class FileRenameView(View):
         except ObjectDoesNotExist as ex:
             # this means we are OK-- the database did not have such a record-- go ahead and rename
             # need to rename the object in storage:
-            current_bucketname = current_path.split('/')[0][len(settings.CONFIG_PARAMS['storage_bucket_prefix']):]
+            
             storage_client = storage.Client()
             try:
                 bucket = storage_client.get_bucket(current_bucketname)
