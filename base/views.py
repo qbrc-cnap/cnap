@@ -1,8 +1,11 @@
 import re
+import os
 
 from rest_framework import generics, permissions, status
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.response import Response
+from django.conf import settings
+
 from django.http import Http404
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ObjectDoesNotExist
@@ -13,16 +16,17 @@ from base.models import Resource, Organization
 from base.serializers import ResourceSerializer, OrganizationSerializer, TreeObjectSerializer
 from analysis.models import AnalysisProjectResource
 
+from google.cloud import storage
 
-from django.views import View
+from rest_framework.views import APIView
 from django.http import JsonResponse
-class FileRenameView(View):
+class FileRenameView(APIView):
 
     def post(self, request, *args, **kwargs):
 
         try:
-            new_name = request.POST['new_name']
-        except KeyError as ex:
+            new_name = request.data['new_name']
+        except Exception as ex:
             return JsonResponse({'error': 'Please ensure the payload includes a "new_name" key'}, status=400)
         try:
             pk = int(kwargs['pk'])
@@ -42,6 +46,8 @@ class FileRenameView(View):
         m = re.fullmatch('[a-zA-z0-9\.\-\_]*', new_name)
         if m is None:
             return JsonResponse({'error': 'Please ensure your filenames only contain letters, numbers, dashes, underscores, and periods.'}, status=400)
+        if len(new_name) < 2:
+            return JsonResponse({'error': 'Your filename was too short. Please rename your file using 2 or more characters.'}, status=400)
 
         current_filename = r.name
         current_path = r.path

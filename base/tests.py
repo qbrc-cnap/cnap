@@ -1,10 +1,14 @@
 import unittest.mock as mock
 import os
+import string
+import random
+import json
 
 from django.test import TestCase
 from rest_framework.test import APIClient
 from rest_framework import status
 
+from django.conf import settings
 from django.urls import reverse
 from django.contrib.auth import get_user_model
 from django.conf import settings
@@ -27,6 +31,7 @@ def create_data(testcase_obj):
         source = 'google_bucket',
         path='gs://a/b/admin_owned1.txt',
         size=500,
+        name = 'admin_owned1.txt',
         owner=testcase_obj.admin_user,
     )
 
@@ -42,12 +47,14 @@ def create_data(testcase_obj):
         source='google_storage',
         path='gs://a/b/reg_owned1.txt',
         size=500,
+        name = 'reg_owned1.txt',
         owner=testcase_obj.regular_user,
     )
     r4 = Resource.objects.create(
         source='google_storage',
         path='gs://a/b/reg_owned2.txt',
         size=500,
+        name = 'reg_owned2.txt',
         owner=testcase_obj.regular_user,
     )
     r5 = Resource.objects.create(
@@ -455,7 +462,7 @@ class ResourceRenamingTestCase(TestCase):
         data = {'new_name': 'foo.txt'}
         url = reverse('resource-rename', args=[nonexistent_pk,])
         response = client.post(url, data, format='json')
-        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.status_code, 404)
 
 
     def test_returns_error_if_name_violates_length_constraint_case1(self):
@@ -497,7 +504,7 @@ class ResourceRenamingTestCase(TestCase):
         self.assertEqual(response.status_code, 400)
 
         data = {'new_name': ''}
-        response = other_client.post(url, data, format='json')
+        response = client.post(url, data, format='json')
         self.assertEqual(response.status_code, 400)
 
 
@@ -519,10 +526,18 @@ class ResourceRenamingTestCase(TestCase):
         self.assertEqual(response.status_code, 400)
 
 
-    def test_normalizes_path(self):
+    @mock.patch('base.views.storage')
+    def test_normalizes_path(self, mock_storage):
         '''
         Tests cases where users put space in the name-- make them underscores
         '''
+        mock_storage_client = mock.MagicMock()
+        mock_bucket = mock.MagicMock()
+        mock_bucket.get_blob.return_value = mock.MagicMock()
+        mock_bucket.rename_blob.return_value = None
+        mock_storage_client.get_bucket.return_value = mock_bucket
+        mock_storage.Client.return_value = mock_storage_client
+
         client = APIClient()
         client.login(email=settings.REGULAR_TEST_EMAIL, password='abcd123!')
 
@@ -567,6 +582,7 @@ class ResourceRenamingTestCase(TestCase):
         # now that we know both resources have the same bucket, pretend the user
         # is renaming resource1 and it will exactly match resource2
         new_name = resource2.name
+        self.assertTrue(len(new_name) > 1)
 
         # for google, length needs to be 1-1024 bytes when UTF-8 encoded
         url = reverse('resource-rename', args=[pk,])
@@ -581,10 +597,18 @@ class ResourceRenamingTestCase(TestCase):
         self.assertEqual(r.path, resource1.path)
 
 
-    def test_successful_change(self):
+    @mock.patch('base.views.storage')
+    def test_successful_change(self, mock_storage):
         '''
         Tests that the database objects change appropriately
         ''' 
+        mock_storage_client = mock.MagicMock()
+        mock_bucket = mock.MagicMock()
+        mock_bucket.get_blob.return_value = mock.MagicMock()
+        mock_bucket.rename_blob.return_value = None
+        mock_storage_client.get_bucket.return_value = mock_bucket
+        mock_storage.Client.return_value = mock_storage_client
+
         client = APIClient()
         client.login(email=settings.REGULAR_TEST_EMAIL, password='abcd123!')
 
@@ -592,7 +616,7 @@ class ResourceRenamingTestCase(TestCase):
         all_user_resources = Resource.objects.filter(owner = self.regular_user)
         all_names = [x.name for x in all_user_resources]
         proposed_new_name = 'abcefgh.txt'
-        self.assertTrue(all([proposed_new_name not in all_names]) # another "meta-test" --need to ensure we are, in fact, proposing a unique name
+        self.assertTrue(all([proposed_new_name not in all_names])) # another "meta-test" --need to ensure we are, in fact, proposing a unique name
 
         pk = all_user_resources[0].pk
         original_name = all_user_resources[0].name 
