@@ -662,11 +662,11 @@ class CompletionMarkingTestCase(TestCase):
         self.tc3 = TransferCoordinator.objects.create()
 
         self.t5 = Transfer.objects.create(
-            download=True,
-            resource = self.r1,
-            destination = 'dropbox',
+            download=False,
+            resource = self.r3,
+            destination = 'gs://a/b/reg_owned3.txt',
             coordinator = self.tc3,
-            originator = self.regular_user
+            originator = self.regular_user)
 
 
     def test_single_worker_completion_signal(self):
