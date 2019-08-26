@@ -659,6 +659,16 @@ class CompletionMarkingTestCase(TestCase):
             originator = self.regular_user
         )
 
+        self.tc3 = TransferCoordinator.objects.create()
+
+        self.t5 = Transfer.objects.create(
+            download=True,
+            resource = self.r1,
+            destination = 'dropbox',
+            coordinator = self.tc3,
+            originator = self.regular_user
+
+
     def test_single_worker_completion_signal(self):
         '''
         This tests where one of many workers has completed.  Not ALL 
@@ -811,6 +821,64 @@ class CompletionMarkingTestCase(TestCase):
         # check that the TransferCoordinator was marked complete.
         tc = TransferCoordinator.objects.get(pk=tc_pk)
         self.assertTrue(tc.completed)
+
+    @mock.patch('transfer_app.views.utils')
+    def test_single_failed_transfer_cleans_up_resource(self, mock_utils):
+        '''
+        This tests where a single transfer has failed.  We test that
+        the Resource object corresponding to the failed transfer is removed and that we 
+        log the failed transfer in the database.  ALL transfers
+        have completed, so the TransferCoordinator becomes complete also
+        '''
+        mock_utils.post_completion = mock.MagicMock()
+
+        # query the database and get the TransferCoordinator
+        tc_pk = self.tc3.pk
+        tc = TransferCoordinator.objects.get(pk=tc_pk)
+
+        # check that we do not have any failedtransfers so far:
+        ft = FailedTransfer.objects.all()
+        self.assertTrue(len(ft) == 0)
+
+        # get the primary key for the Resource which will fail to transfer:
+        failed_resource = self.r1
+        failed_resource_pk = failed_resource.pk
+        failed_resource_path = failed_resource.path
+
+        token = settings.CONFIG_PARAMS['token']
+        obj=DES.new(settings.CONFIG_PARAMS['enc_key'], DES.MODE_ECB)
+        enc_token = obj.encrypt(token)
+        b64_str = base64.encodestring(enc_token)
+
+        # make the first Transfer fail
+        d1 = {}
+        d1['token'] = b64_str
+        d1['transfer_pk'] = self.t5.pk
+        d1['coordinator_pk'] = tc_pk
+        d1['success'] = False
+
+        # mock the worker machines communicating back:
+        client = APIClient()
+        url = reverse('transfer-complete')
+        response1 = client.post(url, d1, format='json')
+        self.assertEqual(response1.status_code, 200)
+        
+        # check that we added a FailedTransfer to the database:
+        ft = FailedTransfer.objects.all()
+        self.assertTrue(len(ft) == 1)
+        ft = ft[0]
+        self.assertEqual(ft.intended_path, failed_resource_path)
+
+        # check that the failed transfer led to the resource
+        # being removed
+        with self.assertRaises(ObjectDoesNotExist):
+            r = Resource.objects.get(pk=failed_resource_pk)
+
+        # check that the TransferCoordinator was marked complete.
+        tc = TransferCoordinator.objects.get(pk=tc_pk)
+        self.assertTrue(tc.completed)
+
+        self.assertTrue(mock_utils.post_completion.called)
         
 
     def test_completion_signal_with_wrong_token_is_rejected(self):

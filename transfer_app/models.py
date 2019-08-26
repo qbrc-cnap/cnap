@@ -124,3 +124,6 @@ class FailedTransfer(models.Model):
 
     # when the Transfer failed.
     finish_time = models.DateTimeField(null=False, auto_now_add=True)
+
+    # the name of the file that failed to transfer
+    resource_name = models.CharField(max_length=100, null=False)

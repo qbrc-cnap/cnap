@@ -238,7 +238,8 @@ class TransferComplete(APIView):
                         ft = FailedTransfer(
                             was_download = transfer_obj.download,
                             intended_path = transfer_obj.destination,
-                            start_time = transfer_obj.start_time
+                            start_time = transfer_obj.start_time,
+                            resource_name = transfer_obj.resource.name
                         )
                         ft.save()
 
@@ -262,7 +263,7 @@ class TransferComplete(APIView):
                         utils.post_completion(tc, all_originators)
                     return Response({'message': 'thanks'})
                 except ObjectDoesNotExist as ex:
-                    raise exceptions.RequestError('Transfer with pk=%d did not exist' % transfer_pk)
+                    raise exceptions.RequestError('Transfer with pk=%s did not exist' % transfer_pk)
             else:
                 raise Http404
         else:
