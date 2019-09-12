@@ -40,7 +40,7 @@ RUN curl -o /tmp/redis-stable.tar.gz http://download.redis.io/redis-stable.tar.g
 # Pull the source code:
 ARG appdir=/www
 RUN mkdir ${appdir} \
-  && git clone https://github.com/blawney/cnap_v2 ${appdir}
+  && git clone https://github.com/qbrc-cnap/cnap ${appdir}
 
 # Install the python dependencies, as given from the repository:
 RUN pip3 install --no-cache-dir -r "${appdir}"/requirements.txt
