@@ -572,6 +572,7 @@ def move_resource_to_user_bucket(job, resource_path):
     # we create the bucket if it does not exist 
     try:
         destination_bucket = storage_client.get_bucket(destination_bucket_name)
+        print('Destination bucket at %s existed.' % destination_bucket_name)
     except google.api_core.exceptions.NotFound:
         b = storage.Bucket(destination_bucket_name)
         b.name = bucket_name
@@ -592,6 +593,7 @@ def move_resource_to_user_bucket(job, resource_path):
     attempts = 0
     while ((not copied) and (attempts < MAX_COPY_ATTEMPTS)):
         try:
+            print('Copy %s to %s' % (source_blob,destination_object_name))
             source_bucket.copy_blob(source_blob, \
                 destination_bucket, \
                 new_name=destination_object_name \

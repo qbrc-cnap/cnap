@@ -239,7 +239,8 @@ class TransferComplete(APIView):
                             was_download = transfer_obj.download,
                             intended_path = transfer_obj.destination,
                             start_time = transfer_obj.start_time,
-                            resource_name = transfer_obj.resource.name
+                            resource_name = transfer_obj.resource.name,
+                            coordinator = tc
                         )
                         ft.save()
 

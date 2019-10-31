@@ -127,3 +127,6 @@ class FailedTransfer(models.Model):
 
     # the name of the file that failed to transfer
     resource_name = models.CharField(max_length=100, null=False)
+
+    # the coordinator that was handling this failure
+    coordinator = models.ForeignKey(TransferCoordinator, on_delete=models.CASCADE)

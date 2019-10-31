@@ -434,7 +434,13 @@ class AnalysisView(View):
             if staff_request:
                 # get the workflow object based on the workflow ID/version
                 try:
-                    return (query_workflow(workflow_id, version_id, True), None)
+                    if version_id is not None:
+                        return (query_workflow(workflow_id, version_id, True), None)
+                    else:
+                        # get the latest version, which is the one with the largest version_id
+                        all_versions = Workflow.objects.filter(workflow_id=workflow_id)
+                        all_version_ids = [x.version_id for x in all_versions]
+                        return (query_workflow(workflow_id, max(all_version_ids), True), None)
                 except Exception:
                     raise AnalysisQueryException('Error when querying for workflow.')
             else:

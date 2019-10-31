@@ -841,7 +841,7 @@ class CompletionMarkingTestCase(TestCase):
         self.assertTrue(len(ft) == 0)
 
         # get the primary key for the Resource which will fail to transfer:
-        failed_resource = self.r1
+        failed_resource = self.r3
         failed_resource_pk = failed_resource.pk
         failed_resource_path = failed_resource.path
 
@@ -877,6 +877,11 @@ class CompletionMarkingTestCase(TestCase):
         # check that the TransferCoordinator was marked complete.
         tc = TransferCoordinator.objects.get(pk=tc_pk)
         self.assertTrue(tc.completed)
+
+        a_t = all_transfers = Transfer.objects.filter(coordinator = tc)
+        print(a_t)
+        for x in a_t:
+            print('here is x: %s' % x)
 
         self.assertTrue(mock_utils.post_completion.called)
         
@@ -950,17 +955,15 @@ class CompletionMarkingTestCase(TestCase):
         self.assertEqual(response.status_code, 400)
 
 
+    @mock.patch('transfer_app.utils.send_email')
+    def test_post_completion_with_only_failures(self, mock_email_send):
+        '''
+        If none of the transfers are successful, test that the correct behavior happens
+        '''
+        from transfer_app.utils import post_completion
 
+        # this coord does not have any Transfer objects associated with it.
+        empty_coordinator = TransferCoordinator.objects.create()
 
-
-
-
-
-
-
-
-
-
-
-
-
+        post_completion(empty_coordinator, [settings.REGULAR_TEST_EMAIL,])
+        self.assertTrue(mock_email_send.called)

@@ -11,7 +11,7 @@ from django.http import Http404
 from django.contrib.sites.models import Site
 
 from base.models import Resource
-from transfer_app.models import Transfer, TransferCoordinator
+from transfer_app.models import Transfer, TransferCoordinator, FailedTransfer
 import transfer_app.launchers as _launchers
 
 sys.path.append(os.path.realpath('helpers'))
@@ -77,12 +77,8 @@ def post_completion(transfer_coordinator, originator_emails):
       the transfers
     '''
 
-    all_transfers = Transfer.objects.filter(coordinator = transfer_coordinator)
-    failed_transfers = []
-    for t in all_transfers:
-        if not t.success:
-            resource = t.resource
-            failed_transfers.append(resource.name)
+    failed_transfers = FailedTransfer.objects.filter(coordinator = transfer_coordinator)
+    failed_transfers = [x.name for x in failed_transfers]
 
     if settings.EMAIL_ENABLED:
         current_site = Site.objects.get_current()
