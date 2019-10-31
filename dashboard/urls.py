@@ -10,4 +10,5 @@ urlpatterns = [
     re_path(r'^$', dashboard_views.dashboard_index, name='dashboard-home'),
     path(r'add-new-workflow', dashboard_views.add_new_workflow, name='dashboard-add-workflow'),
     path(r'change-region', dashboard_views.change_region, name='region-change'),
+    path(r'import-bucket', dashboard_views.import_bucket, name='import-bucket'),
 ]

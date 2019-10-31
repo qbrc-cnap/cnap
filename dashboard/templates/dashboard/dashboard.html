@@ -44,6 +44,10 @@
                 width: 200px;
             }
 
+            #select-bucket-user{
+                width: 500px;
+            }
+
             #clone-url-input{
                 width: 600px;
             }
@@ -77,6 +81,9 @@
                             </li>
                             <li class="nav-item">
                             <a class="nav-link" target="maintenance-section">Maintenance</a>
+                            </li>
+                            <li class="nav-item">
+                            <a class="nav-link" target="import-bucket-section">Import files from bucket</a>
                             </li>
                             <li class="nav-item">
                             <a class="nav-link" target="change-region">Change region</a>
@@ -191,6 +198,27 @@
                             <h2>Maintenance</h2>
                             <p>A place to do things like cleanup old/expired files</p>
                         </div>
+                        <div id="import-bucket-section" class="content-tab">
+                            <h2>Import bucket</h2>
+                            <p>If a user has given permission to a storage bucket, this page will allow you to import all of their files into CNAP, creating the appropriate resources
+                               in the process.
+                            </p>
+                            <div class="form-group">
+                                <p>Note that all the files from the bucket will be recursively copied to CNAP storage.  Any underlying structure will be flattened.</p>
+                                <p>Include the prefix (e.g. "gs://" or "s3://"</p>
+                                <input id="bucket-name-input" type="text" name="bucket_name" placeholder="Enter the bucket you wish to import..."/>
+                            </div>
+                            <div class="form-group">
+                                <label for="select-bucket-user">Select user:</label>
+                                <select id="select-bucket-user" name="bucket_user" class="form-control">
+                                    {% for user in users %}
+                                    <option value="{{user.pk}}">{{user.email}}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <button id="add-bucket-btn" class="btn btn-primary">Add bucket</button>
+                            <div id="add-bucket-message" class="alert alert-success status-message"></div>
+                        </div>
                         <div id="add-workflow" class="content-tab">
                             <h2>Add a new workflow</h2>
                             <div class="form-group">
@@ -258,6 +286,26 @@
                         },
                         error:function(){
                             alert("Could not submit the new workflow.");
+                        }
+                    });
+                });
+
+                /* Ajax submission for import a bucket */
+                $("#add-bucket-btn").click(function(){
+                    var bucket_url = $("#bucket-name-input").val();
+                    var user = $("#select-bucket-user").val();
+                    var csrfToken = getCookie('csrftoken');
+                    $.ajax({
+                        url:"{{add_bucket_url}}",
+                        method:"POST",
+                        data: {"bucket_url":bucket_url, "bucket_user": user},
+                        headers:{"X-CSRFToken": csrfToken},
+                        success:function(response){
+                            var markup = response['message'];
+                            $("#add-bucket-message").empty().append(markup).show();
+                        },
+                        error:function(){
+                            alert("Could not add the new bucket.");
                         }
                     });
                 });

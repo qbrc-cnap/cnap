@@ -2,6 +2,7 @@ from django.shortcuts import render
 from django.http import HttpResponseForbidden, JsonResponse, HttpResponseNotAllowed
 from django.urls import reverse
 from django.conf import settings
+from django.contrib.auth import get_user_model
 
 from base.models import Issue, AvailableZones, CurrentZone
 from analysis.models import AnalysisProject, Warning, PendingWorkflow, CompletedJob, SubmittedJob
@@ -66,16 +67,19 @@ def dashboard_index(request):
         current_zone = CurrentZone.objects.all()[0]
         available_zones = [x.zone for x in AvailableZones.objects.all()]
         
+        all_users = get_user_model().objects.all()
 
         context = {}
         context['current_projects'] = analysis_project_list
         context['completed_jobs'] = completed_jobs_list
         context['current_region'] = current_zone
         context['available_zones'] = available_zones
+        context['users'] = all_users
         context['new_workflow_url'] = reverse('dashboard-add-workflow')
         context['reset_project_url'] = reverse('analysis-project-reset')
         context['kill_project_url'] = reverse('analysis-project-kill')
         context['change_region_url'] = reverse('region-change')
+        context['add_bucket_url'] = reverse('import-bucket')
         return render(request, 'dashboard/dashboard.html', context)
     else:
         return HttpResponseForbidden()
@@ -106,6 +110,38 @@ def add_new_workflow(request):
         return JsonResponse(context)
     else:
         return HttpResponseNotAllowed(['POST'])
+
+def import_bucket(request):
+    print('in import bucket')
+    user = request.user
+    if not user.is_staff:
+        return HttpResponseForbidden()
+
+    if request.method == 'POST':
+        payload = request.POST
+        print(payload)
+        bucket_url = payload['bucket_url']
+        try:
+            bucket_user_pk = int(payload['bucket_user'])
+            print(bucket_user_pk)
+        except ValueError:
+            return JsonResponse({'error': 'This endpoint expects that the user is specified with an integer primary key.'}, status=400)
+
+        # check that user exists:
+        try:
+            bucket_user = get_user_model().objects.get(pk=bucket_user_pk)
+            print(bucket_user)
+        except ObjectDoesNotExist as ex:
+            return JsonResponse({'error': 'User with PK=%d does not exist' % bucket_user_pk}, status=400)
+
+        # handle the bucket--
+        if bucket_url[:5] == settings.CONFIG_PARAMS['google_storage_gs_prefix']:
+            print('Import bucket %s' % bucket_url)
+        else:
+            return JsonResponse({'error': 'The bucket URL did not include a prefix or was not recognized.'}, status=400)
+
+
+        return JsonResponse({'message': 'Bucket import process has started.'})
 
 
 def change_region(request):
