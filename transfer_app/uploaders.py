@@ -18,8 +18,6 @@ import transfer_app.serializers as serializers
 import base.exceptions as exceptions
 from transfer_app.launchers import GoogleLauncher, AWSLauncher
 
-UPLOADS_FOLDER_NAME = 'uploads'
-
 class Uploader(object):
 
     # these are keys required to be provided with the request.  Keys that are required regardless of
@@ -314,7 +312,7 @@ class GoogleEnvironmentUploader(EnvironmentSpecificUploader, GoogleBase):
             bucket_name = os.path.join('%s-%s' % (
                 settings.CONFIG_PARAMS['storage_bucket_prefix'], 
                 str(item_dict['user_uuid'])),
-                UPLOADS_FOLDER_NAME
+                settings.CONFIG_PARAMS['uploads_folder_name']
                 )
             item_name = item_dict['name']
 
