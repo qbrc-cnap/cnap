@@ -546,6 +546,39 @@ def get_resource_size(path):
         raise Exception('Have not implemented for this cloud provider yet')
 
 
+def bucket_to_bucket_rewrite_in_google(source_blob, destination_bucket, destination_object_name):
+    '''
+    If two files are NOT in the same region, we cannot safely attempt to copy 
+    using the copy_blob method.  We have to use the rewrite
+    '''
+    # first create a Blob which we will "fill"
+    destination_blob = storage.Blob(destination_object_name, destination_bucket)
+    i = 0
+    consecutive_failures = 0
+    max_consecutive_failures = 3
+    finished = False
+    while not finished:
+        try:
+            if i == 0:
+                token, bytes_written, total_bytes = destination_blob.rewrite(source_blob)
+            else:
+                token, bytes_written, total_bytes = destination_blob.rewrite(source_blob, token=token)
+            i += 1
+            if bytes_written == total_bytes:
+                finished = True
+                return
+        except google.api_core.exceptions.InternalServerError as ex:
+            # if we catch this type of error, we can attempt to recover
+            consecutive_failures += 1
+            if consecutive_failures <= max_consecutive_failures:
+                print('A 500 error was raised by the Google backend.  Re-try')
+            else:
+                print('Experienced %d consecutive errors from the Google backend.  Aborting the copy'. % max_consecutive_failures)
+                raise Exception('Experienced %d consecutive errors from the Google backend.')
+        except Exception as ex:
+            raise Exception('Blob rewrite failed for an unexpected reason.')
+
+
 def move_resource_to_user_bucket(job, resource_path):
     '''
     Copies the final job output from the cromwell bucket to the user's bucket/folder
@@ -589,15 +622,22 @@ def move_resource_to_user_bucket(job, resource_path):
     source_bucket = storage_client.get_bucket(source_bucket_name)
     source_blob = storage.Blob(source_object_name, source_bucket)
 
+    # if somehow the destination bucket is in another region, larger transfers can fail
+    location_match = destination_bucket.location == source_bucket.location
+
+    # Give the copy a few chances to succeed.
     copied = False
     attempts = 0
     while ((not copied) and (attempts < MAX_COPY_ATTEMPTS)):
         try:
             print('Copy %s to %s' % (source_blob,destination_object_name))
-            source_bucket.copy_blob(source_blob, \
-                destination_bucket, \
-                new_name=destination_object_name \
-            )
+            if location_match:
+                source_bucket.copy_blob(source_blob, \
+                    destination_bucket, \
+                    new_name=destination_object_name \
+                )
+            else:
+                bucket_to_bucket_rewrite_in_google(source_blob, destination_bucket, destination_object_name)
             copied = True
         except Exception as ex:
             print('Copy failed.  Sleep and try again.')
