@@ -4,14 +4,17 @@ import os
 import time
 from celery.decorators import task
 from django.contrib.auth import get_user_model
+from django.conf import settings
+
 import google
 from google.cloud import storage
 
 from analysis.models import PendingWorkflow
-from base.models import Resource
+from base.models import Resource, CurrentZone
 from workflow_ingestion.ingest_workflow import ingest_main
 
 from helpers.email_utils import send_email
+from helpers.utils import get_jinja_template
 
 
 MAX_COPY_ATTEMPTS = 5
@@ -46,6 +49,19 @@ def kickoff_ingestion(pending_workflow_pk):
     pending_workflow.complete = True
     pending_workflow.finish_time = datetime.datetime.now()
     pending_workflow.save()
+
+
+def get_zone_as_string():
+    '''
+    Returns the current zone as a string
+    '''
+    try:
+        current_zone = CurrentZone.objects.all()[0]
+        return current_zone.zone.zone
+    except IndexError:
+        message = 'A current zone has not set.  Please check that a single zone has been selected in the database'
+        handle_exception(None, message=message)
+        return None
 
 
 def do_google_copy(source_blob, destination_bucket, new_blob_name):
@@ -98,7 +114,7 @@ def transfer_google_bucket(admin_pk, bucket_user_pk, client_bucket_name):
 
     # get the user object.  This is the person who will eventually
     # 'own' the files. It was previously verified to be a valid PK
-    user = get_user_model.objects.get(pk=bucket_user_pk)
+    user = get_user_model().objects.get(pk=bucket_user_pk)
 
     # get the destination bucket (to where we are moving the files)
     destination_bucket_prefix = settings.CONFIG_PARAMS[ \
@@ -113,7 +129,7 @@ def transfer_google_bucket(admin_pk, bucket_user_pk, client_bucket_name):
         print('Destination bucket at %s existed.' % destination_bucket_name)
     except google.api_core.exceptions.NotFound:
         b = storage.Bucket(destination_bucket_name)
-        b.name = bucket_name
+        b.name = destination_bucket_name
         zone_str = get_zone_as_string() # if the zone is (somehow) not set, this will be None
         # if zone_str was None, b.location=None, which is the default (and the created bucket is multi-regional)
         if zone_str:
@@ -121,14 +137,7 @@ def transfer_google_bucket(admin_pk, bucket_user_pk, client_bucket_name):
         destination_bucket = storage_client.create_bucket(b)
     destination_bucket = storage_client.get_bucket(destination_bucket_name)
 
-    # attempt to list the provided bucket.  Need to ensure that we have read access
-    # and it may fail if we do not.
-    try:
-        blobs = storage_client.list_blobs(bucket_name)
-    except google.api_core.exceptions.NotFound as ex:
-        # bucket not found
-    except google.api_core.exceptions.Forbidden as ex:
-        # no permission
+    blobs = storage_client.list_blobs(client_bucket_name)
 
     added_filepaths = []
     for source_blob in blobs:
@@ -147,9 +156,9 @@ def transfer_google_bucket(admin_pk, bucket_user_pk, client_bucket_name):
         )
 
     # done.  Inform the admin user:
-    admin_user = get_user_model.objects.get(pk=admin_pk)
+    admin_user = get_user_model().objects.get(pk=admin_pk)
     email_address = admin_user.email
-    context = {'site': url, 'user_email': email_address}
+    context = {'original_bucket': client_bucket_name}
     email_template = get_jinja_template('email_templates/bucket_transfer_success.html')
     email_html = email_template.render(context)
     email_plaintxt_template = get_jinja_template('email_templates/bucket_transfer_success.txt')

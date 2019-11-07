@@ -4,6 +4,7 @@ from django.urls import reverse
 from django.conf import settings
 from django.contrib.auth import get_user_model
 
+import google
 from google.cloud import storage
 
 from base.models import Issue, AvailableZones, CurrentZone

@@ -1,1 +1,1 @@
-Notification: An bucket transfer
+Notification: A bucket transfer has completed

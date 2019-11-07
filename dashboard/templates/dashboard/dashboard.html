@@ -304,8 +304,12 @@
                             var markup = response['message'];
                             $("#add-bucket-message").empty().append(markup).show();
                         },
-                        error:function(){
-                            alert("Could not add the new bucket.");
+                        error:function(response){
+                            console.log(response);
+                            var responseJSON = response['responseJSON'];
+                            var markup = responseJSON['error'];
+                            $("#add-bucket-message").empty().append(markup).show();
+                            console.log(markup);
                         }
                     });
                 });
