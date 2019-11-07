@@ -4,6 +4,8 @@ from django.urls import reverse
 from django.conf import settings
 from django.contrib.auth import get_user_model
 
+from google.cloud import storage
+
 from base.models import Issue, AvailableZones, CurrentZone
 from analysis.models import AnalysisProject, Warning, PendingWorkflow, CompletedJob, SubmittedJob
 
@@ -113,8 +115,8 @@ def add_new_workflow(request):
 
 def import_bucket(request):
     print('in import bucket')
-    user = request.user
-    if not user.is_staff:
+    admin_user = request.user
+    if not admin_user.is_staff:
         return HttpResponseForbidden()
 
     if request.method == 'POST':
@@ -136,7 +138,24 @@ def import_bucket(request):
 
         # handle the bucket--
         if bucket_url[:5] == settings.CONFIG_PARAMS['google_storage_gs_prefix']:
-            print('Import bucket %s' % bucket_url)
+            # attempt to list the provided bucket.  Need to ensure that we have read access
+            # and it may fail if we do not.
+            storage_client = storage.Client()
+
+            # get the bucket name without the prefix:
+            # this is the bucket FROM which we are grabbing files
+            client_bucket_name = bucket_url[len(settings.CONFIG_PARAMS['google_storage_gs_prefix']):]
+
+            try:
+                list(storage_client.list_blobs(client_bucket_name))
+            except google.api_core.exceptions.NotFound as ex:
+                return JsonResponse({'error': 'Bucket (%s) not found: %s' % (bucket_url, str(ex))}, status=400)
+            except google.api_core.exceptions.Forbidden as ex:
+                # no permissions to access
+                return JsonResponse({'error': 'Insufficient permissions: %s' % str(ex)}, status=400)
+                # no permission
+            dashboard_tasks.transfer_google_bucket.delay(admin_user.pk, bucket_user_pk, client_bucket_name)
+
         else:
             return JsonResponse({'error': 'The bucket URL did not include a prefix or was not recognized.'}, status=400)
 

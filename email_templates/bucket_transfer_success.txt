@@ -1,0 +1,1 @@
+The bucket transfer from {{original_bucket}} has successfully completed.
