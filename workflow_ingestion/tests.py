@@ -449,7 +449,8 @@ class TestWorkflowIngestion(TestCase):
 class TestWorkflowConstraints(TestCase):
 
     def setUp(self):
-        self.test_dir = tempfile.mkdtemp()
+        cwd = os.getcwd()
+        self.test_dir = tempfile.mkdtemp(dir=cwd)
         from analysis.models import Workflow
         self.test_workflow = Workflow.objects.create(
             git_url = 'https://github.com',
@@ -499,8 +500,8 @@ class TestWorkflowConstraints(TestCase):
         a required key ('handler' in this case)
         '''
         constraint_json = {
-            'constraintA': {'type':'NumericConstraint', 'handler':'foo.py', 'description':'foo1'},
-            'constraintB': {'type':'NumericConstraint', 'description':'foo2'},
+            'constraintA': {'type':'NumericConstraint', 'description':'foo2'},
+            #'constraintB': {'type':'NumericConstraint', 'handler':'foo.py', 'description':'foo1'},
         }
 
         outfile_path = os.path.join(self.test_dir, CONSTRAINTS_JSON)
@@ -518,8 +519,8 @@ class TestWorkflowConstraints(TestCase):
         class that does not exist
         '''
         constraint_json = {
-            'constraintA': {'type':'classA', 'handler':'foo.py', 'description':'foo1'},
-            'constraintB': {'type':'UnknownClass', 'handler': 'foo.py', 'description':'foo2'},
+            'constraintA': {'type':'UnknownClass', 'handler': 'foo.py', 'description':'foo2'},
+            #'constraintB': {'type':'classA', 'handler':'foo.py', 'description':'foo1'},
         }
 
         outfile_path = os.path.join(self.test_dir, CONSTRAINTS_JSON)
@@ -569,8 +570,7 @@ class TestWorkflowConstraints(TestCase):
         mock_constraint_class_func.return_value = ['classA', 'classB']
 
         # write a constraint file that does not have correct function name:
-        file_contents = '''
-        def some_func(x,y):
+        file_contents = '''def some_func(x,y):
             pass
         '''
         with open(os.path.join(self.test_dir, 'foo1.py'), 'w') as fout:
@@ -597,8 +597,7 @@ class TestWorkflowConstraints(TestCase):
         mock_constraint_class_func.return_value = ['classA', 'classB']
 
         # write a constraint file that does not have correct function name:
-        file_contents = '''
-        def check_constraints(x):
+        file_contents = '''def check_constraints(x):
             pass
         '''
         with open(os.path.join(self.test_dir, 'foo1.py'), 'w') as fout:
@@ -625,8 +624,7 @@ class TestWorkflowConstraints(TestCase):
         mock_inspect.return_value = None
 
         # write a constraint file that does not have correct function name:
-        file_contents = '''
-        def check_constraints(x, y):
+        file_contents = '''def check_constraints(x, y):
             pass
         '''
         with open(os.path.join(self.test_dir, 'foo1.py'), 'w') as fout:

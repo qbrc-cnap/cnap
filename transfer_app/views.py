@@ -219,6 +219,11 @@ class TransferComplete(APIView):
                     # get the transfer coordinator primary key.
                     tc_pk = transfer_obj.coordinator.pk
 
+                    try:
+                        tc = TransferCoordinator.objects.get(pk=tc_pk)
+                    except ObjectDoesNotExist as ex:
+                        raise exceptions.RequestError('TransferCoordinator with pk=%d did not exist' % tc_pk)
+
                     if success:
                         if transfer_obj.download:
                             resource = transfer_obj.resource
@@ -251,10 +256,6 @@ class TransferComplete(APIView):
                             resource.delete()
 
                     # now check if all the Transfers belonging to this TransferCoordinator are complete:
-                    try:
-                        tc = TransferCoordinator.objects.get(pk=tc_pk)
-                    except ObjectDoesNotExist as ex:
-                        raise exceptions.RequestError('TransferCoordinator with pk=%d did not exist' % tc_pk)
                     all_transfers = Transfer.objects.filter(coordinator = tc)
                     if all([x.completed for x in all_transfers]):
                         tc.completed = True

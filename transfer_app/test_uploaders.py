@@ -172,7 +172,7 @@ class DropboxGoogleUploadInitTestCase(TestCase):
             edited_item['user_uuid'] = user_uuid
             edited_item['destination'] = '%s-%s/%s/%s' % (self.bucket_name, 
                 str(user_uuid), 
-                uploaders.UPLOADS_FOLDER_NAME, 
+                settings.CONFIG_PARAMS['uploads_folder_name'], 
                 edited_item['name']
             )
             expected_list.append(edited_item)
@@ -204,7 +204,7 @@ class DropboxGoogleUploadInitTestCase(TestCase):
             'user_uuid': user_uuid,
             'destination': '%s-%s/%s/%s' % (self.bucket_name, 
                 str(user_uuid), 
-                uploaders.UPLOADS_FOLDER_NAME, 
+                settings.CONFIG_PARAMS['uploads_folder_name'], 
                 upload_info['name'])
             },
         ]
@@ -232,7 +232,7 @@ class DropboxGoogleUploadInitTestCase(TestCase):
         # create a Resource
         resource_path = '%s-%s/%s/%s' % (self.bucket_name, 
                 str(user_uuid), 
-                uploaders.UPLOADS_FOLDER_NAME, 
+                settings.CONFIG_PARAMS['uploads_folder_name'], 
                 'f1.txt'
         )
         r = Resource(source = 'google',
@@ -263,7 +263,7 @@ class DropboxGoogleUploadInitTestCase(TestCase):
         edited_item['user_uuid'] = user_uuid
         edited_item['destination'] = '%s-%s/%s/%s' % (self.bucket_name, 
             str(user_uuid), 
-            uploaders.UPLOADS_FOLDER_NAME, 
+            settings.CONFIG_PARAMS['uploads_folder_name'], 
             expected_new_name
         )
         expected_list.append(edited_item)
@@ -614,7 +614,7 @@ class DriveGoogleUploadInitTestCase(TestCase):
             edited_item['user_uuid'] = user_uuid
             edited_item['destination'] = '%s-%s/%s/%s' % (self.bucket_name, 
                 str(user_uuid), 
-                uploaders.UPLOADS_FOLDER_NAME, 
+                settings.CONFIG_PARAMS['uploads_folder_name'], 
                 edited_item['name'])
             expected_list.append(edited_item)
 
@@ -646,7 +646,7 @@ class DriveGoogleUploadInitTestCase(TestCase):
             'user_uuid': user_uuid,
             'destination': '%s-%s/%s/%s' % (self.bucket_name, 
                 str(user_uuid), 
-                uploaders.UPLOADS_FOLDER_NAME, 
+                settings.CONFIG_PARAMS['uploads_folder_name'], 
                 upload_info['name'])
             },
         ]
