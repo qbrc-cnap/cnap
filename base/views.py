@@ -177,7 +177,10 @@ def get_tree_ready_resources(request):
     for apr in analysis_project_resources:
         project = apr.analysis_project
         wf_title = project.workflow.workflow_title
-        project_date = project.finish_time.strftime('%B %d, %Y (%H:%M:%S)')
+        try:
+            project_date = project.finish_time.strftime('%B %d, %Y (%H:%M:%S)')
+        except Exception as ex:
+            project_date = '-'
         section_title = '%s (Completed %s)' % (wf_title, project_date)
         if section_title in d:
             d[section_title].append(apr.resource)
