@@ -573,7 +573,7 @@ def bucket_to_bucket_rewrite_in_google(source_blob, destination_bucket, destinat
             if consecutive_failures <= max_consecutive_failures:
                 print('A 500 error was raised by the Google backend.  Re-try')
             else:
-                print('Experienced %d consecutive errors from the Google backend.  Aborting the copy'. % max_consecutive_failures)
+                print('Experienced %d consecutive errors from the Google backend.  Aborting the copy.' % max_consecutive_failures)
                 raise Exception('Experienced %d consecutive errors from the Google backend.')
         except Exception as ex:
             raise Exception('Blob rewrite failed for an unexpected reason.')
