@@ -1,1 +1,8 @@
-The bucket transfer from {{original_bucket}} has successfully completed.
+The bucket transfer from {{original_bucket}} has completed.
+
+{% if failed_paths|length > 0 %}
+The following failed, however, since we did not want to accidentally overwrite:
+{% for p in failed_paths %}
+    {{f}}
+{% endfor %}  
+{% endif %}

@@ -3,5 +3,15 @@
     <p>
       The bucket transfer from {{original_bucket}} has successfully completed.
     </p>
+    <p>
+      {% if failed_paths|length > 0 %}
+      The following failed, however, since we did not want to accidentally overwrite:
+      <ul>
+      {% for p in failed_paths %}
+          <li>{{f}}</li>
+      {% endfor %} 
+      </ul> 
+      {% endif %}
+    </p>
   </body>
 </html>

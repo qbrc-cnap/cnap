@@ -115,7 +115,6 @@ def add_new_workflow(request):
         return HttpResponseNotAllowed(['POST'])
 
 def import_bucket(request):
-    print('in import bucket')
     admin_user = request.user
     if not admin_user.is_staff:
         return HttpResponseForbidden()

@@ -3,6 +3,7 @@ import datetime
 import os
 import time
 from celery.decorators import task
+from django.db.utils import IntegrityError
 from django.contrib.auth import get_user_model
 from django.conf import settings
 
@@ -109,6 +110,8 @@ def transfer_google_bucket(admin_pk, bucket_user_pk, client_bucket_name):
 
     Used in situations where a user has files already in a Google bucket.  This 
     gets copied to our own storage and auto-added to the user's Resources.
+
+    Note that this function assumes the bucket can already be accessed.
     '''
     storage_client = storage.Client()
 
@@ -135,30 +138,45 @@ def transfer_google_bucket(admin_pk, bucket_user_pk, client_bucket_name):
         if zone_str:
             b.location = '-'.join(zone_str.split('-')[:-1]) # e.g. makes 'us-east4-c' into 'us-east4'
         destination_bucket = storage_client.create_bucket(b)
-    destination_bucket = storage_client.get_bucket(destination_bucket_name)
 
+    # get a list of the names of the files within the destination bucket.
+    # This is how we will check against overwriting.
+    destination_bucket_objects = [x.name for x in list(destination_bucket.list_blobs())]
+
+    # Now iterate through the files we are transferring:
     blobs = storage_client.list_blobs(client_bucket_name)
-
-    added_filepaths = []
+    failed_filepaths = []
     for source_blob in blobs:
         basename = os.path.basename(source_blob.name)
         new_blob_name = os.path.join(settings.CONFIG_PARAMS['uploads_folder_name'], basename)
-        p = do_google_copy(source_blob, destination_bucket, new_blob_name)
-        added_filepaths.append(p)
+        target_path = settings.CONFIG_PARAMS['google_storage_gs_prefix'] + os.path.join(destination_bucket.name, new_blob_name)
+
+        # we do NOT want to overwrite.  We check the destination bucket to see if the file is there.
+        # If we find it, we consider that a "failure" and will report it to the admins
+        if new_blob_name in destination_bucket_objects:
+            failed_filepaths.append(target_path)
+        else:
+            p = do_google_copy(source_blob, destination_bucket, new_blob_name)
     
         # now register the resources to this user:
-        Resource.objects.create(
-            source = 'google_bucket',
-            path=settings.CONFIG_PARAMS['google_storage_gs_prefix'] + os.path.join(destination_bucket.name, new_blob_name),
-            size=source_blob.size,
-            name = basename,
-            owner=user,
-        )
+        try:
+            Resource.objects.create(
+                source = 'google_bucket',
+                path=target_path,
+                size=source_blob.size,
+                name = basename,
+                owner=user,
+            )
+        except IntegrityError as ex:
+            # OK to pass, because regardless of whether the file was in the bucket
+            # previously, we acknowledge it now and need it to be in the db.
+            pass
+
 
     # done.  Inform the admin user:
     admin_user = get_user_model().objects.get(pk=admin_pk)
     email_address = admin_user.email
-    context = {'original_bucket': client_bucket_name}
+    context = {'original_bucket': client_bucket_name, 'failed_paths': failed_filepaths}
     email_template = get_jinja_template('email_templates/bucket_transfer_success.html')
     email_html = email_template.render(context)
     email_plaintxt_template = get_jinja_template('email_templates/bucket_transfer_success.txt')
