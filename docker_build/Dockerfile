@@ -18,7 +18,8 @@ RUN apt-get update \
     curl \
     mysql-server \
     default-libmysqlclient-dev \
-    pkg-config
+    pkg-config \
+    procps
 
 # Get gcloud manually, since we use gcloud beta commands:
 RUN curl -sSL https://sdk.cloud.google.com > /tmp/gcl \

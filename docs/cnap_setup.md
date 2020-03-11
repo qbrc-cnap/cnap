@@ -253,8 +253,16 @@ Note that prior to launching the startup script, you should decide which client 
 
 Run the startup script:
 ```
-/opt/startup/startup_commands.sh
+/opt/startup/startup_commands.sh <socket>
 ```
+where `<socket>` is a string which will determine the name of the unix socket communicating between the application container and the main VM.  For instance if `<socket>` is `production`, then this will create a socket at `/host_mount/production.sock`.  Remember earlier that we set the name of the expected socket in the nginx configuration file, since nginx needs to know where to route the CNAP requests.  If that was given as
+```
+...
+        proxy_pass http://unix:/www/cnap.sock;
+...
+```
+then the correct command would be `/opt/startup/startup_commands.sh cnap` for CNAP to startup properly.
+
 Answer the questions as prompted.  Some notes on the questions:
 - You must choose at least one cloud-based storage provider (Dropbox, Google Drive, others).  Otherwise it will exit.
 - For transfers, we spawn "worker" machines that perform the transfers in parallel.  These need to communicate back to the main application to signal that they have completed.  To verify the identity of those requests to the main application, we use a key exchange.  To that end, some of the prompts will ask you to input random character strings that are multiples of 8 characters.
@@ -500,6 +508,8 @@ EMAIL_CREDENTIALS_FILE = '/www/credentials/final_gmail_creds.json'
 ...
 ```
 Provided that `EMAIL_ENABLED=True`, Gmail integration is complete.
+
+Note that you need to restart gunicorn for any changes in the `settings.py` file to take effect.  Thus, you should now run `supervisorctl restart gunicorn` or else anything using email functionality will fail.
 
 <a id="additional-notes"></a>
 ### Appendix C: Additional notes and remarks:

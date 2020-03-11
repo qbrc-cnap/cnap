@@ -4,6 +4,9 @@ set -e
 # This script is run upon entering the container.  It fills in various 
 # templates and queries the user about configuration options, parameters.
 
+# e.g. production or dev
+export DEPLOYMENT=$1
+
 cd $APP_ROOT
 
 # Fill out the general config and copy the templates
