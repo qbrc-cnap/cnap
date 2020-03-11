@@ -55,6 +55,7 @@ python3 helpers/populate_and_prep_db.py
 
 # Run collectstatic so the static assets will be in a single location:
 python3 manage.py collectstatic
+python3 helpers/move_static_files.py
 
 # Need to add parameters (e.g. api key) into javascript file:
 # Note that this needs to happen after the template configs above,
