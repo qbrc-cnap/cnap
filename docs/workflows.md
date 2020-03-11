@@ -215,7 +215,6 @@ The following `gui.json` was used to create the GUI above. Below, we discuss eac
                 }
 	]
 }
-
 ```
 
 At the root of this JSON object, note that we only require a single key `"input_elements"` which points at a list of objects (here, 3 objects corresponding to the three input elements).  Each item in the list dictates an input element in the GUI (a file-chooser, a text box, and a dropdown, in that order).
@@ -443,14 +442,22 @@ In our earlier dummy example where we were describing the `gui.json` for a hypot
 
 Previously, we briefly described that the `handler` key pointed at a Python file that performed some data transformations to map the GUI inputs to the WDL inputs.  To aid with understanding, we present a concrete example below.  
 
-For our toy example, the client would select files to analyze, among the other inputs.  Upon clicking "analyze", a JSON payload is POSTed to the backend where the workflow is prepared and initiated.  In this case, the front-end happens to return a list of integers, which correspond to primary keys for file resources tracked in our database.  The WDL workflow, on the other hand, is expecting filepaths; if we are operating on GCP, these paths can be in Google storage buckets, e.g. `gs://<bucket>/<object name>`.  It is the job of the "handler" to perform this tranformation.  
+For our toy example, the client would select files to analyze, among the other inputs.  Upon clicking "analyze", a JSON payload is POSTed to the backend where the workflow is prepared and initiated.  In this case, the file-chooser happens to return a list of integers, which correspond to primary keys for file resources tracked in our database.  The WDL workflow, on the other hand, is expecting filepaths; if we are operating on GCP, these paths can be in Google storage buckets, e.g. `gs://<bucket>/<object name>`.  It is the job of the "handler" to perform this tranformation.  
 
 We require that the Python file (`input_mapping.py`) contain a function named `map_inputs` with the following signature:
 ```
-def map_inputs(user, unmapped_data, id_list):
+def map_inputs(user, frontend_data, data_name, id_list):
     ...do stuff...
 ```
-Here, `user` is a Django User model (or derived subclass).  This allows us to perform checks that are dependent on the user (e.g. checking that they "own" the files).  The second argument `unmapped_data` is the "raw" data POSTed to the backend.  Note that it's not ALL the data from the front-end (i.e. it does not include the genome choice), but only the data corresponding to this input element.  In our case, it's simply a list of integers.  Finally, `id_list` is the list of WDL inputs, taken from the `target_ids` field.  In our example, it is `["ExomeWorkflow.normalSamples", "ExomeWorkflow.tumorSamples"]`.  It is the job of the handler to transform the front-end data (a list of primary keys) into lists of filepaths and appropriately "fill-in" the WDL variables `ExomeWorkflow.normalSamples` and `ExomeWorkflow.tumorSamples`.  
+Here, `user` is a Django User model (or derived subclass).  This allows us to perform checks that are dependent on the user (e.g. checking that they "own" the files).  
+
+The second argument `frontend_data` is the "raw" data POSTed to the backend.  Note that it is ALL the data from the front-end, which allows us to perform logic for one input element based on the value of other input elements.  
+
+The third element is a string, and is the "name" of the data that originates from this particular UI element.  The data POSTed to the backend is a JSON object, and each UI element generates some data; we need this key to address the data in question.  In our case, `data_name = "input_files"`, which is taken from the `target.name` element in the `gui.json` snippet above.  The data itself is simply a list of integers representing primary keys.  
+
+Finally, `id_list` is the list of WDL inputs, taken from the `target_ids` field.  In our example, it is `["ExomeWorkflow.normalSamples", "ExomeWorkflow.tumorSamples"]`.  
+
+It is the job of the handler function to transform the front-end data (a list of primary keys) into lists of filepaths and appropriately "fill-in" the WDL variables `ExomeWorkflow.normalSamples` and `ExomeWorkflow.tumorSamples`.  
 
 The data returned by the handler function should be a dictionary that can be directly used to fill-in a portion of the WDL input file.  That is, a JSON-representation of the dictionary should exactly match the formatting expected by WDL/Cromwell.
 
@@ -458,7 +465,8 @@ For a concrete example:
 ```
 from base.models import Resource
 
-def map_inputs(user, unmapped_data, id_list):
+def map_inputs(user, all_data, data_name, id_list):
+    unmapped_data = all_data[data_name] # a list of integers
     normal_path_list = []
     tumor_path_list = []
     for pk in unmapped_data:
@@ -475,9 +483,17 @@ def map_inputs(user, unmapped_data, id_list):
     return {id_list[0]:normal_path_list, id_list[1]:tumor_path_list}
 ```
 
-In this example, we iterate through the integer primary keys (PK) supplied by the front end.  For each PK we lookup the file `Resource` (the CNAP database's abstraction of a file), check that it is "owned by" the client, and decide if it's a tumor or normal sample based on the suffix of the filename.  In this way, we populate lists containing paths to the files we will analyze.  Of course, the logic here is completely arbitrary and dependent on your application-- this is just an example.  An improved implementation might include logic to ensure that all the files are properly paired.  Also note that we have implicitly assumed that users have previously uploaded files that are named appropriately (e.g. a suffix of "_N.fastq.gz" indicating a sample derived from "normal" tissue).  Above, we skip files that do not adhere to that convention, but a more robust implementation may issue a warning, etc.
+In this example, the full data payload POSTed to the backend (`frontend_data`) might look something like:
+```
+{
+    "input_files": [1,4,6,7],
+    "ExomeWorkflow.outputFilename": "file.txt",
+    "ExomeWorkflow.genomeChoice": "hg38"
+}
+```
+We first extract the data corresponding to the file-chooser element (`unmapped_data = all_data[data_name]`, which gives us simply `[1,4,6,7]`) and iterate through those integer primary keys (PK).  Note that for this example, we do not need to look at the other parts of the payload (i.e. `ExomeWorkflow.outputFilename`, etc.), but more generally, one might.  For each PK we lookup the file `Resource` (the CNAP database's abstraction of a file), check that it is "owned by" the client, and decide if it's a tumor or normal sample based on the suffix of the filename.  In this way, we populate lists containing paths to the files we will analyze.  Of course, the logic here is completely arbitrary and dependent on your application-- this is just an example.  An improved implementation might include logic to ensure that all the files are properly paired.  Also note that we have implicitly assumed that users have previously uploaded files that are named appropriately (e.g. a suffix of "_N.fastq.gz" indicating a sample derived from "normal" tissue).  Above, we skip files that do not adhere to that convention, but a more robust implementation might issue a warning, etc.
 
-Note that the ordering of the "targets" is important in the code snippet above.  The `id_list` argument fo `map_inputs` is a list, which exactly matches the `target.target_ids` attribute from the `gui.json` file.  For this example that was given as
+Note that the ordering of the "targets" is important in the code snippet above.  The `id_list` argument of `map_inputs` is a list, which exactly matches the `target.target_ids` attribute from the `gui.json` file.  For this example that was given as
 
 ```
 {

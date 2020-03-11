@@ -557,7 +557,9 @@ def bucket_to_bucket_rewrite_in_google(source_blob, destination_bucket, destinat
     consecutive_failures = 0
     max_consecutive_failures = 3
     finished = False
+    print('Starting transfer...')
     while not finished:
+        print('Transfer chunk %d' % i)
         try:
             if i == 0:
                 token, bytes_written, total_bytes = destination_blob.rewrite(source_blob)
@@ -632,11 +634,13 @@ def move_resource_to_user_bucket(job, resource_path):
         try:
             print('Copy %s to %s' % (source_blob,destination_object_name))
             if location_match:
+                print('Buckets were both in the same region.')
                 source_bucket.copy_blob(source_blob, \
                     destination_bucket, \
                     new_name=destination_object_name \
                 )
             else:
+                print('Buckets were in different regions.  Doing bucket rewrite method...')
                 bucket_to_bucket_rewrite_in_google(source_blob, destination_bucket, destination_object_name)
             copied = True
         except Exception as ex:
@@ -894,6 +898,7 @@ def log_client_errors(job, stderr_file_list):
     This handles pulling the stderr files (which indicate what went wrong)
     from the cloud-based storage and extracting their contents
     '''
+    errors = []
 
     # make a folder where we can dump these stderr files temporarily:
     foldername = 'tmp_stderr_%s' % datetime.datetime.now().strftime('%H%M%S_%m%d%Y')
@@ -911,10 +916,24 @@ def log_client_errors(job, stderr_file_list):
         blob = bucket.blob(object_name)
         file_location = os.path.join(stderr_folder, 'stderr_%d' % i)
         local_file_list.append(file_location)
-        blob.download_to_filename(file_location)
+        try:
+            blob.download_to_filename(file_location)
+            local_file_list.append(file_location)
+        except google.api_core.exceptions.NotFound as ex:
+            # if the stderr file was not found, it means something other issue
+            # occurred that prevented Cromwell from creating it.
+            error_text = 'An unexpected error has occurred.  Please contact the administrator.'
+            jc = JobClientError(project=job.project, error_text=error_text)
+            jc.save()
+            errors.append(jc)
+            message = '''Job (%s) for project %s experienced failure on Cromwell.  
+            The expected stderr file (%s) was not found, however. 
+            Staging dir was %s.
+            ''' % (job.job_id, job.project, stderr_path, job.job_staging_dir)
+            subject = 'Cromwell runtime job failure'
+            notify_admins(message, subject)
 
     # now have all files-- read content and create database objects to track:
-    errors = []
     for f in local_file_list:
         file_contents = open(f).read()
         if len(file_contents) > 0:

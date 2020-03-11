@@ -218,6 +218,9 @@ Enter your root password and then execute the following SQL statements:
 > grant all privileges on <DB_NAME>.* to <DB_USER>@localhost;
 > flush privileges;
 ```
+(If you want this user to also be able to create new databases, for example when running unit tests, make the third line above `grant all privileges on *.* to <DB_USER>@localhost`)
+
+
 Now that the database is ready (but without any table schema), we have to provide those database details to Django.  This way, when the startup script runs, Django is able to connect to the database and create the schema and tables  Open the Django settings template file (`cnap/settings.template.py`) and edit the `DATABASES` variable:
 ```
 DATABASES = {
@@ -231,6 +234,18 @@ DATABASES = {
     }
 }
 ```
+(Note that above we create the database with the utf8 specification.  When attempting to run Django tests with `python3 manage.py test` there were issues with the default settings and it was raising problems like
+```
+django.db.utils.OperationalError: (1071, 'Specified key was too long; max key length is 767 bytes')
+```
+
+To fix this, edit `nano /etc/mysql/mariadb.conf.d/50-server.cnf` and change the lines
+```
+character-set-server  = utf8mb4
+collation-server      = utf8mb4_general_ci
+```
+to be just utf8 (not utf8mb4)
+)
 
 Now that Django is able to communicate with a database, we are technically able to start the server.  However, we first require various identifiers and keys to be entered in the appropriate places.  Since CNAP requires a number of external providers which require application keys/secrets, we include the startup script (`/opt/startup/startup_commands.sh`) to guide users in filling out configuration parameters.  Of course the parameters can be edited after the fact, if desired.
 
@@ -276,11 +291,11 @@ OpenJDK 64-Bit Server VM (build 25.181-b13, mixed mode)
 
 We also need Docker to be installed-- for ease of installation, we simply use a MySQL Docker container.  Of course you may wish to install MySQL directly on your Cromwell server, but that is not covered here.  We follow the instructions for installing Docker and then run:
 ```
-docker run -p 3306:3306 --name mysql_container 
-    -e MYSQL_ROOT_PASSWORD=cromwellroot 
-    -e MYSQL_DATABASE=cnap_cromwell 
-    -e MYSQL_USER=cromwelluser 
-    -e MYSQL_PASSWORD=cromwelluserpwd 
+docker run -p 3306:3306 --name mysql_container \
+    -e MYSQL_ROOT_PASSWORD=cromwellroot \
+    -e MYSQL_DATABASE=cnap_cromwell \
+    -e MYSQL_USER=cromwelluser \
+    -e MYSQL_PASSWORD=cromwelluserpwd \ 
     -d mysql/mysql-server:5.5
 ````
 Note that the `latest` image version ended up causing problems with Cromwell, so we used 5.5.  Also be sure to change the various usernames/passwords above.  
