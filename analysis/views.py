@@ -704,3 +704,88 @@ class AnalysisKillView(View):
 
         except analysis.models.SubmittedJob.DoesNotExist:
             return HttpResponseBadRequest('Could not find a running job for project %s' % analysis_project.analysis_uuid)
+
+class AutomatedAnalysisCreateEndpoint(APIView):
+    '''
+    This is used internally for creating new projects automatically
+    '''
+    def post(self, request, format=None):
+        if request.user.is_staff:
+            # to create a project we need to know:
+            # - client (email)
+            # - the workflow
+            # - whether to allow restarts
+            # - constraints (i.e. how many analyses were purchased)
+
+            # check whether the client exists.  If not, create them
+            # including some password, which we will send them
+
+            # the data as a dict:
+            payload = request.data
+            client_email = payload['client_email']
+            try:
+                user = get_user_model().objects.get(email=client_email)
+                new_user = False
+            except get_user_model().DoesNotExist:
+                user = get_user_model().objects.create(email=client_email)
+                random_pwd = ''.join([random.choice(string.ascii_lowercase + string.ascii_uppercase + string.digits) for _ in range(15)])
+                user.set_password(random_pwd)
+                user.save()
+                new_user = True
+
+            # now have a client.  Can create a project based on the workflow
+            workflow_pk = payload['workflow_pk']
+            workflow_obj = Workflow.objects.get(pk=workflow_pk)
+
+            # if the workflow allows restarts (given presence of a pre-check WDL)
+            if workflow_obj.restartable:
+                allow_restart = True
+            else:
+                allow_restart = False
+
+            # create the project:
+            project = AnalysisProject(workflow=workflow_obj, owner=user, restart_allowed=allow_restart)
+            project.save()
+
+            # now that we have a project, we can apply constraints (i.e. how many analyses did they order?)
+            # here the only type of constraint we apply are AnalysisUnitConstraints
+            units_ordered = int(payload['number_ordered'])
+
+            workflow_constraints = WorkflowConstraint.objects.filter(workflow=workflow_obj)
+            constraint = AnalysisUnitConstraint.objects.create(value=units_ordered, 
+                workflow_constraint=workflow_constraints[0])
+            project_constraint = ProjectConstraint.objects.create(
+                project=project,
+                constraint = constraint
+            )
+
+            if settings.EMAIL_ENABLED:
+                email_address = project.owner.email
+                current_site = Site.objects.get_current()
+                domain = current_site.domain
+                url = 'https://%s' % domain
+
+                if not new_user:
+                    context = {'site': url, 'user_email': email_address}
+                    email_template = get_jinja_template('email_templates/new_project.html')
+                    email_html = email_template.render(context)
+                    email_plaintxt_template = get_jinja_template('email_templates/new_project.txt')
+                    email_plaintxt = email_plaintxt_template.render(context)
+                    email_subject = open('email_templates/new_project_subject.txt').readline().strip()
+                else:
+                    context = {'site': url, 'user_email': email_address, 'pwd': random_pwd}
+                    email_template = get_jinja_template('email_templates/new_project_for_new_user.html')
+                    email_html = email_template.render(context)
+                    email_plaintxt_template = get_jinja_template('email_templates/new_project_for_new_user.txt')
+                    email_plaintxt = email_plaintxt_template.render(context)
+                    email_subject = open('email_templates/new_project_subject.txt').readline().strip()
+
+                send_email(email_plaintxt, \
+                    email_html, \
+                    email_address, \
+                    email_subject \
+                )
+            return HttpResponse('Project created')
+        else:
+            return HttpResponseForbidden()
+

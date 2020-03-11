@@ -58,4 +58,7 @@ urlpatterns = [
     path('workflow-view/<int:workflow_id>/<int:version_id>/', 
         views.AnalysisView.as_view(), 
         name='workflow_version_view'),
+
+    # for creating projects automatically, using another application as caller.
+    path('projects/autocreate', views.AutomatedAnalysisCreateEndpoint.as_view(), name='analysis-project-autocreate'),
 ]
