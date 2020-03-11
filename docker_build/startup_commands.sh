@@ -61,5 +61,3 @@ python3 helpers/fill_javascript.py
 
 printf "\n\n\nCreate a super user:"
 python3 manage.py createsuperuser
-
-gunicorn cnap_v2.wsgi:application --bind=unix:/host_mount/dev.sock

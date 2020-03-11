@@ -11,6 +11,10 @@ def fill_template(template_path, destination_dir):
     params['celery'] = os.environ['CELERY']
     params['logdir'] = os.environ['LOGDIR']
     params['app_root'] = os.environ['APP_ROOT']
+    socket_name = input('Enter the name for the unix socket you will be using to connect the host machine to '
+                          'the Docker container.  This should be named in your nginx conf. '
+                          'Note-- just the filename, not a full path. Enter: ')
+    params['socket_name'] = socket_name
 
     with open(os.path.join(destination_dir, basename), 'w') as outfile:
         outfile.write(template.render(params))
