@@ -8,6 +8,8 @@ from django.conf import settings
 
 from helpers import storage_utils
 
+from base.models import CurrentZone
+
 class CustomUserManager(BaseUserManager):
     use_in_migrations = True
 
@@ -22,7 +24,9 @@ class CustomUserManager(BaseUserManager):
         user.set_password(password)
         user.save(using=self._db)
         bucketname = '%s-%s' % (settings.CONFIG_PARAMS['google_storage_gs_prefix'], str(user.user_uuid))
-        storage_utils.create_regional_bucket(bucketname)
+        current_zone = CurrentZone.objects.all()[0] # something like "us-east1-c"
+        current_region = '-'.join(current_zone.split('-')[:2])
+        storage_utils.create_regional_bucket(bucketname, current_region)
         return user
 
     def create_superuser(self, email, password, **extra_fields):

@@ -1,20 +1,17 @@
 import google
 from google.cloud import storage
 
-from base.models import CurrentZone
 from helpers.email_utils import notify_admins
 
 
-def create_regional_bucket(bucketname):
+def create_regional_bucket(bucketname, region):
     '''
     Creates a storage bucket in the current region.
     '''
     client = storage.Client()
     b = storage.Bucket(bucketname)
     b.name = bucketname
-    current_zone = CurrentZone.objects.all()[0] # something like "us-east1-c"
-    current_region = '-'.join(current_zone.split('-')[:2])
-    b.location = current_region
+    b.location = region
     try:
         final_bucket = client.create_bucket(b)
         return
