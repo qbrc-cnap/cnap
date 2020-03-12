@@ -55,13 +55,15 @@ python3 helpers/populate_and_prep_db.py
 
 # Run collectstatic so the static assets will be in a single location:
 python3 manage.py collectstatic
-python3 helpers/move_static_files.py
 
 # Need to add parameters (e.g. api key) into javascript file:
 # Note that this needs to happen after the template configs above,
 # as this script pulls details that were filled into the config files.
 # Also needs to have run collectstatic prior
 python3 helpers/fill_javascript.py
+
+# Move the static files so nginx can serve them directly
+python3 helpers/move_static_files.py
 
 printf "\n\n\nCreate a super user:"
 python3 manage.py createsuperuser
