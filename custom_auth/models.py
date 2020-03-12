@@ -6,7 +6,7 @@ from django.utils.translation import ugettext_lazy as _
 from django.utils import timezone
 from django.conf import settings
 
-from helpers import utils
+from helpers import storage_utils
 
 class CustomUserManager(BaseUserManager):
     use_in_migrations = True
@@ -22,7 +22,7 @@ class CustomUserManager(BaseUserManager):
         user.set_password(password)
         user.save(using=self._db)
         bucketname = '%s-%s' % (settings.CONFIG_PARAMS['google_storage_gs_prefix'], str(user.user_uuid))
-        utils.create_regional_bucket(bucketname)
+        storage_utils.create_regional_bucket(bucketname)
         return user
 
     def create_superuser(self, email, password, **extra_fields):
