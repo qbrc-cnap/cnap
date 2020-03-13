@@ -90,13 +90,14 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
 
 
 @receiver(post_save, sender=CustomUser)
-def user_saved(sender, instance, **kwargs):
+def user_saved(sender, instance, created, **kwargs):
     '''
     Actions to take when any user is saved.
     '''
-    user_instance = instance
-    bucketname_with_prefix = '%s-%s' % (settings.CONFIG_PARAMS['storage_bucket_prefix'], str(user_instance.user_uuid))
-    bucketname = bucketname_with_prefix[len(settings.CONFIG_PARAMS['google_storage_gs_prefix']):]
-    current_zone = CurrentZone.objects.all()[0] # something like "us-east1-c"
-    current_region = '-'.join(current_zone.zone.zone.split('-')[:2])
-    storage_utils.create_regional_bucket(bucketname, current_region)
+    if created:
+        user_instance = instance
+        bucketname_with_prefix = '%s-%s' % (settings.CONFIG_PARAMS['storage_bucket_prefix'], str(user_instance.user_uuid))
+        bucketname = bucketname_with_prefix[len(settings.CONFIG_PARAMS['google_storage_gs_prefix']):]
+        current_zone = CurrentZone.objects.all()[0] # something like "us-east1-c"
+        current_region = '-'.join(current_zone.zone.zone.split('-')[:2])
+        storage_utils.create_regional_bucket(bucketname, current_region)
