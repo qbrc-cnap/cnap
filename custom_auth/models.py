@@ -5,10 +5,12 @@ from django.contrib.auth.models import PermissionsMixin
 from django.utils.translation import ugettext_lazy as _
 from django.utils import timezone
 from django.conf import settings
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
 from helpers import storage_utils
-
 from base.models import CurrentZone
+
 
 class CustomUserManager(BaseUserManager):
     use_in_migrations = True
@@ -23,10 +25,6 @@ class CustomUserManager(BaseUserManager):
         user = self.model(email=email, **extra_fields)
         user.set_password(password)
         user.save(using=self._db)
-        bucketname = '%s-%s' % (settings.CONFIG_PARAMS['google_storage_gs_prefix'], str(user.user_uuid))
-        current_zone = CurrentZone.objects.all()[0] # something like "us-east1-c"
-        current_region = '-'.join(current_zone.split('-')[:2])
-        storage_utils.create_regional_bucket(bucketname, current_region)
         return user
 
     def create_superuser(self, email, password, **extra_fields):
@@ -72,6 +70,8 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
 
     def clean(self):
         super().clean()
+        print('in clean....')
+        print('x'*200)
         self.email = self.__class__.objects.normalize_email(self.email)
 
     def get_full_name(self):
@@ -87,3 +87,16 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     def email_user(self, subject, message, from_email=None, **kwargs):
         """Send an email to this user."""
         pass
+
+
+@receiver(post_save, sender=CustomUser)
+def user_saved(sender, instance, **kwargs):
+    '''
+    Actions to take when any user is saved.
+    '''
+    user_instance = instance
+    bucketname_with_prefix = '%s-%s' % (settings.CONFIG_PARAMS['storage_bucket_prefix'], str(user_instance.user_uuid))
+    bucketname = bucketname_with_prefix[len(settings.CONFIG_PARAMS['google_storage_gs_prefix']):]
+    current_zone = CurrentZone.objects.all()[0] # something like "us-east1-c"
+    current_region = '-'.join(current_zone.zone.zone.split('-')[:2])
+    storage_utils.create_regional_bucket(bucketname, current_region)
