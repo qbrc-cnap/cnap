@@ -22,7 +22,7 @@ pycparser==2.19
 pycrypto==2.6.1
 pytz==2018.7
 requests==2.20.1
-rsa==4.0
+rsa==4.1
 six==1.11.0
 uritemplate==3.0.0
 urllib3==1.24.1
